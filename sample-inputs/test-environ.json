@@ -1,0 +1,10 @@
+{
+  "environ": {
+    "g_m_p_s2": 9.81,
+    "sound_speed_m_p_s": 334.5,
+    "air_density_sea_lvl_kg_p_m3": 1.226,
+    "air_density_max_alt_kg_p_m3": 1.056,
+    "kinematic_viscosity_sea_lvl_m2_p_s": 1.412e-5,
+    "kinematic_viscosity_max_alt_m2_p_s": 1.281e-5
+  }
+}

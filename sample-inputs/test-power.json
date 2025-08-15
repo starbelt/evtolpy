@@ -1,0 +1,10 @@
+{
+  "power": {
+    "batt_spec_energy_w_h_p_kg": 232.5,
+    "batt_inaccessible_energy_frac": 0.05,
+    "batt_eol_capacity": 0.80,
+    "batt_int_factor": 0.65,
+    "epu_effic": 0.90,
+    "hover_power_effic": 0.70
+  }
+}

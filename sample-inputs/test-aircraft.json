@@ -1,0 +1,31 @@
+{
+  "aircraft": {
+    "max_takeoff_mass_kg": 3175.0,
+    "payload_kg": 454.0,
+    "vehicle_cl_max": 2.08,
+    "wing_taper_ratio": 0.278,
+    "wingspan_m": 15.0,
+    "d_value_m": 15.75,
+    "stall_speed_m_p_s": 40.6,
+    "fuselage_l_m": 8.26,
+    "fuselage_w_m": 1.30,
+    "fuselage_h_m": 1.35,
+    "wing_airfoil_cd_at_cruise_cl": 0.007,
+    "empennage_airfoil_cd0": 0.006,
+    "span_effic_factor": 0.8,
+    "trim_drag_factor": 1.02,
+    "landing_gear_drag_area_m2": 0.3933,
+    "excres_protub_factor": 1.02,
+    "horiz_tail_vol_coeff": 0.7820,
+    "vert_tail_vol_coeff": 0.03913,
+    "ratio_disk_to_stopped_rotor_area": 20.95,
+    "wing_t_p_c": 0.1208,
+    "actuator_mass_kg": 81.6,
+    "furnishings_mass_kg": 52.0,
+    "environmental_control_system_mass_kg": 40.0,
+    "avionics_mass_kg": 60.0,
+    "hivolt_power_dist_mass_kg": 80.0,
+    "lovolt_power_coms_mass_kg": 41.0,
+    "mass_margin_factor": 0.05
+  }
+}
