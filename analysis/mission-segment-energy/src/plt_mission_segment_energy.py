@@ -47,10 +47,18 @@ with open(log, mode ='r')as csvfile:
 
 # generate plot
 # TODO: fix this
-plt.bar(lines[0], lines[1])
+# Fixed: Convert strings to float
+# Initial code: plt.bar(lines[0], lines[1])
+plt.bar(lines[0], [float(e) for e in lines[1]])
 plt.title('Mission Segment Energy')
 plt.xlabel('Mission Segment')
 plt.ylabel('Energy (kW hr)')
+
+# Rotate x-axis labels for readability
+plt.xticks(rotation=45, ha='right')
+
+# Add more space at the bottom to prevent labels from being cut off
+plt.tight_layout()
 
 # save to PDF
 plt.savefig(out+'mission-segment-energy.pdf', format='pdf')

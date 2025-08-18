@@ -117,11 +117,20 @@ class Aircraft:
     self._cruise_l_p_d = self._calc_cruise_l_p_d()
     self._cruise_shaft_power_kw = self._calc_cruise_shaft_power_kw()
     self._cruise_electric_power_kw = self._calc_cruise_electric_power_kw()
+
     self._depart_taxi_avg_shaft_power_kw = \
      self._calc_depart_taxi_avg_shaft_power_kw()
     self._depart_taxi_avg_electric_power_kw = \
      self._calc_depart_taxi_avg_electric_power_kw()
     self._depart_taxi_energy_kw_hr = self._calc_depart_taxi_energy_kw_hr()
+
+    self._hover_climb_avg_shaft_power_kw = \
+     self._calc_hover_climb_avg_shaft_power_kw()
+    self._hover_climb_avg_electric_power_kw = \
+     self._calc_hover_climb_avg_electric_power_kw()
+    self._hover_climb_energy_kw_hr = self._calc_hover_climb_energy_kw_hr()
+
+
     # close JSON file
     ifile.close()
 
@@ -425,6 +434,32 @@ class Aircraft:
        S_P_HR
     else:
       return None
+
+
+
+  def _calc_hover_climb_avg_shaft_power_kw(self):
+      if self.mission != None and self.propulsion != None:
+          # Note: P = F*v = m*g*v
+          force_n = self.max_takeoff_mass_kg * self.environ.g_m_p_s2
+          power_w = force_n * self.mission.hover_climb_avg_v_m_p_s
+          return (power_w / self.propulsion.rotor_effic) / W_P_KW
+      else:
+          return None
+      
+
+  def _calc_hover_climb_avg_electric_power_kw(self):
+      if self._hover_climb_avg_shaft_power_kw != None and self.power != None:
+          return self._hover_climb_avg_shaft_power_kw / self.power.epu_effic
+      else:
+          return None
+
+  def _calc_hover_climb_energy_kw_hr(self):
+      if self._hover_climb_avg_electric_power_kw != None and self.mission != None:
+          return (self._hover_climb_avg_electric_power_kw * self.mission.hover_climb_s) / S_P_HR
+      else:
+          return None
+
+
 
   @property
   def max_takeoff_mass_kg(self):
