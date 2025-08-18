@@ -46,18 +46,21 @@ with open(log, mode ='r')as csvfile:
     lines.append(line)
 
 # generate plot
-# TODO: fix this
-# Fixed: Convert strings to float
-# Initial code: plt.bar(lines[0], lines[1])
-plt.bar(lines[0], [float(e) for e in lines[1]])
+plt.figure(figsize=(15, 6))
+x_values = lines[0]
+y_values = [float(e) for e in lines[1]]
+plt.bar(x_values, y_values)
 plt.title('Mission Segment Energy')
 plt.xlabel('Mission Segment')
 plt.ylabel('Energy (kW hr)')
 
-# Rotate x-axis labels for readability
-plt.xticks(rotation=45, ha='right')
+# add energy values on top of each bar
+for i in range(len(x_values)):
+    plt.text(i, y_values[i], f'{y_values[i]}', ha='center', va='bottom')
 
-# Add more space at the bottom to prevent labels from being cut off
+# rotate x-axis labels for readability
+plt.xticks(rotation=45, ha='right')
+# add more space at the bottom to prevent labels from being cut off
 plt.tight_layout()
 
 # save to PDF

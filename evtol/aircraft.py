@@ -118,17 +118,48 @@ class Aircraft:
     self._cruise_shaft_power_kw = self._calc_cruise_shaft_power_kw()
     self._cruise_electric_power_kw = self._calc_cruise_electric_power_kw()
 
+    #A Ground Taxi
     self._depart_taxi_avg_shaft_power_kw = \
      self._calc_depart_taxi_avg_shaft_power_kw()
     self._depart_taxi_avg_electric_power_kw = \
      self._calc_depart_taxi_avg_electric_power_kw()
     self._depart_taxi_energy_kw_hr = self._calc_depart_taxi_energy_kw_hr()
 
+    #B Hover Climb
     self._hover_climb_avg_shaft_power_kw = \
      self._calc_hover_climb_avg_shaft_power_kw()
     self._hover_climb_avg_electric_power_kw = \
      self._calc_hover_climb_avg_electric_power_kw()
     self._hover_climb_energy_kw_hr = self._calc_hover_climb_energy_kw_hr()
+
+    #C Transition + Climb
+
+
+    #D Departure Terminal Procedures
+
+
+    #E Accelerate + Climb
+
+
+    #F Cruise
+
+
+    #G Decelerate + Descend
+
+
+    #H Arrival Terminal Procedures
+
+
+    #I Transition +  Descend
+
+
+    #J Hover Descend
+
+
+    #K Ground Taxi
+
+
+    #L Reserves
 
 
     # close JSON file
@@ -396,6 +427,7 @@ class Aircraft:
     else:
       return None
 
+# ----- Depart Taxi (Segment A) -----
   # requires mission depart_taxi_avg_h_m_p_s, depart_taxi_s
   # horizontal power component only, assumes drag effects are negligible
   # assuming an initial velocity of zero, use horizontal distance and time to
@@ -436,28 +468,49 @@ class Aircraft:
       return None
 
 
-
+# ----- Hover Climb (Segment B) -----
+  # requires mission hover_climb_avg_v_m_p_s, hover_climb_s
+  # vertical power component only, includes weight + acceleration effects
+  # assuming drag effects are negligible
+  # assuming an initial vertical velocity of zero, use vertical distance and time to
+  # determine a constant vertical acceleration and the related end velocity
+  # then use MTOM, gravity, acceleration, and average velocity to find average power
+  # return None if mission or propulsion object not populated
   def _calc_hover_climb_avg_shaft_power_kw(self):
-      if self.mission != None and self.propulsion != None:
-          # Note: P = F*v = m*g*v
-          force_n = self.max_takeoff_mass_kg * self.environ.g_m_p_s2
-          power_w = force_n * self.mission.hover_climb_avg_v_m_p_s
-          return (power_w / self.propulsion.rotor_effic) / W_P_KW
-      else:
-          return None
-      
+    if self.mission != None and self.propulsion != None:
+      d_v_m = self.mission.hover_climb_avg_v_m_p_s*self.mission.hover_climb_s
+      vf_v_m_p_s = (2.0*d_v_m)/self.mission.hover_climb_s
+      a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
+      force_n = self.max_takeoff_mass_kg * (self.environ.g_m_p_s2 + a_v_m_p_s2)
+      power_w = force_n * self.mission.hover_climb_avg_v_m_p_s
+      return \
+      (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)*\
+      self.mission.hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+    else:
+      return None
 
+  # requires aircraft hover_climb_avg_shaft_power_kw
+  # requires power epu_effic
+  # scale hover_climb_avg_shaft_power_kw by epu_effic
+  # return None if aircraft field or power object not populated
   def _calc_hover_climb_avg_electric_power_kw(self):
-      if self._hover_climb_avg_shaft_power_kw != None and self.power != None:
-          return self._hover_climb_avg_shaft_power_kw / self.power.epu_effic
-      else:
-          return None
+    if self._hover_climb_avg_shaft_power_kw != None and self.power != None:
+      return self._hover_climb_avg_shaft_power_kw/self.power.epu_effic
+    else:
+      return None
 
+  # requires aircraft hover_climb_avg_electric_power_kw
+  # requires mission hover_climb_s
+  # calculate the total energy and convert to kW*hr
+  # return None if aircraft field or power object not populated
   def _calc_hover_climb_energy_kw_hr(self):
-      if self._hover_climb_avg_electric_power_kw != None and self.mission != None:
-          return (self._hover_climb_avg_electric_power_kw * self.mission.hover_climb_s) / S_P_HR
-      else:
-          return None
+    if self._hover_climb_avg_electric_power_kw != None and self.mission != None:
+      return \
+       (self._hover_climb_avg_electric_power_kw*self.mission.hover_climb_s)/\
+       S_P_HR
+    else:
+      return None
+
 
 
 
@@ -692,3 +745,16 @@ class Aircraft:
   @property
   def depart_taxi_energy_kw_hr(self):
     return self._depart_taxi_energy_kw_hr
+
+  @property
+  def hover_climb_avg_shaft_power_kw(self):
+    return self._hover_climb_avg_shaft_power_kw
+  
+  @property
+  def hover_climb_avg_electric_power_kw(self):
+    return self._hover_climb_avg_electric_power_kw
+  
+  @property
+  def hover_climb_energy_kw_hr(self):
+    return self._hover_climb_energy_kw_hr
+    
