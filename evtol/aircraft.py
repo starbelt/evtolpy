@@ -133,7 +133,11 @@ class Aircraft:
     self._hover_climb_energy_kw_hr = self._calc_hover_climb_energy_kw_hr()
 
     #C Transition + Climb
-
+    self._trans_climb_avg_shaft_power_kw = \
+     self._calc_trans_climb_avg_shaft_power_kw()
+    self._trans_climb_avg_electric_power_kw = \
+     self._calc_trans_climb_avg_electric_power_kw()
+    self._trans_climb_energy_kw_hr = self._calc_trans_climb_energy_kw_hr()
 
     #D Departure Terminal Procedures
 
@@ -467,7 +471,6 @@ class Aircraft:
     else:
       return None
 
-
 # ----- Hover Climb (Segment B) -----
   # requires mission hover_climb_avg_v_m_p_s, hover_climb_s
   # vertical power component only, includes weight + acceleration effects
@@ -481,11 +484,9 @@ class Aircraft:
       d_v_m = self.mission.hover_climb_avg_v_m_p_s*self.mission.hover_climb_s
       vf_v_m_p_s = (2.0*d_v_m)/self.mission.hover_climb_s
       a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
-      force_n = self.max_takeoff_mass_kg * (self.environ.g_m_p_s2 + a_v_m_p_s2)
-      power_w = force_n * self.mission.hover_climb_avg_v_m_p_s
       return \
-      (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)*\
-      self.mission.hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+       (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)*\
+        self.mission.hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -510,6 +511,84 @@ class Aircraft:
        S_P_HR
     else:
       return None
+
+# ----- Transition Climb (Segment C) -----
+  # requires mission trans_climb_avg_h_m_p_s, trans_climb_v_m_p_s, trans_climb_s
+  # includes aerodynamic lift, induced drag, parasite drag, weight, and climb forces
+  # assumes steady transition climb at average horizontal + vertical speeds
+  # return None if mission, propulsion, or environment object not populated
+  def _calc_trans_climb_avg_shaft_power_kw(self):
+    if self.mission != None and self.propulsion != None and self.environ != None:
+      v_h = self.mission.trans_climb_avg_h_m_p_s
+      v_v = self.mission.trans_climb_v_m_p_s
+      v_total = (v_h**2.0 + v_v**2.0)**0.5
+
+      # weight and lift 
+      weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
+      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
+
+      # induced drag 
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+
+      # parasite drag
+      cd0_sum = 0.0
+      if self.fuselage_cd0 != None:
+        cd0_sum += self.fuselage_cd0
+      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
+      if self.horiz_tail_cd0 != None:
+        cd0_sum += self.horiz_tail_cd0
+      if self.vert_tail_cd0 != None:
+        cd0_sum += self.vert_tail_cd0
+      if self.landing_gear_cd0 != None:
+        cd0_sum += self.landing_gear_cd0
+      if self.stopped_rotor_cd0 != None:
+        cd0_sum += self.stopped_rotor_cd0
+      dp_n = q*self.wing_area_m2*cd0_sum
+
+      # total drag
+      drag_n = (di_n + dp_n) * self.trim_drag_factor * self.excres_protub_factor
+
+      # climb force
+      if v_h != 0.0:
+        climb_force_n = (weight_n-lift_n)*(v_v/v_h)
+      else:
+        climb_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
+
+      # thrust required 
+      thrust_n = drag_n + climb_force_n
+
+      return (thrust_n * v_total) / (self.propulsion.rotor_effic * W_P_KW)
+    else:
+      return None
+
+  # requires aircraft trans_climb_avg_shaft_power_kw
+  # requires power epu_effic
+  # scale trans_climb_avg_shaft_power_kw by epu_effic
+  # return None if aircraft field or power object not populated
+  def _calc_trans_climb_avg_electric_power_kw(self):
+    if self._trans_climb_avg_shaft_power_kw != None and self.power != None:
+      return self._trans_climb_avg_shaft_power_kw/self.power.epu_effic
+    else:
+      return None
+
+  # requires aircraft trans_climb_avg_electric_power_kw
+  # requires mission trans_climb_s
+  # calculate the total energy and convert to kW*hr
+  # return None if aircraft field or power object not populated
+  def _calc_trans_climb_energy_kw_hr(self):
+    if self._trans_climb_avg_electric_power_kw != None and self.mission != None:
+      return \
+       (self._trans_climb_avg_electric_power_kw*self.mission.trans_climb_s)/\
+       S_P_HR
+    else:
+      return None
+
+# ----- Depart Procedures (Segment D) -----
+
+
+
+
 
 
 
@@ -757,4 +836,16 @@ class Aircraft:
   @property
   def hover_climb_energy_kw_hr(self):
     return self._hover_climb_energy_kw_hr
+    
+  @property
+  def trans_climb_avg_shaft_power_kw(self):
+    return self._trans_climb_avg_shaft_power_kw
+  
+  @property
+  def trans_climb_avg_electric_power_kw(self):
+    return self._trans_climb_avg_electric_power_kw
+  
+  @property
+  def trans_climb_energy_kw_hr(self):
+    return self._trans_climb_energy_kw_hr
     

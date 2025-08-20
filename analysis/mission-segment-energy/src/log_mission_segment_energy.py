@@ -74,7 +74,7 @@ mission_segment_labels = [\
 mission_segment_values = [\
  '{:.6f}'.format(aircraft.depart_taxi_energy_kw_hr),
  '{:.6f}'.format(aircraft.hover_climb_energy_kw_hr),
- '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.trans_climb_energy_kw_hr),
+ '{:.6f}'.format(aircraft.trans_climb_energy_kw_hr),
  '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.depart_proc_energy_kw_hr),
  '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.accel_climb_energy_kw_hr),
  '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.cruise_energy_kw_hr),
