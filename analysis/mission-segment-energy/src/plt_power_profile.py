@@ -13,8 +13,8 @@ if len(sys.argv) == 3:
 else:
     print(
         'Usage: ' \
-        'python3 plt_power_profile.py '
-        '/path/to/log.csv /path/to/plt/'
+        'python3 plt_power_profile.py '\
+        '/path/to/log.csv /path/to/plt/'\
     )
     exit()
 

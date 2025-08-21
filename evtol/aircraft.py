@@ -484,6 +484,34 @@ class Aircraft:
       return self.cruise_cl/self.cruise_cd
     else:
       return None
+  
+  # requires aircraft fields for fuselage, wing, empennage, landing gear, rotor, etc.
+  # input: total airspeed (m/s)
+  # returns total drag in Newtons
+  def _calc_total_drag_n(self, v_m_p_s):
+    if self.environ == None or self.wing_area_m2 == None:
+      return None
+    q = 0.5 * self.environ.air_density_sea_lvl_kg_p_m3 * v_m_p_s**2.0
+    lift_n = q * self.wing_area_m2 * self.vehicle_cl_max
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0_sum = 0.0
+    if self.fuselage_cd0 != None:
+      cd0_sum += self.fuselage_cd0
+    cd0_sum += self.wing_airfoil_cd_at_cruise_cl
+    if self.horiz_tail_cd0 != None:
+      cd0_sum += self.horiz_tail_cd0
+    if self.vert_tail_cd0 != None:
+      cd0_sum += self.vert_tail_cd0
+    if self.landing_gear_cd0 != None:
+      cd0_sum += self.landing_gear_cd0
+    if self.stopped_rotor_cd0 != None:
+      cd0_sum += self.stopped_rotor_cd0
+    dp_n = q * self.wing_area_m2*cd0_sum
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+    return total_drag_n
 
 # ----- Depart Taxi (Segment A) -----
   # requires mission depart_taxi_avg_h_m_p_s, depart_taxi_s
@@ -577,31 +605,9 @@ class Aircraft:
       v_v = self.mission.trans_climb_v_m_p_s
       v_total = (v_h**2.0 + v_v**2.0)**0.5
 
-      # weight and lift 
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
-      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
-
-      # induced drag 
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
 
       # climb force
       if v_h != 0.0:
@@ -649,33 +655,11 @@ class Aircraft:
       v_v = 0.0
       v_total = v_h 
 
-      # weight and lift 
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
-      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
-
-      # induced drag 
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = dp_n*self.trim_drag_factor*self.excres_protub_factor
-
-      # no climb force
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
+      
+      # climb force
       climb_force_n = 0.0
 
       # thrust required 
@@ -716,31 +700,9 @@ class Aircraft:
       v_v = self.mission.accel_climb_v_m_p_s
       v_total = (v_h**2.0 + v_v**2.0)**0.5
 
-      # weight and lift 
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
-      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
-
-      # induced drag 
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
 
       # climb force
       if v_h != 0.0:
@@ -823,31 +785,9 @@ class Aircraft:
       v_v = self.mission.decel_descend_v_m_p_s
       v_total = (v_h**2.0 + v_v**2.0)**0.5
 
-      # weight and lift 
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
-      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
-
-      # induced drag 
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
 
       # descent force (negative climb force)
       if v_h != 0.0:
@@ -895,33 +835,11 @@ class Aircraft:
       v_v = 0.0
       v_total = v_h  
 
-      # weight and lift 
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
-      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
 
-      # induced drag 
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = dp_n*self.trim_drag_factor*self.excres_protub_factor
-
-      # no climb force
+      # climb force
       climb_force_n = 0.0
 
       # thrust required 
@@ -962,31 +880,9 @@ class Aircraft:
       v_v = self.mission.trans_descend_v_m_p_s
       v_total = (v_h**2.0 + v_v**2.0)**0.5
 
-      # weight and lift 
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
-      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
-
-      # induced drag 
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
 
       # descent force
       if v_h != 0.0:
@@ -1155,32 +1051,10 @@ class Aircraft:
       v_h = self.mission.reserve_trans_climb_avg_h_m_p_s
       v_v = self.mission.reserve_trans_climb_v_m_p_s
       v_total = (v_h**2.0 + v_v**2.0)**0.5
-
-      # weight and lift 
-      weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
-      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
       
-      # induced drag 
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+      weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
 
       # climb force
       if v_h != 0.0:
@@ -1228,31 +1102,9 @@ class Aircraft:
       v_v = self.mission.reserve_accel_climb_v_m_p_s
       v_total = (v_h**2.0 + v_v**2.0)**0.5
 
-      # weight and lift 
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
-      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
-
-      # induced drag 
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
 
       # climb force
       if v_h != 0.0:
@@ -1335,31 +1187,9 @@ class Aircraft:
       v_v = self.mission.reserve_decel_descend_v_m_p_s
       v_total = (v_h**2.0 + v_v**2.0)**0.5
 
-      # weight and lift 
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
-      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
-
-      # induced drag
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
 
       # descent force (negative climb force)
       if v_h != 0.0:
@@ -1407,32 +1237,9 @@ class Aircraft:
       v_v = self.mission.reserve_trans_descend_v_m_p_s
       v_total = (v_h**2.0 + v_v**2.0)**0.5
 
-      # weight and lift
-      weight_n = self.max_takeoff_mass_kg * self.environ.g_m_p_s2
-      q = 0.5 * self.environ.air_density_sea_lvl_kg_p_m3 * v_total**2.0
-      lift_n = q * self.wing_area_m2 * self.vehicle_cl_max
-
-      # induced drag
-      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-
-      # parasite drag
-      cd0_sum = 0.0
-      if self.fuselage_cd0 != None:
-        cd0_sum += self.fuselage_cd0
-      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
-      if self.horiz_tail_cd0 != None:
-        cd0_sum += self.horiz_tail_cd0
-      if self.vert_tail_cd0 != None:
-        cd0_sum += self.vert_tail_cd0
-      if self.landing_gear_cd0 != None:
-        cd0_sum += self.landing_gear_cd0
-      if self.stopped_rotor_cd0 != None:
-        cd0_sum += self.stopped_rotor_cd0
-      dp_n = q*self.wing_area_m2*cd0_sum
-
-      # total drag
-      drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
-
+      weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
+      drag_n = self._calc_total_drag_n(v_total)
       # descent force
       if v_h != 0.0:
         descent_force_n = (weight_n-lift_n)*(v_v/v_h)
