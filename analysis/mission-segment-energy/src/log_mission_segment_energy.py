@@ -83,13 +83,13 @@ mission_segment_values = [\
  '{:.6f}'.format(aircraft.trans_descend_energy_kw_hr),
  '{:.6f}'.format(aircraft.hover_descend_energy_kw_hr),
  '{:.6f}'.format(aircraft.arrive_taxi_energy_kw_hr),
- '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.reserve_hover_climb_energy_kw_hr),
- '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.reserve_trans_climb_energy_kw_hr),
- '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.reserve_accel_climb_energy_kw_hr),
- '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.reserve_cruise_energy_kw_hr),
- '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.reserve_decel_descend_energy_kw_hr),
- '{:.6f}'.format(0.0), # '{:.6f}'.format(aircraft.reserve_trans_descend_energy_kw_hr),
- '{:.6f}'.format(0.0)  # '{:.6f}'.format(aircraft.reserve_hover_descend_energy_kw_hr),
+ '{:.6f}'.format(aircraft.reserve_hover_climb_energy_kw_hr),
+ '{:.6f}'.format(aircraft.reserve_trans_climb_energy_kw_hr),
+ '{:.6f}'.format(aircraft.reserve_accel_climb_energy_kw_hr),
+ '{:.6f}'.format(aircraft.reserve_cruise_energy_kw_hr),
+ '{:.6f}'.format(aircraft.reserve_decel_descend_energy_kw_hr),
+ '{:.6f}'.format(aircraft.reserve_trans_descend_energy_kw_hr),
+ '{:.6f}'.format(aircraft.reserve_hover_descend_energy_kw_hr),
 ]
 
 # write the mission segment energy values to a CSV file in the log directory

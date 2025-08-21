@@ -41,13 +41,13 @@ mission_segment_durations = [
     mission.trans_descend_s,
     mission.hover_descend_s,
     mission.arrive_taxi_s,
-    # 0.0,  # reserve_hover_climb
-    # 0.0,  # reserve_trans_climb
-    # 0.0,  # reserve_accel_climb
-    # 0.0,  # reserve_cruise
-    # 0.0,  # reserve_decel_descend
-    # 0.0,  # reserve_trans_descend
-    # 0.0   # reserve_hover_descend
+    mission.reserve_hover_climb_s,
+    mission.reserve_trans_climb_s,
+    mission.reserve_accel_climb_s,
+    mission.reserve_cruise_s,
+    mission.reserve_decel_descend_s,
+    mission.reserve_trans_descend_s,
+    mission.reserve_hover_descend_s,
 ]
 
 power_values_kw = [
@@ -62,13 +62,13 @@ power_values_kw = [
     aircraft.trans_descend_avg_electric_power_kw,
     aircraft.hover_descend_avg_electric_power_kw,
     aircraft.arrive_taxi_avg_electric_power_kw,
-    # 0.0,  # reserve_hover_climb
-    # 0.0,  # reserve_trans_climb
-    # 0.0,  # reserve_accel_climb
-    # 0.0,  # reserve_cruise
-    # 0.0,  # reserve_decel_descend
-    # 0.0,  # reserve_trans_descend
-    # 0.0   # reserve_hover_descend
+    aircraft.reserve_hover_climb_avg_electric_power_kw,
+    aircraft.reserve_trans_climb_avg_electric_power_kw,
+    aircraft.reserve_accel_climb_avg_electric_power_kw,
+    aircraft.reserve_cruise_avg_electric_power_kw,
+    aircraft.reserve_decel_descend_avg_electric_power_kw,
+    aircraft.reserve_trans_descend_avg_electric_power_kw,
+    aircraft.reserve_hover_descend_avg_electric_power_kw,
 ]
 
 time_steps = []

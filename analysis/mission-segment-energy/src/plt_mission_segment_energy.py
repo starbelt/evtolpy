@@ -56,7 +56,7 @@ plt.ylabel('Energy (kW hr)')
 
 # add energy values on top of each bar
 for i in range(len(x_values)):
-    plt.text(i, y_values[i], f'{y_values[i]}', ha='center', va='bottom')
+    plt.text(i, y_values[i], f'{y_values[i]:.4f}', ha='center', va='bottom')
 
 # rotate x-axis labels for readability
 plt.xticks(rotation=45, ha='right')
