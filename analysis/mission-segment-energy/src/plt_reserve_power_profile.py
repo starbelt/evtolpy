@@ -13,7 +13,7 @@ if len(sys.argv) == 3:
 else:
     print(
         'Usage: ' \
-        'python3 plt_power_profile.py '\
+        'python3 plt_reserve_power_profile.py '\
         '/path/to/log.csv /path/to/plt/'\
     )
     exit()
@@ -39,17 +39,13 @@ plt.tight_layout()
 
 # segment labels
 segment_labels = [
-    'Depart Taxi', 
-    'Hover Climb', 
-    'Transition Climb', 
-    'Depart Procedures', 
-    'Accelerate Climb', 
-    'Cruise', 
-    'Decelerate Descend', 
-    'Arrive Procedures',
-    'Transition Descend', 
-    'Hover Descend', 
-    'Arrive Taxi', 
+    'Reserve Hover Climb', 
+    'Reserve Transition Climb', 
+    'Reserve Accelerate Climb',
+    'Reserve Cruise', 
+    'Reserve Decelerate Descend', 
+    'Reserve Transition Descend', 
+    'Reserve Hover Descend'
 ]
 
 # approximate segment boundaries using the time vector
@@ -68,4 +64,4 @@ for i in range(len(segment_labels)):
     plt.text(mid_time, mid_power, segment_labels[i], ha='center', va='bottom', rotation=0, fontsize=8)
 
 # save to PDF
-plt.savefig(out_dir + 'power-profile.pdf', format='pdf')
+plt.savefig(out_dir + 'reserve-power-profile.pdf', format='pdf')
