@@ -31,7 +31,7 @@ with open(log_csv, 'r') as csvfile:
 # generate plot
 plt.figure(figsize=(12, 6))
 plt.step(time, power, where='post', color='b')  # stepwise line per segment
-plt.title('Power Profile')
+plt.title('Reserve Power Profile')
 plt.xlabel('Flight Time (s)')
 plt.ylabel('Average Electric Power (kW)')
 plt.grid(True)
