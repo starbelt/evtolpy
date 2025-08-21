@@ -165,20 +165,41 @@ class Aircraft:
      self._calc_decel_descend_avg_electric_power_kw()
     self._decel_descend_energy_kw_hr = self._calc_decel_descend_energy_kw_hr()
 
-
     #H Arrival Terminal Procedures
-
+    self._arrive_proc_avg_shaft_power_kw = \
+     self._calc_arrive_proc_avg_shaft_power_kw()
+    self._arrive_proc_avg_electric_power_kw = \
+     self._calc_arrive_proc_avg_electric_power_kw()
+    self._arrive_proc_energy_kw_hr = self._calc_arrive_proc_energy_kw_hr()
 
     #I Transition +  Descend
-
+    self._trans_descend_avg_shaft_power_kw = \
+     self._calc_trans_descend_avg_shaft_power_kw()
+    self._trans_descend_avg_electric_power_kw = \
+     self._calc_trans_descend_avg_electric_power_kw()
+    self._trans_descend_energy_kw_hr = self._calc_trans_descend_energy_kw_hr()
 
     #J Hover Descend
-
+    self._hover_descend_avg_shaft_power_kw = \
+     self._calc_hover_descend_avg_shaft_power_kw()
+    self._hover_descend_avg_electric_power_kw = \
+     self._calc_hover_descend_avg_electric_power_kw()
+    self._hover_descend_energy_kw_hr = self._calc_hover_descend_energy_kw_hr()
 
     #K Ground Taxi
-
+    self._arrive_taxi_avg_shaft_power_kw = \
+     self._calc_arrive_taxi_avg_shaft_power_kw()
+    self._arrive_taxi_avg_electric_power_kw = \
+     self._calc_arrive_taxi_avg_electric_power_kw()
+    self._arrive_taxi_energy_kw_hr = self._calc_arrive_taxi_energy_kw_hr()
 
     #L Reserves
+
+
+
+
+
+
 
 
     # close JSON file
@@ -823,36 +844,225 @@ class Aircraft:
     else:
       return None
 
-
-
-
-
 # ----- Arrive Procedures (Segment H) -----
+  # requires mission arrive_proc_h_m_p_s, arrive_proc_s
+  # includes aerodynamic lift, induced drag, parasite drag, weight, and horizontal motion
+  # assumes steady horizontal speed (no vertical climb)
+  # return None if mission, propulsion, or environment object not populated
+  def _calc_arrive_proc_avg_shaft_power_kw(self):
+    if self.mission != None and self.propulsion != None and self.environ != None:
+      v_h = self.mission.arrive_proc_h_m_p_s
+      v_v = 0.0
+      v_total = v_h  
 
+      # weight and lift 
+      weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
+      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
 
+      # induced drag 
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
 
+      # parasite drag
+      cd0_sum = 0.0
+      if self.fuselage_cd0 != None:
+        cd0_sum += self.fuselage_cd0
+      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
+      if self.horiz_tail_cd0 != None:
+        cd0_sum += self.horiz_tail_cd0
+      if self.vert_tail_cd0 != None:
+        cd0_sum += self.vert_tail_cd0
+      if self.landing_gear_cd0 != None:
+        cd0_sum += self.landing_gear_cd0
+      if self.stopped_rotor_cd0 != None:
+        cd0_sum += self.stopped_rotor_cd0
+      dp_n = q*self.wing_area_m2*cd0_sum
 
+      # total drag
+      drag_n = dp_n*self.trim_drag_factor*self.excres_protub_factor
 
+      # no climb force
+      climb_force_n = 0.0
+
+      # thrust required 
+      thrust_n = drag_n+climb_force_n
+
+      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+    else:
+      return None
+
+  # requires aircraft arrive_proc_avg_shaft_power_kw
+  # requires power epu_effic
+  # scale arrive_proc_avg_shaft_power_kw by epu_effic
+  # return None if aircraft field or power object not populated
+  def _calc_arrive_proc_avg_electric_power_kw(self):
+    if self._arrive_proc_avg_shaft_power_kw != None and self.power != None:
+      return self._arrive_proc_avg_shaft_power_kw/self.power.epu_effic
+    else:
+      return None
+
+  # requires aircraft arrive_proc_avg_electric_power_kw
+  # requires mission arrive_proc_s
+  # calculate total energy and convert to kW*hr
+  # return None if aircraft field or power object not populated
+  def _calc_arrive_proc_energy_kw_hr(self):
+    if self._arrive_proc_avg_electric_power_kw != None and self.mission != None:
+      return (self._arrive_proc_avg_electric_power_kw*self.mission.arrive_proc_s)/S_P_HR
+    else:
+      return None
 
 # ----- Transition Descend (Segment I) -----
+  # requires mission trans_descend_avg_h_m_p_s, trans_descend_v_m_p_s, trans_descend_s
+  # includes aerodynamic lift, induced drag, parasite drag, weight, and descent forces
+  # assumes steady transition descend at average horizontal + vertical speeds
+  # return None if mission, propulsion, or environment object not populated
+  def _calc_trans_descend_avg_shaft_power_kw(self):
+    if self.mission != None and self.propulsion != None and self.environ != None:
+      v_h = self.mission.trans_descend_avg_h_m_p_s
+      v_v = self.mission.trans_descend_v_m_p_s
+      v_total = (v_h**2.0 + v_v**2.0)**0.5
 
+      # weight and lift 
+      weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0
+      lift_n = q*self.wing_area_m2*self.vehicle_cl_max
 
+      # induced drag 
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
 
+      # parasite drag
+      cd0_sum = 0.0
+      if self.fuselage_cd0 != None:
+        cd0_sum += self.fuselage_cd0
+      cd0_sum += self.wing_airfoil_cd_at_cruise_cl
+      if self.horiz_tail_cd0 != None:
+        cd0_sum += self.horiz_tail_cd0
+      if self.vert_tail_cd0 != None:
+        cd0_sum += self.vert_tail_cd0
+      if self.landing_gear_cd0 != None:
+        cd0_sum += self.landing_gear_cd0
+      if self.stopped_rotor_cd0 != None:
+        cd0_sum += self.stopped_rotor_cd0
+      dp_n = q*self.wing_area_m2*cd0_sum
 
+      # total drag
+      drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
+      # descent force
+      if v_h != 0.0:
+        descent_force_n = (weight_n-lift_n)*(v_v/v_h)
+      else:
+        descent_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
+
+      # thrust required 
+      thrust_n = drag_n-descent_force_n
+
+      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+    else:
+      return None
+
+  # requires aircraft trans_descend_avg_shaft_power_kw
+  # requires power epu_effic
+  # scale trans_descend_avg_shaft_power_kw by epu_effic
+  # return None if aircraft field or power object not populated
+  def _calc_trans_descend_avg_electric_power_kw(self):
+    if self._trans_descend_avg_shaft_power_kw != None and self.power != None:
+      return self._trans_descend_avg_shaft_power_kw/self.power.epu_effic
+    else:
+      return None
+
+  # requires aircraft trans_descend_avg_electric_power_kw
+  # requires mission trans_descend_s
+  # calculate the total energy and convert to kW*hr
+  # return None if aircraft field or power object not populated
+  def _calc_trans_descend_energy_kw_hr(self):
+    if self._trans_descend_avg_electric_power_kw != None and self.mission != None:
+      return \
+       (self._trans_descend_avg_electric_power_kw*self.mission.trans_descend_s)/\
+       S_P_HR
+    else:
+      return None
 
 # ----- Hover Descend (Segment J) -----
+  # requires mission hover_descend_avg_v_m_p_s, hover_descend_s
+  # vertical power component only, includes weight - acceleration effects
+  # assuming drag effects are negligible
+  # assuming an initial vertical velocity of zero, use vertical distance and time to
+  # determine a constant vertical acceleration and the related end velocity
+  # then use MTOM, gravity, acceleration, and average velocity to find average power
+  # return None if mission or propulsion object not populated
+  def _calc_hover_descend_avg_shaft_power_kw(self):
+    if self.mission != None and self.propulsion != None:
+      d_v_m = self.mission.hover_descend_avg_v_m_p_s*self.mission.hover_descend_s
+      vf_v_m_p_s = (2.0*d_v_m)/self.mission.hover_descend_s
+      a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
+      return \
+       (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2 - a_v_m_p_s2)*\
+        self.mission.hover_descend_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+    else:
+      return None
 
+  # requires aircraft hover_descend_avg_shaft_power_kw
+  # requires power epu_effic
+  # scale hover_descend_avg_shaft_power_kw by epu_effic
+  # return None if aircraft field or power object not populated
+  def _calc_hover_descend_avg_electric_power_kw(self):
+    if self._hover_descend_avg_shaft_power_kw != None and self.power != None:
+      return self._hover_descend_avg_shaft_power_kw/self.power.epu_effic
+    else:
+      return None
 
-
-
-
+  # requires aircraft hover_descend_avg_electric_power_kw
+  # requires mission hover_descend_s
+  # calculate the total energy and convert to kW*hr
+  # return None if aircraft field or power object not populated
+  def _calc_hover_descend_energy_kw_hr(self):
+    if self._hover_descend_avg_electric_power_kw != None and self.mission != None:
+      return \
+       (self._hover_descend_avg_electric_power_kw*self.mission.hover_descend_s)/\
+       S_P_HR
+    else:
+      return None
 
 # ----- Arrive Tax (Segment K) -----
+  # requires mission arrive_taxi_avg_h_m_p_s, arrive_taxi_s
+  # horizontal power component only, assumes drag effects are negligible
+  # assuming an initial velocity of zero, use horizontal distance and time to
+  # determine a constant horizontal acceleration and the related end velocity
+  # then use MTOM, acceleration, and average velocity to find average shaft power
+  # return None if mission object not populated
+  def _calc_arrive_taxi_avg_shaft_power_kw(self):
+    if self.mission != None:
+      d_h_m = self.mission.arrive_taxi_avg_h_m_p_s*self.mission.arrive_taxi_s
+      vf_h_m_p_s = (2.0*d_h_m)/self.mission.arrive_taxi_s
+      a_h_m_p_s2 = vf_h_m_p_s**2.0/(2.0*d_h_m)
+      return \
+       (self.max_takeoff_mass_kg*a_h_m_p_s2*\
+        self.mission.arrive_taxi_avg_h_m_p_s)/W_P_KW
+    else:
+      return None
 
+  # requires aircraft arrive_taxi_avg_shaft_power_kw
+  # requires power epu_effic
+  # scale arrive_taxi_avg_shaft_power_kw by epu_effic
+  # return None if aircraft field or power object not populated
+  def _calc_arrive_taxi_avg_electric_power_kw(self):
+    if self._arrive_taxi_avg_shaft_power_kw != None and self.power != None:
+      return self._arrive_taxi_avg_shaft_power_kw/self.power.epu_effic
+    else:
+      return None
 
-
-
+  # requires aircraft arrive_taxi_avg_electric_power_kw
+  # requires mission arrive_taxi_s
+  # calculate the total energy and convert to kW*hr
+  # return None if aircraft field or power object not populated
+  def _calc_arrive_taxi_energy_kw_hr(self):
+    if self._arrive_taxi_avg_electric_power_kw != None and self.mission != None:
+      return \
+       (self._arrive_taxi_avg_electric_power_kw*self.mission.arrive_taxi_s)/\
+       S_P_HR
+    else:
+      return None
 
 
   @property
@@ -1139,8 +1349,6 @@ class Aircraft:
   def cruise_energy_kw_hr(self):
     return self._cruise_energy_kw_hr
   
-
-
   @property
   def decel_descend_avg_shaft_power_kw(self):
     return self._decel_descend_avg_shaft_power_kw
@@ -1152,3 +1360,51 @@ class Aircraft:
   @property
   def decel_descend_energy_kw_hr(self):
     return self._decel_descend_energy_kw_hr
+    
+  @property
+  def arrive_proc_avg_shaft_power_kw(self):
+    return self._arrive_proc_avg_shaft_power_kw
+  
+  @property
+  def arrive_proc_avg_electric_power_kw(self):
+    return self._arrive_proc_avg_electric_power_kw
+
+  @property
+  def arrive_proc_energy_kw_hr(self):
+    return self._arrive_proc_energy_kw_hr
+  
+  @property
+  def trans_descend_avg_shaft_power_kw(self):
+    return self._trans_descend_avg_shaft_power_kw
+  
+  @property
+  def trans_descend_avg_electric_power_kw(self):
+    return self._trans_descend_avg_electric_power_kw
+
+  @property
+  def trans_descend_energy_kw_hr(self):
+    return self._trans_descend_energy_kw_hr
+
+  @property
+  def hover_descend_avg_shaft_power_kw(self):
+    return self._hover_descend_avg_shaft_power_kw
+  
+  @property
+  def hover_descend_avg_electric_power_kw(self):
+    return self._hover_descend_avg_electric_power_kw
+
+  @property
+  def hover_descend_energy_kw_hr(self):
+    return self._hover_descend_energy_kw_hr
+  
+  @property
+  def arrive_taxi_avg_shaft_power_kw(self):
+    return self._arrive_taxi_avg_shaft_power_kw
+  
+  @property
+  def arrive_taxi_avg_electric_power_kw(self):
+    return self._arrive_taxi_avg_electric_power_kw
+
+  @property
+  def arrive_taxi_energy_kw_hr(self):
+    return self._arrive_taxi_energy_kw_hr

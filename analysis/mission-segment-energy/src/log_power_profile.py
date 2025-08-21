@@ -37,10 +37,10 @@ mission_segment_durations = [
     mission.accel_climb_s,
     mission.cruise_s,
     mission.decel_descend_s,
-    # 0.0,  # arrive_proc
-    # 0.0,  # trans_descend
-    # 0.0,  # hover_descend
-    # 0.0,  # arrive_taxi
+    mission.arrive_proc_s,
+    mission.trans_descend_s,
+    mission.hover_descend_s,
+    mission.arrive_taxi_s,
     # 0.0,  # reserve_hover_climb
     # 0.0,  # reserve_trans_climb
     # 0.0,  # reserve_accel_climb
@@ -58,10 +58,10 @@ power_values_kw = [
     aircraft.accel_climb_avg_electric_power_kw,
     aircraft.cruise_avg_electric_power_kw,
     aircraft.decel_descend_avg_electric_power_kw,
-    # 0.0,  # arrive_proc
-    # 0.0,  # trans_descend
-    # 0.0,  # hover_descend
-    # 0.0,  # arrive_taxi
+    aircraft.arrive_proc_avg_electric_power_kw,
+    aircraft.trans_descend_avg_electric_power_kw,
+    aircraft.hover_descend_avg_electric_power_kw,
+    aircraft.arrive_taxi_avg_electric_power_kw,
     # 0.0,  # reserve_hover_climb
     # 0.0,  # reserve_trans_climb
     # 0.0,  # reserve_accel_climb
