@@ -29,6 +29,8 @@ else
   python3 plt_mission_segment_energy.py ../log/mission-segment-energy.csv ../plt/
   python3 log_power_profile.py ../cfg/test-all.json ../log/
   python3 plt_power_profile.py ../log/power-profile.csv ../plt/
+  python3 log_reserve_power_profile.py ../cfg/test-all.json ../log/
+  python3 plt_reserve_power_profile.py ../log/reserve-power-profile.csv ../plt/
   
   deactivate
 fi
