@@ -115,6 +115,7 @@ class Aircraft:
     self._stopped_rotor_cd0 = self._calc_stopped_rotor_cd0()
     self._cruise_cd = self._calc_cruise_cd()
     self._cruise_l_p_d = self._calc_cruise_l_p_d()
+    self._total_drag_coef = self._calc_total_drag_coef()
 
     #A Ground Taxi
     self._depart_taxi_avg_shaft_power_kw = \
@@ -485,33 +486,21 @@ class Aircraft:
     else:
       return None
   
-  # requires aircraft fields for fuselage, wing, empennage, landing gear, rotor, etc.
-  # input: total airspeed (m/s)
-  # returns total drag in Newtons
-  def _calc_total_drag_n(self, v_m_p_s):
+  # requires aircraft fields for fuselage, empennage, landing gear, etc.
+  # returns total drag coefficient
+  def _calc_total_drag_coef(self):
     if self.environ == None or self.wing_area_m2 == None:
       return None
-    q = 0.5 * self.environ.air_density_sea_lvl_kg_p_m3 * v_m_p_s**2.0
-    lift_n = q * self.wing_area_m2 * self.vehicle_cl_max
-    # induced drag
-    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-    # parasite drag
     cd0_sum = 0.0
     if self.fuselage_cd0 != None:
       cd0_sum += self.fuselage_cd0
-    cd0_sum += self.wing_airfoil_cd_at_cruise_cl
     if self.horiz_tail_cd0 != None:
       cd0_sum += self.horiz_tail_cd0
     if self.vert_tail_cd0 != None:
       cd0_sum += self.vert_tail_cd0
     if self.landing_gear_cd0 != None:
       cd0_sum += self.landing_gear_cd0
-    if self.stopped_rotor_cd0 != None:
-      cd0_sum += self.stopped_rotor_cd0
-    dp_n = q * self.wing_area_m2*cd0_sum
-    # total drag
-    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
-    return total_drag_n
+    return cd0_sum
 
 # ----- Depart Taxi (Segment A) -----
   # requires mission depart_taxi_avg_h_m_p_s, depart_taxi_s
@@ -527,7 +516,7 @@ class Aircraft:
       a_h_m_p_s2 = vf_h_m_p_s**2.0/(2.0*d_h_m)
       return \
        (self.max_takeoff_mass_kg*a_h_m_p_s2*\
-        self.mission.depart_taxi_avg_h_m_p_s)/W_P_KW
+        self.mission.depart_taxi_avg_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -597,28 +586,41 @@ class Aircraft:
 # ----- Transition Climb (Segment C) -----
   # requires mission trans_climb_avg_h_m_p_s, trans_climb_v_m_p_s, trans_climb_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, and climb forces
-  # assumes steady transition climb at average horizontal + vertical speeds
   # return None if mission, propulsion, or environment object not populated
   def _calc_trans_climb_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.trans_climb_avg_h_m_p_s
-      v_v = self.mission.trans_climb_v_m_p_s
-      v_total = (v_h**2.0 + v_v**2.0)**0.5
-
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.trans_climb_avg_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
+      vehicle_cl = weight_n/(q*self.wing_area_m2)
+      lift_n = q*self.wing_area_m2*vehicle_cl
 
-      # climb force
-      if v_h != 0.0:
-        climb_force_n = (weight_n-lift_n)*(v_v/v_h)
-      else:
-        climb_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # thrust required 
-      thrust_n = drag_n+climb_force_n
+      # horizontal acceleration
+      v0_h_m_p_s = 0.0
+      vf_h_m_p_s= self.mission.trans_climb_avg_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.trans_climb_s 
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
+        
+      # vertical acceleration
+      v0_v_m_p_s = self.mission.hover_climb_avg_v_m_p_s
+      vf_v_m_p_s = self.mission.trans_climb_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.trans_climb_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+      # force components 
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+      force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+
+      return (force_h_n*self.mission.trans_climb_avg_h_m_p_s+force_v_n*self.mission.trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -651,21 +653,30 @@ class Aircraft:
   # return None if mission, propulsion, or environment object not populated
   def _calc_depart_proc_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.depart_proc_h_m_p_s
-      v_v = 0.0
-      v_total = v_h 
-
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.depart_proc_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
+      lift_n = weight_n
       
-      # climb force
-      climb_force_n = 0.0
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # thrust required 
-      thrust_n = drag_n+climb_force_n
+      # horizontal accelerations
+      v0_h_m_p_s = self.mission.trans_climb_avg_h_m_p_s
+      vf_h_m_p_s = self.mission.depart_proc_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.depart_proc_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+      # force components 
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+
+      return (force_h_n*self.mission.depart_proc_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -692,28 +703,41 @@ class Aircraft:
 # ----- Accelerate Climb (Segment E) -----
   # requires mission accel_climb_avg_h_m_p_s, accel_climb_v_m_p_s, accel_climb_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, and climb forces
-  # assumes steady accelerate climb at average horizontal + vertical speeds
   # return None if mission, propulsion, or environment object not populated
   def _calc_accel_climb_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.accel_climb_avg_h_m_p_s
-      v_v = self.mission.accel_climb_v_m_p_s
-      v_total = (v_h**2.0 + v_v**2.0)**0.5
-
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.accel_climb_avg_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
+      vehicle_cl = weight_n/(q*self.wing_area_m2)
+      lift_n = q*self.wing_area_m2*vehicle_cl
+      
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # climb force
-      if v_h != 0.0:
-        climb_force_n = (weight_n-lift_n)*(v_v/v_h)
-      else:
-        climb_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
+      # horizontal accelerations
+      v0_h_m_p_s = self.mission.depart_proc_h_m_p_s
+      vf_h_m_p_s = self.mission.accel_climb_avg_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.accel_climb_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
-      # thrust required 
-      thrust_n = drag_n+climb_force_n
+      # vertical accelerations
+      v0_v_m_p_s = 0.0
+      vf_v_m_p_s = self.mission.accel_climb_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.accel_climb_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+      # force components
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+      force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+
+      return (force_h_n*self.mission.accel_climb_avg_h_m_p_s+force_v_n*self.mission.accel_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -740,15 +764,40 @@ class Aircraft:
       return None
 
 # ----- Cruise (Segment F) -----
-  # requires aircraft cruise_l_p_d
-  # Use MTOM*g/L/D for drag force, convert to power with cruise velocity (P=Fv),
-  # and scale by rotor efficiency. Convert from W to kW.
-  # return None if aircraft field not populated
+  # requires mission cruise_h_m_p_s, cruise_s
+  # horizontal power component only
+  # includes aerodynamic lift, induced drag, parasite drag, weight, and horizontal motion
+  # return None if mission, propulsion, or environment object not populated
   def _calc_cruise_avg_shaft_power_kw(self):
-    if self.cruise_l_p_d != None:
-      return \
-       ((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/self.cruise_l_p_d)*\
-       self.mission.cruise_h_m_p_s/(self.propulsion.rotor_effic*W_P_KW)
+    if self.mission != None and self.propulsion != None and self.environ != None:
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.cruise_h_m_p_s**2.0
+      weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+      lift_n = weight_n
+      
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      if self.wing_airfoil_cd_at_cruise_cl != None and self.stopped_rotor_cd0 != None:
+        cd0_cruise = cd0+self.wing_airfoil_cd_at_cruise_cl+self.stopped_rotor_cd0
+      else:
+        cd0_cruise = cd0
+      dp_n = q*self.wing_area_m2*cd0_cruise
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+      # horizontal accelerations
+      v0_h_m_p_s = self.mission.accel_climb_avg_h_m_p_s
+      vf_h_m_p_s = self.mission.cruise_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.cruise_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m) 
+
+      # force components
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+
+      return (force_h_n*self.mission.cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -777,28 +826,41 @@ class Aircraft:
 # ----- Decelerate Descend (Segment G) -----
   # requires mission decel_descend_avg_h_m_p_s, decel_descend_v_m_p_s, decel_descend_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, and descent forces
-  # assumes steady deceleration descent at average horizontal + vertical speeds
   # return None if mission, propulsion, or environment object not populated
   def _calc_decel_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.decel_descend_avg_h_m_p_s
-      v_v = self.mission.decel_descend_v_m_p_s
-      v_total = (v_h**2.0 + v_v**2.0)**0.5
-
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.decel_descend_avg_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
+      vehicle_cl = weight_n/(q*self.wing_area_m2)
+      lift_n = q*self.wing_area_m2*vehicle_cl
+      
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # descent force (negative climb force)
-      if v_h != 0.0:
-        descent_force_n = (weight_n-lift_n)*(v_v/v_h)
-      else:
-        descent_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
+      # horizontal accelerations
+      v0_h_m_p_s = self.mission.cruise_h_m_p_s
+      vf_h_m_p_s = self.mission.decel_descend_avg_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.decel_descend_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m) 
 
-      # thrust required 
-      thrust_n = drag_n-descent_force_n
+      # vertical accelerations
+      v0_v_m_p_s = 0.0
+      vf_v_m_p_s = self.mission.decel_descend_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.decel_descend_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+      # force components
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+      force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
+
+      return (force_h_n*self.mission.decel_descend_avg_h_m_p_s+force_v_n*self.mission.decel_descend_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -826,26 +888,35 @@ class Aircraft:
 
 # ----- Arrive Procedures (Segment H) -----
   # requires mission arrive_proc_h_m_p_s, arrive_proc_s
+  # horizontal power component only
   # includes aerodynamic lift, induced drag, parasite drag, weight, and horizontal motion
-  # assumes steady horizontal speed (no vertical climb)
   # return None if mission, propulsion, or environment object not populated
   def _calc_arrive_proc_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.arrive_proc_h_m_p_s
-      v_v = 0.0
-      v_total = v_h  
-
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.arrive_proc_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
+      # horizontal component
+      lift_n = weight_n
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # climb force
-      climb_force_n = 0.0
+      # horizontal accelerations
+      v0_h_m_p_s = self.mission.decel_descend_avg_h_m_p_s
+      vf_h_m_p_s = self.mission.arrive_proc_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.arrive_proc_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
-      # thrust required 
-      thrust_n = drag_n+climb_force_n
+      # force components
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
 
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+      return (force_h_n*self.mission.arrive_proc_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -872,28 +943,41 @@ class Aircraft:
 # ----- Transition Descend (Segment I) -----
   # requires mission trans_descend_avg_h_m_p_s, trans_descend_v_m_p_s, trans_descend_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, and descent forces
-  # assumes steady transition descend at average horizontal + vertical speeds
   # return None if mission, propulsion, or environment object not populated
   def _calc_trans_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.trans_descend_avg_h_m_p_s
-      v_v = self.mission.trans_descend_v_m_p_s
-      v_total = (v_h**2.0 + v_v**2.0)**0.5
-
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.trans_descend_avg_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
+      vehicle_cl = weight_n/(q*self.wing_area_m2)
+      lift_n = q*self.wing_area_m2*vehicle_cl
 
-      # descent force
-      if v_h != 0.0:
-        descent_force_n = (weight_n-lift_n)*(v_v/v_h)
-      else:
-        descent_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # thrust required 
-      thrust_n = abs(descent_force_n-drag_n)
+      # horizontal accelerations
+      v0_h_m_p_s = self.mission.arrive_proc_h_m_p_s
+      vf_h_m_p_s = self.mission.trans_descend_avg_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.trans_descend_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+      # vertical accelerations
+      v0_v_m_p_s = 0.0
+      vf_v_m_p_s = self.mission.trans_descend_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.trans_descend_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+      # force components
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+      force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
+
+      return (force_h_n*self.mission.trans_descend_avg_h_m_p_s+force_v_n*self.mission.trans_descend_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -923,20 +1007,19 @@ class Aircraft:
   # requires mission hover_descend_avg_v_m_p_s, hover_descend_s
   # vertical power component only, includes weight - acceleration effects
   # assuming drag effects are negligible
-  # assuming an initial vertical velocity of zero, use vertical distance and time to
-  # determine a constant vertical acceleration and the related end velocity
-  # then use MTOM, gravity, acceleration, and average velocity to find average power
   # return None if mission or propulsion object not populated
   def _calc_hover_descend_avg_shaft_power_kw(self):
-    if self.mission != None and self.propulsion != None:
-      d_v_m = self.mission.hover_descend_avg_v_m_p_s*self.mission.hover_descend_s
-      vf_v_m_p_s = (2.0*d_v_m)/self.mission.hover_descend_s
-      a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
-      return \
-       (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2-a_v_m_p_s2)*\
-        self.mission.hover_descend_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-    else:
-      return None
+    if self.mission != None and self.propulsion != None and self.environ != None:
+      # vertical accelerations
+      v0_v_m_p_s = self.mission.trans_descend_v_m_p_s
+      vf_v_m_p_s = self.mission.hover_descend_avg_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.hover_descend_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+      # force component
+      force_v_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2-self.max_takeoff_mass_kg*a_v_m_p_s2
+
+      return (force_v_n*vf_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
 
   # requires aircraft hover_descend_avg_shaft_power_kw
   # requires power epu_effic
@@ -963,18 +1046,20 @@ class Aircraft:
 # ----- Arrive Taxi (Segment K) -----
   # requires mission arrive_taxi_avg_h_m_p_s, arrive_taxi_s
   # horizontal power component only, assumes drag effects are negligible
-  # assuming an initial velocity of zero, use horizontal distance and time to
-  # determine a constant horizontal acceleration and the related end velocity
-  # then use MTOM, acceleration, and average velocity to find average shaft power
+  # assuming drag effects are negligible  
   # return None if mission object not populated
   def _calc_arrive_taxi_avg_shaft_power_kw(self):
-    if self.mission != None:
-      d_h_m = self.mission.arrive_taxi_avg_h_m_p_s*self.mission.arrive_taxi_s
-      vf_h_m_p_s = (2.0*d_h_m)/self.mission.arrive_taxi_s
-      a_h_m_p_s2 = vf_h_m_p_s**2.0/(2.0*d_h_m)
-      return \
-       (self.max_takeoff_mass_kg*a_h_m_p_s2*\
-        self.mission.arrive_taxi_avg_h_m_p_s)/W_P_KW
+    if self.mission != None and self.propulsion != None and self.environ != None:
+      # horizontal accelerations
+      v0_h_m_p_s = 0.0  
+      vf_h_m_p_s = self.mission.arrive_taxi_avg_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.arrive_taxi_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0 - v0_h_m_p_s**2.0)/(2.0*d_h_m)
+
+      # horizontal force 
+      force_h_n = self.max_takeoff_mass_kg*a_h_m_p_s2
+
+      return (force_h_n*vf_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1044,30 +1129,43 @@ class Aircraft:
 # ----- Reserve Transition Climb (Segment C') -----
   # requires mission reserve_trans_climb_avg_h_m_p_s, reserve_trans_climb_v_m_p_s, reserve_trans_climb_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, and climb forces
-  # assumes steady transition climb at average horizontal + vertical speeds
   # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_trans_climb_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.reserve_trans_climb_avg_h_m_p_s
-      v_v = self.mission.reserve_trans_climb_v_m_p_s
-      v_total = (v_h**2.0 + v_v**2.0)**0.5
-      
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_trans_climb_avg_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
-
-      # climb force
-      if v_h != 0.0:
-        climb_force_n = (weight_n-lift_n)*(v_v/v_h)
-      else:
-        climb_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
-
-      # thrust required 
-      thrust_n = drag_n + climb_force_n
+      vehicle_cl = weight_n/(q*self.wing_area_m2)
+      lift_n = q*self.wing_area_m2*vehicle_cl
       
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
-    else:
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
         return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+      # horizontal accelerations
+      v0_h_m_p_s = 0.0
+      vf_h_m_p_s = self.mission.reserve_trans_climb_avg_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.reserve_trans_climb_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0 - v0_h_m_p_s**2.0)/(2.0*d_h_m)
+
+      # vertical accelerations
+      v0_v_m_p_s = self.mission.reserve_hover_climb_avg_v_m_p_s
+      vf_v_m_p_s = self.mission.reserve_trans_climb_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.reserve_trans_climb_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0 - v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+      # force components
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+      force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+
+      return (force_h_n*self.mission.reserve_trans_climb_avg_h_m_p_s+force_v_n*self.mission.reserve_trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+    else:
+      return None
 
   # requires aircraft reserve_trans_climb_avg_shaft_power_kw
   # requires power epu_effic
@@ -1094,28 +1192,40 @@ class Aircraft:
 # ----- Reserve Acceleration Climb (Segment E') -----
   # requires mission reserve_accel_climb_avg_h_m_p_s, reserve_accel_climb_v_m_p_s, reserve_accel_climb_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, and climb forces
-  # assumes steady reserve acceleration climb at average horizontal + vertical speeds
   # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_accel_climb_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.reserve_accel_climb_avg_h_m_p_s
-      v_v = self.mission.reserve_accel_climb_v_m_p_s
-      v_total = (v_h**2.0 + v_v**2.0)**0.5
-
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_accel_climb_avg_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
+      vehicle_cl = weight_n/(q*self.wing_area_m2)
+      lift_n = q*self.wing_area_m2*vehicle_cl
+      
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+      
+      # horizontal accelerations
+      v0_h_m_p_s = self.mission.reserve_trans_climb_avg_h_m_p_s
+      vf_h_m_p_s = self.mission.reserve_accel_climb_avg_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.reserve_accel_climb_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0 - v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
-      # climb force
-      if v_h != 0.0:
-        climb_force_n = (weight_n-lift_n)*(v_v/v_h)
-      else:
-        climb_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
+      # vertical accelerations
+      v0_v_m_p_s = self.mission.reserve_trans_climb_v_m_p_s
+      vf_v_m_p_s = self.mission.reserve_accel_climb_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.reserve_accel_climb_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0 - v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
-      # thrust required 
-      thrust_n = drag_n+climb_force_n
-
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+      # force components
+      force_h_n = total_drag_n + self.max_takeoff_mass_kg*a_h_m_p_s2
+      force_v_n = (weight_n - lift_n) + self.max_takeoff_mass_kg*a_v_m_p_s2
+      return (force_h_n*self.mission.reserve_accel_climb_avg_h_m_p_s + force_v_n*self.mission.reserve_accel_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1142,15 +1252,40 @@ class Aircraft:
       return None
 
 # ----- Reserve Cruise (Segment F') -----
-  # requires aircraft cruise_l_p_d
-  # Use MTOM*g/L/D for drag force, convert to power with reserve cruise velocity (P=Fv),
-  # and scale by rotor efficiency. Convert from W to kW.
-  # return None if aircraft field not populated
+  # requires mission reserve_cruise_h_m_p_s, reserve_cruise_s
+  # horizontal power component only
+  # includes aerodynamic lift, induced drag, parasite drag, weight, and horizontal motion
+  # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_cruise_avg_shaft_power_kw(self):
-    if self.cruise_l_p_d != None:
-      return \
-       ((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/self.cruise_l_p_d)*\
-       self.mission.reserve_cruise_h_m_p_s/(self.propulsion.rotor_effic*W_P_KW)
+    if self.mission != None and self.propulsion != None and self.environ != None:
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_cruise_h_m_p_s**2.0
+      weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+      lift_n = weight_n
+      
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      if self.wing_airfoil_cd_at_cruise_cl != None and self.stopped_rotor_cd0 != None:
+        cd0_cruise = cd0+self.wing_airfoil_cd_at_cruise_cl+self.stopped_rotor_cd0
+      else:
+        cd0_cruise = cd0
+      dp_n = q*self.wing_area_m2*cd0_cruise
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+      # horizontal accelerations
+      v0_h_m_p_s = self.mission.reserve_accel_climb_avg_h_m_p_s
+      vf_h_m_p_s = self.mission.reserve_cruise_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.reserve_cruise_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m) 
+
+      # force components
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+
+      return (force_h_n*self.mission.reserve_cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1179,28 +1314,41 @@ class Aircraft:
 # ----- Reserve Deceleration Descend (Segment G') -----
   # requires mission reserve_decel_descend_avg_h_m_p_s, reserve_decel_descend_v_m_p_s, reserve_decel_descend_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, and descent forces
-  # assumes steady deceleration descent at average horizontal + vertical speeds
   # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_decel_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.reserve_decel_descend_avg_h_m_p_s
-      v_v = self.mission.reserve_decel_descend_v_m_p_s
-      v_total = (v_h**2.0 + v_v**2.0)**0.5
-
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_decel_descend_avg_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
+      vehicle_cl = weight_n/(q*self.wing_area_m2)
+      lift_n = q*self.wing_area_m2*vehicle_cl
+      
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # descent force (negative climb force)
-      if v_h != 0.0:
-        descent_force_n = (weight_n-lift_n)*(v_v/v_h)
-      else:
-        descent_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
+      # horizontal acceleration
+      v0_h_m_p_s = self.mission.reserve_cruise_h_m_p_s
+      vf_h_m_p_s = self.mission.reserve_decel_descend_avg_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.reserve_decel_descend_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0 - v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
-      # thrust required
-      thrust_n = drag_n-descent_force_n
+      # vertical acceleration 
+      v0_v_m_p_s = 0.0
+      vf_v_m_p_s = self.mission.reserve_decel_descend_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.reserve_decel_descend_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+      # force components
+      force_h_n = total_drag_n-self.max_takeoff_mass_kg*a_h_m_p_s2
+      force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
+
+      return (force_h_n*self.mission.reserve_decel_descend_avg_h_m_p_s+force_v_n*self.mission.reserve_decel_descend_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1229,27 +1377,41 @@ class Aircraft:
 # ----- Reserve Transition Descend (Segment I') -----
   # requires mission reserve_trans_descend_avg_h_m_p_s, reserve_trans_descend_v_m_p_s, reserve_trans_descend_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, and descend forces
-  # assumes steady transition descent at average horizontal + vertical speeds
   # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_trans_descend_avg_shaft_power_kw(self):
-    if self.mission != None and self.propulsion != None and self.environ != None:
-      v_h = self.mission.reserve_trans_descend_avg_h_m_p_s
-      v_v = self.mission.reserve_trans_descend_v_m_p_s
-      v_total = (v_h**2.0 + v_v**2.0)**0.5
-
+    if self.mission != None and self.propulsion != None and self.environ != None:    
+      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_trans_descend_avg_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-      lift_n = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*v_total**2.0*self.wing_area_m2*self.vehicle_cl_max
-      drag_n = self._calc_total_drag_n(v_total)
-      # descent force
-      if v_h != 0.0:
-        descent_force_n = (weight_n-lift_n)*(v_v/v_h)
-      else:
-        descent_force_n = (weight_n-lift_n)*(v_v/(v_total if v_total != 0.0 else 1.0))
+      vehicle_cl = weight_n/(q*self.wing_area_m2)
+      lift_n = q*self.wing_area_m2*vehicle_cl
+      
+      # induced drag
+      di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+      # parasite drag
+      cd0 = self._calc_total_drag_coef()
+      if cd0 == None:
+        return None
+      dp_n = q*self.wing_area_m2*cd0
+      # total drag
+      total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # thrust required
-      thrust_n = abs(descent_force_n-drag_n)
+      # horizontal accelerations
+      v0_h_m_p_s = self.mission.reserve_decel_descend_avg_h_m_p_s
+      vf_h_m_p_s = self.mission.reserve_trans_descend_avg_h_m_p_s
+      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.reserve_trans_descend_s
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
-      return (thrust_n*v_total)/(self.propulsion.rotor_effic*W_P_KW)
+      # vertical acceleration 
+      v0_v_m_p_s = self.mission.reserve_decel_descend_v_m_p_s
+      vf_v_m_p_s = self.mission.reserve_trans_descend_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.reserve_trans_descend_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+      # force components
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+      force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
+
+      return (force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+force_v_n*self.mission.reserve_trans_descend_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1285,14 +1447,16 @@ class Aircraft:
   # return None if mission or propulsion object not populated
   def _calc_reserve_hover_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None:
-      d_v_m = self.mission.reserve_hover_descend_avg_v_m_p_s*self.mission.reserve_hover_descend_s
-      vf_v_m_p_s = (2.0*d_v_m)/self.mission.reserve_hover_descend_s
-      a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
-      return (
-        self.max_takeoff_mass_kg *(self.environ.g_m_p_s2-a_v_m_p_s2) *
-        self.mission.reserve_hover_descend_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-    else:
-      return None
+      # vertical accelerations
+      v0_v_m_p_s = self.mission.reserve_trans_descend_v_m_p_s
+      vf_v_m_p_s = self.mission.reserve_hover_descend_avg_v_m_p_s
+      d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.reserve_hover_descend_s
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+      # force component
+      force_v_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2-self.max_takeoff_mass_kg*a_v_m_p_s2
+
+      return (force_v_n*vf_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
 
   # requires aircraft reserve_hover_descend_avg_shaft_power_kw
   # requires power epu_effic
@@ -1527,6 +1691,10 @@ class Aircraft:
   @property
   def cruise_l_p_d(self):
     return self._cruise_l_p_d
+  
+  @property
+  def total_drag_coef(self):
+    return self._total_drag_coef
 
   @property
   def depart_taxi_avg_shaft_power_kw(self):
