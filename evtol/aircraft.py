@@ -349,16 +349,18 @@ class Aircraft:
     else:
       return None
 
-  # requires aircraft fuselage_cf
+  # requires aircraft fuselage_cf and aircraft wing_area_m2
   # dimensional analysis
-  # alternative calculation:
-  #   fuselage_cd0 = fuselage_cda/wing_area_m2
-  #   where fuselage_cda = fuselage_cd0_p_cf*fuselage_cf*fuselage_reference_area
-  #   where fuselage_reference_area = pi*((fuselage_w+fuselage_h)/4)**2
+  # fuselage_cd0 = fuselage_cda/wing_area_m2
+  # where fuselage_cda = fuselage_cd0_p_cf*fuselage_cf*fuselage_reference_area
+  # where fuselage_reference_area = pi*((fuselage_w+fuselage_h)/4)**2
   # return None if aircraft field not populated
   def _calc_fuselage_cd0(self):
-    if self.fuselage_cf != None:
-      return self.fuselage_cd0_p_cf*self.fuselage_cf
+    if self.fuselage_cf != None and self.wing_area_m2 != None:
+      fuselage_reference_area = math.pi*((self.fuselage_w_m+self.fuselage_h_m)/4.0)**2.0
+      return (
+        self.fuselage_cd0_p_cf*self.fuselage_cf*fuselage_reference_area/self.wing_area_m2
+      )
     else:
       return None
 
@@ -422,22 +424,22 @@ class Aircraft:
     else:
       return None
 
-  # requires aircraft horiz_tail_area_m2, vert_tail_area_m2
+  # requires aircraft horiz_tail_area_m2
   # return None if aircraft field not populated
   def _calc_horiz_tail_cd0(self):
     if self.horiz_tail_area_m2 != None and self.vert_tail_area_m2 != None:
       return (\
-       self.horiz_tail_area_m2/(self.horiz_tail_area_m2+self.vert_tail_area_m2)\
+       self.horiz_tail_area_m2/(self.wing_area_m2)\
        )*self.empennage_airfoil_cd0
     else:
       return None
 
-  # requires aircraft horiz_tail_area_m2, vert_tail_area_m2
+  # requires aircraft vert_tail_area_m2
   # return None if aircraft field not populated
   def _calc_vert_tail_cd0(self):
     if self.horiz_tail_area_m2 != None and self.vert_tail_area_m2 != None:
       return (\
-       self.vert_tail_area_m2/(self.horiz_tail_area_m2+self.vert_tail_area_m2)\
+       self.vert_tail_area_m2/(self.wing_area_m2)\
        )*self.empennage_airfoil_cd0
     else:
       return None
@@ -770,7 +772,7 @@ class Aircraft:
   # return None if mission, propulsion, or environment object not populated
   def _calc_cruise_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.cruise_h_m_p_s**2.0
+      q = 0.5*self.environ.air_density_max_alt_kg_p_m3*self.mission.cruise_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
       lift_n = weight_n
       
@@ -788,16 +790,7 @@ class Aircraft:
       # total drag
       total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # horizontal accelerations
-      v0_h_m_p_s = self.mission.accel_climb_avg_h_m_p_s
-      vf_h_m_p_s = self.mission.cruise_h_m_p_s
-      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.cruise_s
-      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m) 
-
-      # force components
-      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-
-      return (force_h_n*self.mission.cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      return (total_drag_n*self.mission.cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -914,7 +907,7 @@ class Aircraft:
       a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
       # force components
-      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+      force_h_n = max(0.0, total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2)
 
       return (force_h_n*self.mission.arrive_proc_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
@@ -1054,7 +1047,7 @@ class Aircraft:
       v0_h_m_p_s = 0.0  
       vf_h_m_p_s = self.mission.arrive_taxi_avg_h_m_p_s
       d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.arrive_taxi_s
-      a_h_m_p_s2 = (vf_h_m_p_s**2.0 - v0_h_m_p_s**2.0)/(2.0*d_h_m)
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
       # horizontal force 
       force_h_n = self.max_takeoff_mass_kg*a_h_m_p_s2
@@ -1258,7 +1251,7 @@ class Aircraft:
   # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_cruise_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_cruise_h_m_p_s**2.0
+      q = 0.5*self.environ.air_density_max_alt_kg_p_m3*self.mission.reserve_cruise_h_m_p_s**2.0
       weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
       lift_n = weight_n
       
@@ -1276,16 +1269,7 @@ class Aircraft:
       # total drag
       total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # horizontal accelerations
-      v0_h_m_p_s = self.mission.reserve_accel_climb_avg_h_m_p_s
-      vf_h_m_p_s = self.mission.reserve_cruise_h_m_p_s
-      d_h_m = 0.5*(v0_h_m_p_s+vf_h_m_p_s)*self.mission.reserve_cruise_s
-      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m) 
-
-      # force components
-      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-
-      return (force_h_n*self.mission.reserve_cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      return (total_drag_n*self.mission.reserve_cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1479,6 +1463,83 @@ class Aircraft:
       S_P_HR
     else:
       return None
+
+  def _calc_total_mission_energy_kw_hr(self):
+    segments = [
+      self._depart_taxi_energy_kw_hr,
+      self._hover_climb_energy_kw_hr,
+      self._trans_climb_energy_kw_hr,
+      self._depart_proc_energy_kw_hr,
+      self._accel_climb_energy_kw_hr,
+      self._cruise_energy_kw_hr,
+      self._decel_descend_energy_kw_hr,
+      self._arrive_proc_energy_kw_hr,
+      self._trans_descend_energy_kw_hr,
+      self._hover_descend_energy_kw_hr,
+      self._arrive_taxi_energy_kw_hr,
+      self._reserve_hover_climb_energy_kw_hr,
+      self._reserve_trans_climb_energy_kw_hr,
+      self._reserve_accel_climb_energy_kw_hr,
+      self._reserve_cruise_energy_kw_hr,
+      self._reserve_decel_descend_energy_kw_hr,
+      self._reserve_trans_descend_energy_kw_hr,
+      self._reserve_hover_descend_energy_kw_hr,
+    ]
+    total_energy_kw_hr = sum(e for e in segments if e is not None)
+    if total_energy_kw_hr > 0:
+      return total_energy_kw_hr  
+    else:
+      return None
+    
+  def _calc_battery_mass_kg(self):
+    total_energy_kw_hr = self._calc_total_mission_energy_kw_hr()
+    batt_inaccessible_energy_frac = 1-self.power.batt_inaccessible_energy_frac
+    if total_energy_kw_hr != None and self.power != None:
+      return (total_energy_kw_hr*1000.0)/(self.power.batt_spec_energy_w_h_p_kg*batt_inaccessible_energy_frac)
+    else:
+        return None
+
+#   def _calc_empty_mass_kg(self):
+#     structural_mass = (
+#       self.wing_mass_kg +
+#       self.horiz_tail_mass_kg +
+#       self.vert_tail_mass_kg +
+#       self.fuselage_mass_kg +
+#       self.boom_mass_kg +
+#       self.landing_gear_mass_kg +
+#       self.epu_mass_kg +
+#       self.lift_rotor_hub_mass_kg +
+#       self.tilt_rotor_mass_kg
+#     )    
+#     subsys_mass = (
+#       self.actuator_mass_kg +
+#       self.furnishings_mass_kg +
+#       self.environmental_control_system_mass_kg +
+#       self.avionics_mass_kg +
+#       self.hivolt_power_dist_mass_kg +
+#       self.lovolt_power_coms_mass_kg
+#     )
+#     subtotal = structural_mass + subsys_mass
+#     return subtotal * (1.0 + self.mass_margin_factor)
+
+# def _iterate_mtow(self, tol=1e-3, max_iter=100):
+#     mtow_guess = self.max_takeoff_mass_kg  
+
+#     for i in range(max_iter):
+#         self.max_takeoff_mass_kg = mtow_guess  
+
+#         battery_mass = self._calc_battery_mass_kg()
+#         empty_mass = self._calc_empty_mass_kg()
+#         new_mtow = empty_mass + self.payload_kg + battery_mass
+
+#         if abs(new_mtow - mtow_guess) < tol:
+#             self.max_takeoff_mass_kg = new_mtow
+#             return new_mtow
+
+#         mtow_guess = new_mtow
+
+#     self.max_takeoff_mass_kg = mtow_guess
+#     return mtow_guess
 
   @property
   def max_takeoff_mass_kg(self):
@@ -1911,3 +1972,36 @@ class Aircraft:
   @property
   def reserve_hover_descend_energy_kw_hr(self):
     return self._reserve_hover_descend_energy_kw_hr
+
+  @property
+  def total_mission_energy_kw_hr(self):
+    return self._total_mission_energy_kw_hr
+
+
+
+# Testing
+aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energy\cfg\test-all.json')
+print("total_energy_kw_hr", aircraft._calc_total_mission_energy_kw_hr())
+print("\n")
+# Checking: Cd0 (test_aircraft.py)
+cd0_sum = 0.0
+print("fuselage", aircraft.fuselage_cd0)
+print("horiz_tail", aircraft.horiz_tail_cd0)
+print("landing_gear", aircraft.landing_gear_cd0)
+print("vert_tail", aircraft.vert_tail_cd0)
+print("cd0_sum", cd0_sum)
+print("\n")
+cd0_sum += aircraft.wing_airfoil_cd_at_cruise_cl
+cd0_sum += aircraft.stopped_rotor_cd0
+print("stopped_rotor", aircraft.stopped_rotor_cd0)
+print("wing_airfoil_cd_at_cruise_cl", aircraft.wing_airfoil_cd_at_cruise_cl)
+print("cd0_sum_cruise", cd0_sum)
+print("\n")
+print("fuselage_fineness_ratio", aircraft.fuselage_fineness_ratio)
+print("fuselage_cd0_p_cf", aircraft.fuselage_cd0_p_cf)
+print("fuselage_cruise_reynolds", aircraft.fuselage_cruise_reynolds)
+print("fuselage_cf", aircraft.fuselage_cf)
+print("wing_area", aircraft.wing_area_m2)
+print("horiz_tail_area_m2", aircraft.horiz_tail_area_m2)
+print("vert_tail_area_m2", aircraft.vert_tail_area_m2)
+print("disk_area", aircraft.propulsion.disk_area_m2)

@@ -96,6 +96,6 @@ class TestAircraft(unittest.TestCase):
     self.assertEqual(
      aircraft.propulsion,Propulsion('../sample-inputs/test-all.json')
     )
-
+    
 if __name__ == '__main__':
   unittest.main()
