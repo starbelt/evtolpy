@@ -109,19 +109,20 @@ class Aircraft:
   # requires propulsion disk_area_m2, rotor_effic
   # prop thrust momentum theory:
   #   F = change in pressure * disk area
-  #   change in pressure = 0.5 * air density * (v_e^2-v_0^2); hover means v_0=0
-  #   now F = 0.5 * air density * v_e^2 * disk area
-  #   for hover F = TOM*g: TOM*g = 0.5 * air density * v_e^2 * disk area
-  #   solve for v_e. Power = F*v = g*TOM/1 * (g*TOM)^0.5/(0.5*airdensity*A)^0.5
-  #   therefore hover shaft power in watts is given by
-  #   ((g*TOM)^1.5/(0.5*airdensity*A)^0.5)/hover_power_effic
+  #   change in pressure = 0.5 * air density * (v_e^2 - v_0^2); hover means v_0=0
+  #   so F = 0.5 * air density * v_e^2 * disk area
+  #   note: v_e is far-wake velocity, disk induced velocity is v_i = v_e/2
+  #   for hover: T = m*g = 2 * air density * disk area * v_i^2
+  #   induced power = T * v_i = (m*g)^(3/2) / sqrt(2 * air density * disk area)
+  #   therefore hover shaft power in watts is:
+  #   ((m*g)^1.5 / (2*air density*disk area)^0.5) / rotor_efficiency
   # return None if environ or propulsion object not populated
   def _calc_hover_shaft_power_kw(self):
     if self.environ != None and self.propulsion != None:
       return \
        ((
         (self.environ.g_m_p_s2*self.max_takeoff_mass_kg)**1.5/
-        (0.5*self.environ.air_density_sea_lvl_kg_p_m3*\
+        (2.0*self.environ.air_density_sea_lvl_kg_p_m3*\
          self.propulsion.disk_area_m2)**0.5
        )/self.propulsion.rotor_effic)/W_P_KW
     else:
@@ -1632,7 +1633,7 @@ class Aircraft:
     for i in range(max_iter):
       self.max_takeoff_mass_kg = mtow_guess
 
-      # recalc dependent masses on this guess
+      # recalculate dependent masses on this guess
       empty_mass_kg = self.empty_mass_kg
       battery_mass_kg = self.battery_mass_kg
       new_mtow = empty_mass_kg + self.payload_kg + battery_mass_kg
