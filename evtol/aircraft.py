@@ -88,180 +88,6 @@ class Aircraft:
     self._propulsion = None
     if 'propulsion' in ijson:
       self._propulsion = Propulsion(path_to_json)
-    # calculate initial values of derived fields
-    self._payload_mass_frac = self._calc_payload_mass_frac()
-    self._disk_loading_kg_p_m2 = self._calc_disk_loading_kg_p_m2()
-    self._hover_shaft_power_kw = self._calc_hover_shaft_power_kw()
-    self._hover_electric_power_kw = self._calc_hover_electric_power_kw()
-    self._wing_area_m2 = self._calc_wing_area_m2()
-    self._cruise_cl = self._calc_cruise_cl()
-    ## fuselage_frontal_area_m2
-    #self._fuselage_frontal_area_m2=self.fuselage_w_m*self.fuselage_h_m*math.pi
-    self._fuselage_fineness_ratio = self._calc_fuselage_fineness_ratio()
-    self._fuselage_cd0_p_cf = self._calc_fuselage_cd0_p_cf()
-    self._fuselage_cruise_reynolds = self._calc_fuselage_cruise_reynolds()
-    self._fuselage_cf = self._calc_fuselage_cf()
-    ## fuselage_cda
-    #self._fuselage_cda = None
-    #if self.fuselage_cf != None:
-    #  self._fuselage_cda = \
-    #   self.fuselage_cd0_p_cf*self.fuselage_cf*self.fuselage_frontal_area_m2
-    self._fuselage_cd0 = self._calc_fuselage_cd0()
-    self._wing_aspect_ratio = self._calc_wing_aspect_ratio()
-    self._induced_drag_cdi = self._calc_induced_drag_cdi()
-    self._wing_root_chord_m = self._calc_wing_root_chord_m()
-    self._wing_mac_m = self._calc_wing_mac_m()
-    self._horiz_tail_area_m2 = self._calc_horiz_tail_area_m2()
-    self._vert_tail_area_m2 = self._calc_vert_tail_area_m2()
-    self._horiz_tail_cd0 = self._calc_horiz_tail_cd0()
-    self._vert_tail_cd0 = self._calc_vert_tail_cd0()
-    self._landing_gear_cd0 = self._calc_landing_gear_cd0()
-    self._stopped_rotor_cd0 = self._calc_stopped_rotor_cd0()
-    self._cruise_cd = self._calc_cruise_cd()
-    self._cruise_l_p_d = self._calc_cruise_l_p_d()
-    self._total_drag_coef = self._calc_total_drag_coef()
-    self._fuselage_wetted_area_m2 = self._calc_fuselage_wetted_area_m2()
-    self._over_torque_factor = self._calc_over_torque_factor()
-    self._single_epu_mass_kg = self._calc_single_epu_mass_kg()
-    self._rotor_solidity = self._calc_rotor_solidity()
-
-    #A Ground Taxi
-    self._depart_taxi_avg_shaft_power_kw = \
-     self._calc_depart_taxi_avg_shaft_power_kw()
-    self._depart_taxi_avg_electric_power_kw = \
-     self._calc_depart_taxi_avg_electric_power_kw()
-    self._depart_taxi_energy_kw_hr = self._calc_depart_taxi_energy_kw_hr()
-
-    #B Hover Climb
-    self._hover_climb_avg_shaft_power_kw = \
-     self._calc_hover_climb_avg_shaft_power_kw()
-    self._hover_climb_avg_electric_power_kw = \
-     self._calc_hover_climb_avg_electric_power_kw()
-    self._hover_climb_energy_kw_hr = self._calc_hover_climb_energy_kw_hr()
-
-    #C Transition + Climb
-    self._trans_climb_avg_shaft_power_kw = \
-     self._calc_trans_climb_avg_shaft_power_kw()
-    self._trans_climb_avg_electric_power_kw = \
-     self._calc_trans_climb_avg_electric_power_kw()
-    self._trans_climb_energy_kw_hr = self._calc_trans_climb_energy_kw_hr()
-
-    #D Departure Terminal Procedures
-    self._depart_proc_avg_shaft_power_kw = \
-     self._calc_depart_proc_avg_shaft_power_kw()
-    self._depart_proc_avg_electric_power_kw = \
-     self._calc_depart_proc_avg_electric_power_kw()
-    self._depart_proc_energy_kw_hr = self._calc_depart_proc_energy_kw_hr()
-
-    #E Accelerate + Climb
-    self._accel_climb_avg_shaft_power_kw = \
-     self._calc_accel_climb_avg_shaft_power_kw()
-    self._accel_climb_avg_electric_power_kw = \
-     self._calc_accel_climb_avg_electric_power_kw()
-    self._accel_climb_energy_kw_hr = self._calc_accel_climb_energy_kw_hr()
-
-    #F Cruise
-    self._cruise_avg_shaft_power_kw = \
-     self._calc_cruise_avg_shaft_power_kw()
-    self._cruise_avg_electric_power_kw = \
-     self._calc_cruise_avg_electric_power_kw()
-    self._cruise_energy_kw_hr = self._calc_cruise_energy_kw_hr()
-
-    #G Decelerate + Descend
-    self._decel_descend_avg_shaft_power_kw = \
-     self._calc_decel_descend_avg_shaft_power_kw()
-    self._decel_descend_avg_electric_power_kw = \
-     self._calc_decel_descend_avg_electric_power_kw()
-    self._decel_descend_energy_kw_hr = self._calc_decel_descend_energy_kw_hr()
-
-    #H Arrival Terminal Procedures
-    self._arrive_proc_avg_shaft_power_kw = \
-     self._calc_arrive_proc_avg_shaft_power_kw()
-    self._arrive_proc_avg_electric_power_kw = \
-     self._calc_arrive_proc_avg_electric_power_kw()
-    self._arrive_proc_energy_kw_hr = self._calc_arrive_proc_energy_kw_hr()
-
-    #I Transition +  Descend
-    self._trans_descend_avg_shaft_power_kw = \
-     self._calc_trans_descend_avg_shaft_power_kw()
-    self._trans_descend_avg_electric_power_kw = \
-     self._calc_trans_descend_avg_electric_power_kw()
-    self._trans_descend_energy_kw_hr = self._calc_trans_descend_energy_kw_hr()
-
-    #J Hover Descend
-    self._hover_descend_avg_shaft_power_kw = \
-     self._calc_hover_descend_avg_shaft_power_kw()
-    self._hover_descend_avg_electric_power_kw = \
-     self._calc_hover_descend_avg_electric_power_kw()
-    self._hover_descend_energy_kw_hr = self._calc_hover_descend_energy_kw_hr()
-
-    #K Ground Taxi
-    self._arrive_taxi_avg_shaft_power_kw = \
-     self._calc_arrive_taxi_avg_shaft_power_kw()
-    self._arrive_taxi_avg_electric_power_kw = \
-     self._calc_arrive_taxi_avg_electric_power_kw()
-    self._arrive_taxi_energy_kw_hr = self._calc_arrive_taxi_energy_kw_hr()
-
-    #B' Reserve Hover Climb
-    self._reserve_hover_climb_avg_shaft_power_kw = \
-     self._calc_reserve_hover_climb_avg_shaft_power_kw()
-    self._reserve_hover_climb_avg_electric_power_kw = \
-     self._calc_reserve_hover_climb_avg_electric_power_kw()
-    self._reserve_hover_climb_energy_kw_hr = self._calc_reserve_hover_climb_energy_kw_hr()
-
-    #C' Reserve Transition Climb
-    self._reserve_trans_climb_avg_shaft_power_kw = \
-     self._calc_reserve_trans_climb_avg_shaft_power_kw()
-    self._reserve_trans_climb_avg_electric_power_kw = \
-     self._calc_reserve_trans_climb_avg_electric_power_kw()
-    self._reserve_trans_climb_energy_kw_hr = self._calc_reserve_trans_climb_energy_kw_hr()
-
-    #E' Reserve Acceleration Climb
-    self._reserve_accel_climb_avg_shaft_power_kw = \
-     self._calc_reserve_accel_climb_avg_shaft_power_kw()
-    self._reserve_accel_climb_avg_electric_power_kw = \
-     self._calc_reserve_accel_climb_avg_electric_power_kw()
-    self._reserve_accel_climb_energy_kw_hr = self._calc_reserve_accel_climb_energy_kw_hr()
-
-    #F' Reserve Cruise
-    self._reserve_cruise_avg_shaft_power_kw = \
-     self._calc_reserve_cruise_avg_shaft_power_kw()
-    self._reserve_cruise_avg_electric_power_kw = \
-     self._calc_reserve_cruise_avg_electric_power_kw()
-    self._reserve_cruise_energy_kw_hr = self._calc_reserve_cruise_energy_kw_hr()
-
-    #G' Reserve Deceleration Descend
-    self._reserve_decel_descend_avg_shaft_power_kw = \
-     self._calc_reserve_decel_descend_avg_shaft_power_kw()
-    self._reserve_decel_descend_avg_electric_power_kw = \
-     self._calc_reserve_decel_descend_avg_electric_power_kw()
-    self._reserve_decel_descend_energy_kw_hr = self._calc_reserve_decel_descend_energy_kw_hr()
-
-    #I' Reserve Transition Descend
-    self._reserve_trans_descend_avg_shaft_power_kw = \
-     self._calc_reserve_trans_descend_avg_shaft_power_kw()
-    self._reserve_trans_descend_avg_electric_power_kw = \
-     self._calc_reserve_trans_descend_avg_electric_power_kw()
-    self._reserve_trans_descend_energy_kw_hr = self._calc_reserve_trans_descend_energy_kw_hr()
-
-    #J' Reserve Hover Descend
-    self._reserve_hover_descend_avg_shaft_power_kw = \
-     self._calc_reserve_hover_descend_avg_shaft_power_kw()
-    self._reserve_hover_descend_avg_electric_power_kw = \
-     self._calc_reserve_hover_descend_avg_electric_power_kw()
-    self._reserve_hover_descend_energy_kw_hr = self._calc_reserve_hover_descend_energy_kw_hr()
-
-    # mass components
-    self._wing_mass_kg = self._calc_wing_mass_kg()
-    self._horiz_tail_mass_kg = self._calc_horiz_tail_mass_kg()
-    self._vert_tail_mass_kg = self._calc_vert_tail_mass_kg()
-    self._fuselage_mass_kg = self._calc_fuselage_mass_kg()
-    self._boom_mass_kg = self._calc_boom_mass_kg()
-    self._landing_gear_mass_kg = self._calc_landing_gear_mass_kg()
-    self._epu_mass_kg = self._calc_epu_mass_kg()
-    self._lift_rotor_hub_mass_kg = self._calc_lift_rotor_hub_mass_kg()
-    self._tilt_rotor_mass_kg = self._calc_tilt_rotor_mass_kg()
-    self._empty_mass_kg = self._calc_empty_mass_kg()
 
     # close JSON file
     ifile.close()
@@ -606,8 +432,8 @@ class Aircraft:
   # scale depart_taxi_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_depart_taxi_avg_electric_power_kw(self):
-    if self._depart_taxi_avg_shaft_power_kw != None and self.power != None:
-      return self._depart_taxi_avg_shaft_power_kw/self.power.epu_effic
+    if self.depart_taxi_avg_shaft_power_kw != None and self.power != None:
+      return self.depart_taxi_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -616,9 +442,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_depart_taxi_energy_kw_hr(self):
-    if self._depart_taxi_avg_electric_power_kw != None and self.mission != None:
+    if self.depart_taxi_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._depart_taxi_avg_electric_power_kw*self.mission.depart_taxi_s)/\
+       (self.depart_taxi_avg_electric_power_kw*self.mission.depart_taxi_s)/\
        S_P_HR
     else:
       return None
@@ -646,8 +472,8 @@ class Aircraft:
   # scale hover_climb_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_hover_climb_avg_electric_power_kw(self):
-    if self._hover_climb_avg_shaft_power_kw != None and self.power != None:
-      return self._hover_climb_avg_shaft_power_kw/self.power.epu_effic
+    if self.hover_climb_avg_shaft_power_kw != None and self.power != None:
+      return self.hover_climb_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -656,9 +482,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_hover_climb_energy_kw_hr(self):
-    if self._hover_climb_avg_electric_power_kw != None and self.mission != None:
+    if self.hover_climb_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._hover_climb_avg_electric_power_kw*self.mission.hover_climb_s)/\
+       (self.hover_climb_avg_electric_power_kw*self.mission.hover_climb_s)/\
        S_P_HR
     else:
       return None
@@ -709,8 +535,8 @@ class Aircraft:
   # scale trans_climb_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_trans_climb_avg_electric_power_kw(self):
-    if self._trans_climb_avg_shaft_power_kw != None and self.power != None:
-      return self._trans_climb_avg_shaft_power_kw/self.power.epu_effic
+    if self.trans_climb_avg_shaft_power_kw != None and self.power != None:
+      return self.trans_climb_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -719,9 +545,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_trans_climb_energy_kw_hr(self):
-    if self._trans_climb_avg_electric_power_kw != None and self.mission != None:
+    if self.trans_climb_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._trans_climb_avg_electric_power_kw*self.mission.trans_climb_s)/\
+       (self.trans_climb_avg_electric_power_kw*self.mission.trans_climb_s)/\
        S_P_HR
     else:
       return None
@@ -760,8 +586,8 @@ class Aircraft:
   # scale depart_proc_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_depart_proc_avg_electric_power_kw(self):
-    if self._depart_proc_avg_shaft_power_kw != None and self.power != None:
-      return self._depart_proc_avg_shaft_power_kw/self.power.epu_effic
+    if self.depart_proc_avg_shaft_power_kw != None and self.power != None:
+      return self.depart_proc_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -770,8 +596,8 @@ class Aircraft:
   # calculate total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_depart_proc_energy_kw_hr(self):
-    if self._depart_proc_avg_electric_power_kw != None and self.mission != None:
-      return (self._depart_proc_avg_electric_power_kw*self.mission.depart_proc_s)/S_P_HR
+    if self.depart_proc_avg_electric_power_kw != None and self.mission != None:
+      return (self.depart_proc_avg_electric_power_kw*self.mission.depart_proc_s)/S_P_HR
     else:
       return None
 
@@ -823,8 +649,8 @@ class Aircraft:
   # scale accel_climb_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_accel_climb_avg_electric_power_kw(self):
-    if self._accel_climb_avg_shaft_power_kw != None and self.power != None:
-      return self._accel_climb_avg_shaft_power_kw/self.power.epu_effic
+    if self.accel_climb_avg_shaft_power_kw != None and self.power != None:
+      return self.accel_climb_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -833,9 +659,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_accel_climb_energy_kw_hr(self):
-    if self._accel_climb_avg_electric_power_kw != None and self.mission != None:
+    if self.accel_climb_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._accel_climb_avg_electric_power_kw*self.mission.accel_climb_s)/\
+       (self.accel_climb_avg_electric_power_kw*self.mission.accel_climb_s)/\
        S_P_HR
     else:
       return None
@@ -885,9 +711,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_cruise_energy_kw_hr(self):
-    if self._cruise_avg_electric_power_kw != None and self.mission != None:
+    if self.cruise_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._cruise_avg_electric_power_kw*self.mission.cruise_s)/\
+       (self.cruise_avg_electric_power_kw*self.mission.cruise_s)/\
        S_P_HR
     else:
       return None
@@ -940,8 +766,8 @@ class Aircraft:
   # scale decel_descend_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_decel_descend_avg_electric_power_kw(self):
-    if self._decel_descend_avg_shaft_power_kw != None and self.power != None:
-      return self._decel_descend_avg_shaft_power_kw/self.power.epu_effic
+    if self.decel_descend_avg_shaft_power_kw != None and self.power != None:
+      return self.decel_descend_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -950,9 +776,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_decel_descend_energy_kw_hr(self):
-    if self._decel_descend_avg_electric_power_kw != None and self.mission != None:
+    if self.decel_descend_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._decel_descend_avg_electric_power_kw*self.mission.decel_descend_s)/\
+       (self.decel_descend_avg_electric_power_kw*self.mission.decel_descend_s)/\
        S_P_HR
     else:
       return None
@@ -991,8 +817,8 @@ class Aircraft:
   # scale arrive_proc_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_arrive_proc_avg_electric_power_kw(self):
-    if self._arrive_proc_avg_shaft_power_kw != None and self.power != None:
-      return self._arrive_proc_avg_shaft_power_kw/self.power.epu_effic
+    if self.arrive_proc_avg_shaft_power_kw != None and self.power != None:
+      return self.arrive_proc_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -1001,8 +827,8 @@ class Aircraft:
   # calculate total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_arrive_proc_energy_kw_hr(self):
-    if self._arrive_proc_avg_electric_power_kw != None and self.mission != None:
-      return (self._arrive_proc_avg_electric_power_kw*self.mission.arrive_proc_s)/S_P_HR
+    if self.arrive_proc_avg_electric_power_kw != None and self.mission != None:
+      return (self.arrive_proc_avg_electric_power_kw*self.mission.arrive_proc_s)/S_P_HR
     else:
       return None
 
@@ -1054,8 +880,8 @@ class Aircraft:
   # scale trans_descend_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_trans_descend_avg_electric_power_kw(self):
-    if self._trans_descend_avg_shaft_power_kw != None and self.power != None:
-      return self._trans_descend_avg_shaft_power_kw/self.power.epu_effic
+    if self.trans_descend_avg_shaft_power_kw != None and self.power != None:
+      return self.trans_descend_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -1064,9 +890,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_trans_descend_energy_kw_hr(self):
-    if self._trans_descend_avg_electric_power_kw != None and self.mission != None:
+    if self.trans_descend_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._trans_descend_avg_electric_power_kw*self.mission.trans_descend_s)/\
+       (self.trans_descend_avg_electric_power_kw*self.mission.trans_descend_s)/\
        S_P_HR
     else:
       return None
@@ -1096,8 +922,8 @@ class Aircraft:
   # scale hover_descend_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_hover_descend_avg_electric_power_kw(self):
-    if self._hover_descend_avg_shaft_power_kw != None and self.power != None:
-      return self._hover_descend_avg_shaft_power_kw/self.power.epu_effic
+    if self.hover_descend_avg_shaft_power_kw != None and self.power != None:
+      return self.hover_descend_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -1106,9 +932,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_hover_descend_energy_kw_hr(self):
-    if self._hover_descend_avg_electric_power_kw != None and self.mission != None:
+    if self.hover_descend_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._hover_descend_avg_electric_power_kw*self.mission.hover_descend_s)/\
+       (self.hover_descend_avg_electric_power_kw*self.mission.hover_descend_s)/\
        S_P_HR
     else:
       return None
@@ -1138,8 +964,8 @@ class Aircraft:
   # scale arrive_taxi_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_arrive_taxi_avg_electric_power_kw(self):
-    if self._arrive_taxi_avg_shaft_power_kw != None and self.power != None:
-      return self._arrive_taxi_avg_shaft_power_kw/self.power.epu_effic
+    if self.arrive_taxi_avg_shaft_power_kw != None and self.power != None:
+      return self.arrive_taxi_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -1148,9 +974,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_arrive_taxi_energy_kw_hr(self):
-    if self._arrive_taxi_avg_electric_power_kw != None and self.mission != None:
+    if self.arrive_taxi_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._arrive_taxi_avg_electric_power_kw*self.mission.arrive_taxi_s)/\
+       (self.arrive_taxi_avg_electric_power_kw*self.mission.arrive_taxi_s)/\
        S_P_HR
     else:
       return None
@@ -1177,8 +1003,8 @@ class Aircraft:
   # scale reserve_hover_climb_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_reserve_hover_climb_avg_electric_power_kw(self):
-    if self._reserve_hover_climb_avg_shaft_power_kw != None and self.power != None:
-      return self._reserve_hover_climb_avg_shaft_power_kw/self.power.epu_effic
+    if self.reserve_hover_climb_avg_shaft_power_kw != None and self.power != None:
+      return self.reserve_hover_climb_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
       
@@ -1187,9 +1013,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_reserve_hover_climb_energy_kw_hr(self):
-    if self._reserve_hover_climb_avg_electric_power_kw != None and self.mission != None:
+    if self.reserve_hover_climb_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._reserve_hover_climb_avg_electric_power_kw*self.mission.reserve_hover_climb_s)/\
+       (self.reserve_hover_climb_avg_electric_power_kw*self.mission.reserve_hover_climb_s)/\
        S_P_HR
     else:
       return None
@@ -1239,8 +1065,8 @@ class Aircraft:
   # scale reserve_trans_climb_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_reserve_trans_climb_avg_electric_power_kw(self):
-    if self._reserve_trans_climb_avg_shaft_power_kw != None and self.power != None:
-      return self._reserve_trans_climb_avg_shaft_power_kw/self.power.epu_effic
+    if self.reserve_trans_climb_avg_shaft_power_kw != None and self.power != None:
+      return self.reserve_trans_climb_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -1249,9 +1075,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_reserve_trans_climb_energy_kw_hr(self):
-    if self._reserve_trans_climb_avg_electric_power_kw != None and self.mission != None:
+    if self.reserve_trans_climb_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._reserve_trans_climb_avg_electric_power_kw*self.mission.reserve_trans_climb_s)/\
+       (self.reserve_trans_climb_avg_electric_power_kw*self.mission.reserve_trans_climb_s)/\
        S_P_HR
     else:
       return None
@@ -1300,8 +1126,8 @@ class Aircraft:
   # scale reserve_accel_climb_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_reserve_accel_climb_avg_electric_power_kw(self):
-    if self._reserve_accel_climb_avg_shaft_power_kw != None and self.power != None:
-      return self._reserve_accel_climb_avg_shaft_power_kw/self.power.epu_effic
+    if self.reserve_accel_climb_avg_shaft_power_kw != None and self.power != None:
+      return self.reserve_accel_climb_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -1310,9 +1136,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_reserve_accel_climb_energy_kw_hr(self):
-    if self._reserve_accel_climb_avg_electric_power_kw != None and self.mission != None:
+    if self.reserve_accel_climb_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._reserve_accel_climb_avg_electric_power_kw*self.mission.reserve_accel_climb_s)/\
+       (self.reserve_accel_climb_avg_electric_power_kw*self.mission.reserve_accel_climb_s)/\
        S_P_HR
     else:
       return None
@@ -1361,9 +1187,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_reserve_cruise_energy_kw_hr(self):
-    if self._reserve_cruise_avg_electric_power_kw != None and self.mission != None:
+    if self.reserve_cruise_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._reserve_cruise_avg_electric_power_kw*self.mission.reserve_cruise_s)/\
+       (self.reserve_cruise_avg_electric_power_kw*self.mission.reserve_cruise_s)/\
        S_P_HR
     else:
       return None
@@ -1415,8 +1241,8 @@ class Aircraft:
   # scale reserve_decel_descend_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_reserve_decel_descend_avg_electric_power_kw(self):
-    if self._reserve_decel_descend_avg_shaft_power_kw != None and self.power != None:
-      return self._reserve_decel_descend_avg_shaft_power_kw/self.power.epu_effic
+    if self.reserve_decel_descend_avg_shaft_power_kw != None and self.power != None:
+      return self.reserve_decel_descend_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -1425,9 +1251,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_reserve_decel_descend_energy_kw_hr(self):
-    if self._reserve_decel_descend_avg_electric_power_kw != None and self.mission != None:
+    if self.reserve_decel_descend_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._reserve_decel_descend_avg_electric_power_kw*self.mission.reserve_decel_descend_s)/\
+       (self.reserve_decel_descend_avg_electric_power_kw*self.mission.reserve_decel_descend_s)/\
        S_P_HR
     else:
       return None
@@ -1479,8 +1305,8 @@ class Aircraft:
   # scale reserve_trans_descend_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_reserve_trans_descend_avg_electric_power_kw(self):
-    if self._reserve_trans_descend_avg_shaft_power_kw != None and self.power != None:
-      return self._reserve_trans_descend_avg_shaft_power_kw / self.power.epu_effic
+    if self.reserve_trans_descend_avg_shaft_power_kw != None and self.power != None:
+      return self.reserve_trans_descend_avg_shaft_power_kw / self.power.epu_effic
     else:
       return None
 
@@ -1489,9 +1315,9 @@ class Aircraft:
   # calculate the total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_reserve_trans_descend_energy_kw_hr(self):
-    if self._reserve_trans_descend_avg_electric_power_kw != None and self.mission != None:
+    if self.reserve_trans_descend_avg_electric_power_kw != None and self.mission != None:
       return \
-       (self._reserve_trans_descend_avg_electric_power_kw * self.mission.reserve_trans_descend_s) / \
+       (self.reserve_trans_descend_avg_electric_power_kw * self.mission.reserve_trans_descend_s) / \
        S_P_HR
     else:
       return None
@@ -1520,8 +1346,8 @@ class Aircraft:
   # scale reserve_hover_descend_avg_shaft_power_kw by epu_effic
   # return None if aircraft field or power object not populated
   def _calc_reserve_hover_descend_avg_electric_power_kw(self):
-    if self._reserve_hover_descend_avg_shaft_power_kw != None and self.power != None:
-      return self._reserve_hover_descend_avg_shaft_power_kw/self.power.epu_effic
+    if self.reserve_hover_descend_avg_shaft_power_kw != None and self.power != None:
+      return self.reserve_hover_descend_avg_shaft_power_kw/self.power.epu_effic
     else:
       return None
 
@@ -1530,9 +1356,9 @@ class Aircraft:
   # calculate total energy and convert to kW*hr
   # return None if aircraft field or power object not populated
   def _calc_reserve_hover_descend_energy_kw_hr(self):
-    if self._reserve_hover_descend_avg_electric_power_kw != None and self.mission != None:
+    if self.reserve_hover_descend_avg_electric_power_kw != None and self.mission != None:
       return \
-      (self._reserve_hover_descend_avg_electric_power_kw*self.mission.reserve_hover_descend_s)/\
+      (self.reserve_hover_descend_avg_electric_power_kw*self.mission.reserve_hover_descend_s)/\
       S_P_HR
     else:
       return None
@@ -1540,24 +1366,24 @@ class Aircraft:
   # calculates total energy required for the mission
   def _calc_total_mission_energy_kw_hr(self):
     segments = [
-      self._depart_taxi_energy_kw_hr,
-      self._hover_climb_energy_kw_hr,
-      self._trans_climb_energy_kw_hr,
-      self._depart_proc_energy_kw_hr,
-      self._accel_climb_energy_kw_hr,
-      self._cruise_energy_kw_hr,
-      self._decel_descend_energy_kw_hr,
-      self._arrive_proc_energy_kw_hr,
-      self._trans_descend_energy_kw_hr,
-      self._hover_descend_energy_kw_hr,
-      self._arrive_taxi_energy_kw_hr,
-      self._reserve_hover_climb_energy_kw_hr,
-      self._reserve_trans_climb_energy_kw_hr,
-      self._reserve_accel_climb_energy_kw_hr,
-      self._reserve_cruise_energy_kw_hr,
-      self._reserve_decel_descend_energy_kw_hr,
-      self._reserve_trans_descend_energy_kw_hr,
-      self._reserve_hover_descend_energy_kw_hr,
+      self.depart_taxi_energy_kw_hr,
+      self.hover_climb_energy_kw_hr,
+      self.trans_climb_energy_kw_hr,
+      self.depart_proc_energy_kw_hr,
+      self.accel_climb_energy_kw_hr,
+      self.cruise_energy_kw_hr,
+      self.decel_descend_energy_kw_hr,
+      self.arrive_proc_energy_kw_hr,
+      self.trans_descend_energy_kw_hr,
+      self.hover_descend_energy_kw_hr,
+      self.arrive_taxi_energy_kw_hr,
+      self.reserve_hover_climb_energy_kw_hr,
+      self.reserve_trans_climb_energy_kw_hr,
+      self.reserve_accel_climb_energy_kw_hr,
+      self.reserve_cruise_energy_kw_hr,
+      self.reserve_decel_descend_energy_kw_hr,
+      self.reserve_trans_descend_energy_kw_hr,
+      self.reserve_hover_descend_energy_kw_hr,
     ]
     total_energy_kw_hr = sum(e for e in segments if e is not None)
     if total_energy_kw_hr > 0:
@@ -1783,11 +1609,11 @@ class Aircraft:
       self.fuselage_mass_kg +
       self.boom_mass_kg +
       self.landing_gear_mass_kg +
-      self.epu_mass_kg +
       self.lift_rotor_hub_mass_kg +
       self.tilt_rotor_mass_kg
-    )    
+    )
     subsys_mass = (
+      self.epu_mass_kg +
       self.actuator_mass_kg +
       self.furnishings_mass_kg +
       self.environmental_control_system_mass_kg +
@@ -1798,28 +1624,48 @@ class Aircraft:
     subtotal = structural_mass + subsys_mass
     return subtotal * (1.0 + self.mass_margin_factor)
 
+  # iterate Maximum Takeoff Weight (MTOW) until convergence
   def _iterate_mtow(self, tol=1e-3, max_iter=100):
-    mtow_guess = self.max_takeoff_mass_kg  
+    mtow_guess = self.max_takeoff_mass_kg
+    history = []
 
     for i in range(max_iter):
-        self.max_takeoff_mass_kg = mtow_guess  
+      self.max_takeoff_mass_kg = mtow_guess
 
-        battery_mass = self._calc_battery_mass_kg()
-        empty_mass = self._calc_empty_mass_kg()
-        new_mtow = empty_mass + self.payload_kg + battery_mass
+      # recalc dependent masses on this guess
+      empty_mass_kg = self.empty_mass_kg
+      battery_mass_kg = self.battery_mass_kg
+      new_mtow = empty_mass_kg + self.payload_kg + battery_mass_kg
 
-        if abs(new_mtow - mtow_guess) < tol:
-            self.max_takeoff_mass_kg = new_mtow
-            return new_mtow
+      delta = new_mtow - mtow_guess
 
-        mtow_guess = new_mtow
+      # store iteration data
+      history.append({
+          "iteration": i,
+          "mtow_guess_kg": mtow_guess,
+          "new_mtow_kg": new_mtow,
+          "delta_kg": delta,
+          "empty_mass_kg": empty_mass_kg,
+          "battery_mass_kg": battery_mass_kg,
+          "payload_mass_kg": self.payload_kg,
+      })
 
+      if abs(delta) < tol:
+        self.max_takeoff_mass_kg = new_mtow
+        return new_mtow, history
+      
+      mtow_guess = new_mtow
+    
     self.max_takeoff_mass_kg = mtow_guess
-    return mtow_guess
+    return mtow_guess, history
 
   @property
   def max_takeoff_mass_kg(self):
     return self._max_takeoff_mass_kg
+  
+  @max_takeoff_mass_kg.setter
+  def max_takeoff_mass_kg(self, value):
+    self._max_takeoff_mass_kg = value
 
   @property
   def payload_kg(self):
@@ -1943,35 +1789,35 @@ class Aircraft:
 
   @property
   def hover_shaft_power_kw(self):
-    return self._hover_shaft_power_kw
+    return self._calc_hover_shaft_power_kw()
 
   @property
   def wing_area_m2(self):
-    return self._wing_area_m2
- 
+    return self._calc_wing_area_m2()
+
   @property
   def cruise_cl(self):
-    return self._cruise_cl
-
+    return self._calc_cruise_cl()
+  
   #@property
   #def fuselage_frontal_area_m2(self):
   #  return self._fuselage_frontal_area_m2
 
   @property
   def fuselage_fineness_ratio(self):
-    return self._fuselage_fineness_ratio
+    return self._calc_fuselage_fineness_ratio()
 
   @property
   def fuselage_cd0_p_cf(self):
-    return self._fuselage_cd0_p_cf
+    return self._calc_fuselage_cd0_p_cf()
 
   @property
   def fuselage_cruise_reynolds(self):
-    return self._fuselage_cruise_reynolds
+    return self._calc_fuselage_cruise_reynolds()
 
   @property
   def fuselage_cf(self):
-    return self._fuselage_cf
+    return self._calc_fuselage_cf()
 
   #@property
   #def fuselage_cda(self):
@@ -1979,293 +1825,291 @@ class Aircraft:
 
   @property
   def fuselage_cd0(self):
-    return self._fuselage_cd0
+    return self._calc_fuselage_cd0()
 
   @property
   def wing_aspect_ratio(self):
-    return self._wing_aspect_ratio
+    return self._calc_wing_aspect_ratio()
 
   @property
   def induced_drag_cdi(self):
-    return self._induced_drag_cdi
+    return self._calc_induced_drag_cdi()
 
   @property
   def wing_root_chord_m(self):
-    return self._wing_root_chord_m
+    return self._calc_wing_root_chord_m()
 
   @property
   def wing_mac_m(self):
-    return self._wing_mac_m
+    return self._calc_wing_mac_m()
 
   @property
   def horiz_tail_area_m2(self):
-    return self._horiz_tail_area_m2
+    return self._calc_horiz_tail_area_m2()
 
   @property
   def vert_tail_area_m2(self):
-    return self._vert_tail_area_m2
+    return self._calc_vert_tail_area_m2()
 
   @property
   def horiz_tail_cd0(self):
-    return self._horiz_tail_cd0
+    return self._calc_horiz_tail_cd0()
 
   @property
   def vert_tail_cd0(self):
-    return self._vert_tail_cd0
+    return self._calc_vert_tail_cd0()
 
   @property
   def landing_gear_cd0(self):
-    return self._landing_gear_cd0
+    return self._calc_landing_gear_cd0()
 
   @property
   def stopped_rotor_cd0(self):
-    return self._stopped_rotor_cd0
+    return self._calc_stopped_rotor_cd0()
 
   @property
   def cruise_cd(self):
-    return self._cruise_cd
+    return self._calc_cruise_cd()
 
   @property
   def cruise_l_p_d(self):
-    return self._cruise_l_p_d
-  
+    return self._calc_cruise_l_p_d()
+
   @property
   def total_drag_coef(self):
-    return self._total_drag_coef
-  
-  @property
-  def fuselage_wetted_area_m2(self):
-    return self._fuselage_wetted_area_m2
-  
-  @property
-  def over_torque_factor(self):
-    return self._over_torque_factor
+    return self._calc_total_drag_coef()
     
   @property
+  def fuselage_wetted_area_m2(self):
+    return self._calc_fuselage_wetted_area_m2()
+
+  @property
+  def over_torque_factor(self):
+    return self._calc_over_torque_factor()
+
+  @property
   def single_epu_mass_kg(self):
-    return self._single_epu_mass_kg
+    return self._calc_single_epu_mass_kg()
 
   @property
   def rotor_solidity(self):
-    return self._rotor_solidity
+    return self._calc_rotor_solidity()
 
   @property
   def depart_taxi_avg_shaft_power_kw(self):
-    return self._depart_taxi_avg_shaft_power_kw
+    return self._calc_depart_taxi_avg_shaft_power_kw()
 
   @property
   def depart_taxi_avg_electric_power_kw(self):
-    return self._depart_taxi_avg_electric_power_kw
+    return self._calc_depart_taxi_avg_electric_power_kw()
 
   @property
   def depart_taxi_energy_kw_hr(self):
-    return self._depart_taxi_energy_kw_hr
+    return self._calc_depart_taxi_energy_kw_hr()
 
   @property
   def hover_climb_avg_shaft_power_kw(self):
-    return self._hover_climb_avg_shaft_power_kw
-  
+    return self._calc_hover_climb_avg_shaft_power_kw()
+
   @property
   def hover_climb_avg_electric_power_kw(self):
-    return self._hover_climb_avg_electric_power_kw
-  
+    return self._calc_hover_climb_avg_electric_power_kw()
+
   @property
   def hover_climb_energy_kw_hr(self):
-    return self._hover_climb_energy_kw_hr
+    return self._calc_hover_climb_energy_kw_hr()
     
   @property
   def trans_climb_avg_shaft_power_kw(self):
-    return self._trans_climb_avg_shaft_power_kw
+    return self._calc_trans_climb_avg_shaft_power_kw()
   
   @property
   def trans_climb_avg_electric_power_kw(self):
-    return self._trans_climb_avg_electric_power_kw
+    return self._calc_trans_climb_avg_electric_power_kw()
   
   @property
   def trans_climb_energy_kw_hr(self):
-    return self._trans_climb_energy_kw_hr
+    return self._calc_trans_climb_energy_kw_hr()
 
   @property
   def depart_proc_avg_shaft_power_kw(self):
-    return self._depart_proc_avg_shaft_power_kw
+    return self._calc_depart_proc_avg_shaft_power_kw()
   
   @property
   def depart_proc_avg_electric_power_kw(self):
-    return self._depart_proc_avg_electric_power_kw
+    return self._calc_depart_proc_avg_electric_power_kw()
   
   @property
   def depart_proc_energy_kw_hr(self):
-    return self._depart_proc_energy_kw_hr
+    return self._calc_depart_proc_energy_kw_hr()
 
   @property
   def accel_climb_avg_shaft_power_kw(self):
-    return self._accel_climb_avg_shaft_power_kw
+    return self._calc_accel_climb_avg_shaft_power_kw()
   
   @property
   def accel_climb_avg_electric_power_kw(self):
-    return self._accel_climb_avg_electric_power_kw
+    return self._calc_accel_climb_avg_electric_power_kw()
   
   @property
   def accel_climb_energy_kw_hr(self):
-    return self._accel_climb_energy_kw_hr
+    return self._calc_accel_climb_energy_kw_hr()
 
   @property
   def cruise_avg_shaft_power_kw(self):
-    return self._cruise_avg_shaft_power_kw
+    return self._calc_cruise_avg_shaft_power_kw()
   
   @property
   def cruise_avg_electric_power_kw(self):
-    return self._cruise_avg_electric_power_kw
+    return self._calc_cruise_avg_electric_power_kw()
 
   @property
   def cruise_energy_kw_hr(self):
-    return self._cruise_energy_kw_hr
+    return self._calc_cruise_energy_kw_hr()
   
   @property
   def decel_descend_avg_shaft_power_kw(self):
-    return self._decel_descend_avg_shaft_power_kw
+    return self._calc_decel_descend_avg_shaft_power_kw()
   
   @property
   def decel_descend_avg_electric_power_kw(self):
-    return self._decel_descend_avg_electric_power_kw
+    return self._calc_decel_descend_avg_electric_power_kw()
 
   @property
   def decel_descend_energy_kw_hr(self):
-    return self._decel_descend_energy_kw_hr
+    return self._calc_decel_descend_energy_kw_hr()
     
   @property
   def arrive_proc_avg_shaft_power_kw(self):
-    return self._arrive_proc_avg_shaft_power_kw
+    return self._calc_arrive_proc_avg_shaft_power_kw()
   
   @property
   def arrive_proc_avg_electric_power_kw(self):
-    return self._arrive_proc_avg_electric_power_kw
+    return self._calc_arrive_proc_avg_electric_power_kw()
 
   @property
   def arrive_proc_energy_kw_hr(self):
-    return self._arrive_proc_energy_kw_hr
+    return self._calc_arrive_proc_energy_kw_hr()
   
   @property
   def trans_descend_avg_shaft_power_kw(self):
-    return self._trans_descend_avg_shaft_power_kw
+    return self._calc_trans_descend_avg_shaft_power_kw()
   
   @property
   def trans_descend_avg_electric_power_kw(self):
-    return self._trans_descend_avg_electric_power_kw
+    return self._calc_trans_descend_avg_electric_power_kw()
 
   @property
   def trans_descend_energy_kw_hr(self):
-    return self._trans_descend_energy_kw_hr
+    return self._calc_trans_descend_energy_kw_hr()
 
   @property
   def hover_descend_avg_shaft_power_kw(self):
-    return self._hover_descend_avg_shaft_power_kw
+    return self._calc_hover_descend_avg_shaft_power_kw()
   
   @property
   def hover_descend_avg_electric_power_kw(self):
-    return self._hover_descend_avg_electric_power_kw
+    return self._calc_hover_descend_avg_electric_power_kw()
 
   @property
   def hover_descend_energy_kw_hr(self):
-    return self._hover_descend_energy_kw_hr
+    return self._calc_hover_descend_energy_kw_hr()
   
   @property
   def arrive_taxi_avg_shaft_power_kw(self):
-    return self._arrive_taxi_avg_shaft_power_kw
+    return self._calc_arrive_taxi_avg_shaft_power_kw()
   
   @property
   def arrive_taxi_avg_electric_power_kw(self):
-    return self._arrive_taxi_avg_electric_power_kw
-
+    return self._calc_arrive_taxi_avg_electric_power_kw()
+  
   @property
   def arrive_taxi_energy_kw_hr(self):
-    return self._arrive_taxi_energy_kw_hr
+    return self._calc_arrive_taxi_energy_kw_hr()
 
   @property
   def reserve_hover_climb_avg_shaft_power_kw(self):
-    return self._reserve_hover_climb_avg_shaft_power_kw
+    return self._calc_reserve_hover_climb_avg_shaft_power_kw()
   
   @property
   def reserve_hover_climb_avg_electric_power_kw(self):
-    return self._reserve_hover_climb_avg_electric_power_kw
+    return self._calc_reserve_hover_climb_avg_electric_power_kw()
 
   @property
   def reserve_hover_climb_energy_kw_hr(self):
-    return self._reserve_hover_climb_energy_kw_hr
+    return self._calc_reserve_hover_climb_energy_kw_hr()
 
   @property
   def reserve_trans_climb_avg_shaft_power_kw(self):
-    return self._reserve_trans_climb_avg_shaft_power_kw
+    return self._calc_reserve_trans_climb_avg_shaft_power_kw()
   
   @property
   def reserve_trans_climb_avg_electric_power_kw(self):
-    return self._reserve_trans_climb_avg_electric_power_kw
+    return self._calc_reserve_trans_climb_avg_electric_power_kw()
 
   @property
   def reserve_trans_climb_energy_kw_hr(self):
-    return self._reserve_trans_climb_energy_kw_hr
+    return self._calc_reserve_trans_climb_energy_kw_hr()
   
   @property
   def reserve_accel_climb_avg_shaft_power_kw(self):
-    return self._reserve_accel_climb_avg_shaft_power_kw
+    return self._calc_reserve_accel_climb_avg_shaft_power_kw()
   
   @property
   def reserve_accel_climb_avg_electric_power_kw(self):
-    return self._reserve_accel_climb_avg_electric_power_kw
+    return self._calc_reserve_accel_climb_avg_electric_power_kw()
 
   @property
   def reserve_accel_climb_energy_kw_hr(self):
-    return self._reserve_accel_climb_energy_kw_hr
+    return self._calc_reserve_accel_climb_energy_kw_hr()
   
   @property
   def reserve_cruise_avg_shaft_power_kw(self):
-    return self._reserve_cruise_avg_shaft_power_kw
+    return self._calc_reserve_cruise_avg_shaft_power_kw()
   
   @property
   def reserve_cruise_avg_electric_power_kw(self):
-    return self._reserve_cruise_avg_electric_power_kw
+    return self._calc_reserve_cruise_avg_electric_power_kw()
 
   @property
   def reserve_cruise_energy_kw_hr(self):
-    return self._reserve_cruise_energy_kw_hr
+    return self._calc_reserve_cruise_energy_kw_hr()
 
   @property
   def reserve_decel_descend_avg_shaft_power_kw(self):
-    return self._reserve_decel_descend_avg_shaft_power_kw
+    return self._calc_reserve_decel_descend_avg_shaft_power_kw()
   
   @property
   def reserve_decel_descend_avg_electric_power_kw(self):
-    return self._reserve_decel_descend_avg_electric_power_kw
+    return self._calc_reserve_decel_descend_avg_electric_power_kw()
 
   @property
   def reserve_decel_descend_energy_kw_hr(self):
-    return self._reserve_decel_descend_energy_kw_hr
+    return self._calc_reserve_decel_descend_energy_kw_hr()
 
   @property
   def reserve_trans_descend_avg_shaft_power_kw(self):
-    return self._reserve_trans_descend_avg_shaft_power_kw
-  
+    return self._calc_reserve_trans_descend_avg_shaft_power_kw()
+
   @property
   def reserve_trans_descend_avg_electric_power_kw(self):
-    return self._reserve_trans_descend_avg_electric_power_kw
+    return self._calc_reserve_trans_descend_avg_electric_power_kw()
 
   @property
   def reserve_trans_descend_energy_kw_hr(self):
-    return self._reserve_trans_descend_energy_kw_hr
-    
+    return self._calc_reserve_trans_descend_energy_kw_hr()
+
   @property
   def reserve_hover_descend_avg_shaft_power_kw(self):
-    return self._reserve_hover_descend_avg_shaft_power_kw
-  
+    return self._calc_reserve_hover_descend_avg_shaft_power_kw()
+
   @property
   def reserve_hover_descend_avg_electric_power_kw(self):
-    return self._reserve_hover_descend_avg_electric_power_kw
+    return self._calc_reserve_hover_descend_avg_electric_power_kw()
 
   @property
   def reserve_hover_descend_energy_kw_hr(self):
-    return self._reserve_hover_descend_energy_kw_hr
-
-
+    return self._calc_reserve_hover_descend_energy_kw_hr()
 
   @property
   def total_mission_energy_kw_hr(self):
@@ -2277,47 +2121,46 @@ class Aircraft:
 
   @property
   def wing_mass_kg(self):
-    return self._wing_mass_kg
+    return self._calc_wing_mass_kg()
 
   @property
   def horiz_tail_mass_kg(self):
-    return self._horiz_tail_mass_kg
+    return self._calc_horiz_tail_mass_kg()
 
   @property
   def vert_tail_mass_kg(self):
-    return self._vert_tail_mass_kg
+    return self._calc_vert_tail_mass_kg()
 
   @property
   def fuselage_mass_kg(self):
-    return self._fuselage_mass_kg
+    return self._calc_fuselage_mass_kg()
 
   @property
   def boom_mass_kg(self):
-    return self._boom_mass_kg
+    return self._calc_boom_mass_kg()
 
   @property
   def landing_gear_mass_kg(self):
-    return self._landing_gear_mass_kg
+    return self._calc_landing_gear_mass_kg()
 
   @property
   def epu_mass_kg(self):
-    return self._epu_mass_kg
+    return self._calc_epu_mass_kg()
 
   @property
   def lift_rotor_hub_mass_kg(self):
-    return self._lift_rotor_hub_mass_kg
+    return self._calc_lift_rotor_hub_mass_kg()
 
   @property
   def tilt_rotor_mass_kg(self):
-    return self._tilt_rotor_mass_kg
+    return self._calc_tilt_rotor_mass_kg()
 
   @property
   def empty_mass_kg(self):
-    return self._empty_mass_kg
+    return self._calc_empty_mass_kg()
 
-
-# TESTING
-aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energy\cfg\test-all.json')
+# # TESTING
+# aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energy\cfg\test-all.json')
 
 # print("fuselage_wetted_area_m2", aircraft._calc_fuselage_wetted_area_m2())
 # print("single_epu_mass_kg", aircraft._calc_single_epu_mass_kg())
@@ -2328,20 +2171,20 @@ aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energ
 # print("total_energy_kw_hr", aircraft._calc_total_mission_energy_kw_hr())
 # print("\n")
 
-# Components mass
-print("battery_mass_kg", aircraft._calc_battery_mass_kg())
-print("wing_mass_kg", aircraft._calc_wing_mass_kg())
-print("horiz_tail_mass_kg", aircraft._calc_horiz_tail_mass_kg())
-print("vert_tail_mass_kg", aircraft._calc_vert_tail_mass_kg())
-print("fuselage_mass_kg", aircraft._calc_fuselage_mass_kg())
+# # Components mass
+# print("battery_mass_kg", aircraft._calc_battery_mass_kg())
+# print("wing_mass_kg", aircraft._calc_wing_mass_kg())
+# print("horiz_tail_mass_kg", aircraft._calc_horiz_tail_mass_kg())
+# print("vert_tail_mass_kg", aircraft._calc_vert_tail_mass_kg())
+# print("fuselage_mass_kg", aircraft._calc_fuselage_mass_kg())
 
-print("boom_mass_kg", aircraft._calc_boom_mass_kg())
-print("landing_gear_mass_kg", aircraft._calc_landing_gear_mass_kg())
-print("epu_mass_kg", aircraft._calc_epu_mass_kg())
-print("lift_rotor_hub_mass_kg", aircraft._calc_lift_rotor_hub_mass_kg())
-print("tilt_rotor_mass_kg", aircraft._calc_tilt_rotor_mass_kg())
-print("empty_mass_kg", aircraft._calc_empty_mass_kg())
-print("\n")
+# print("boom_mass_kg", aircraft._calc_boom_mass_kg())
+# print("landing_gear_mass_kg", aircraft._calc_landing_gear_mass_kg())
+# print("epu_mass_kg", aircraft._calc_epu_mass_kg())
+# print("lift_rotor_hub_mass_kg", aircraft._calc_lift_rotor_hub_mass_kg())
+# print("tilt_rotor_mass_kg", aircraft._calc_tilt_rotor_mass_kg())
+# print("empty_mass_kg", aircraft._calc_empty_mass_kg())
+# print("\n")
 
 # # Checking: Cd0
 # cd0_sum = 0.0
