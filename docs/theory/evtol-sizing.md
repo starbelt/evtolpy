@@ -72,10 +72,10 @@ By integrating electric power over the mission segment duration.
 General equation (*applied for all energy segments calculation*):  
 
 $$
-E = \frac{P_{elec, avg} \cdot t}{S_HR}
+E = \frac{P_{elec, avg} \cdot t}{S_{HR}}
 $$  
 
-where *S_HR* is the seconds-to-hour conversion factor.
+where $S_{HR}$ is the seconds-to-hour conversion factor.
 
 ---
 ## Segment A: Depart Taxi
@@ -113,10 +113,10 @@ $$
 Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*) and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
 
 $$
-P_{shaft, avg} = \frac{m \cdot a_h \cdot v_{avg}}{\eta_{rotor} \cdot W_KW}
+P_{shaft, avg} = \frac{m \cdot a_h \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-where *W_KW* is the unit conversion factor to kW.
+where $W_{KW}$ is the unit conversion factor to kW.
 
 ```python
 def _calc_depart_taxi_avg_shaft_power_kw(self):
