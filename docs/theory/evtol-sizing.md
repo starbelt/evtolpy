@@ -56,26 +56,26 @@ These relations are applied differently depending on the type of maneuver (e.g.,
 ## General Workflow for Calculating Average Electric Power (kW)
 
 1. **Calculate Average Shaft Power (kW)**  
-* Based on aerodynamic and propulsion requirements.  
+Based on aerodynamic and propulsion requirements.  
 **Note:** Different calculation will be implemented for each mission segment.
 
 2. **Calculate Average Electric Power (kW)**  
-* Including the efficiency of the electric power unit $\eta_{epu}$ (*power.epu_effic*).
-* General equation (*applied for all energy segments calculation*):  
+Including the efficiency of the electric power unit $\eta_{epu}$ (*power.epu_effic*).   
+General equation (*applied for all energy segments calculation*):  
 
 $$
 P_{elec, avg} = \frac{P_{shaft, avg}}{\eta_{epu}}
 $$
 
 3. **Calculate Energy Consumption (kWh)**  
-* By integrating electric power over the mission segment duration.
-* General equation (*applied for all energy segments calculation*):  
+By integrating electric power over the mission segment duration.  
+General equation (*applied for all energy segments calculation*):  
 
 $$
-E = \frac{P_{elec, avg} \cdot t}{S_P}
+E = \frac{P_{elec, avg} \cdot t}{{S_P_HR}}
 $$  
 
-where $S_P$ is the seconds-to-hour conversion factor.
+where *S_P_HR* is the seconds-to-hour conversion factor.
 
 ---
 ## Segment A: Depart Taxi
@@ -110,13 +110,13 @@ $$
 
 ---
 ### Average Shaft Power (kW)
-Using aircraft mass $m$ (*max_takeoff_mass_kg*) and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
+Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*) and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
 
 $$
-P_{shaft, avg} = \frac{m \cdot a_h \cdot v_{avg}}{\eta_{rotor} \cdot W_P}
+P_{shaft, avg} = \frac{m \cdot a_h \cdot v_{avg}}{\eta_{rotor} \cdot {W_P_KW}}
 $$  
 
-where $W_P$ is the unit conversion factor to kW.
+where *W_P_KW* is the unit conversion factor to kW.
 
 ```python
 def _calc_depart_taxi_avg_shaft_power_kw(self):
