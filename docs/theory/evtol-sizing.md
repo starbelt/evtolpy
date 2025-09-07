@@ -435,7 +435,7 @@ else:
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
-  * $v_h = horizontal velocity (*mission.cruise_h_m_p_s*)  
+  * $v_h$ = horizontal velocity (*mission.cruise_h_m_p_s*)  
   * $t$ = duration of cruise segment (*mission.cruise_s*)  
 
 * Horizontal motion: constant velocity, so no acceleration ($a_h = 0$).  
@@ -477,6 +477,107 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
     return (total_drag_n*self.mission.cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+else:
+    return None
+```
+
+---
+## Segment G: Decelerate Descend  
+
+**Description:**  
+* Calculations for the **Decelerate Descend** segment include both **horizontal and vertical motion**.  
+* Aerodynamic lift, induced drag, parasite drag, weight, horizontal deceleration, and vertical descent are included.  
+* Horizontal velocity starts from cruise velocity and decelerates to a final horizontal velocity. Average horizontal velocity is used to compute displacement, acceleration, and final velocity.  
+* Vertical velocity starts from zero and accelerates downwards to the final descent velocity.  
+* The average shaft power is calculated using horizontal and vertical forces, MTOM, and rotor efficiency.  
+
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,h}$ = initial horizontal velocity (*mission.cruise_h_m_p_s*)  
+  * $v_{avg,h}$ = average horizontal velocity (*mission.decel_descend_avg_h_m_p_s*)  
+  * $v_v$ = vertical velocity (*mission.decel_descend_v_m_p_s*)  
+  * $t$ = duration of decelerate descend segment (*mission.decel_descend_s*)  
+
+* Horizontal displacement $d_h$ and acceleration $a_h$:
+
+$$
+d_h = v_{avg,h} \cdot t
+$$
+
+$$
+v_{f,h} = 2 \cdot v_{avg,h} - v_{i,h}
+$$
+
+$$
+a_h = \frac{v_{f,h}^2 - v_{i,h}^2}{2 \cdot d_h}
+$$  
+
+* Vertical displacement $d_v$ and acceleration $a_v$:
+
+$$
+d_v = \frac{v_v}{2} \cdot t
+$$
+
+$$
+a_v = \frac{v_v^2 - 0^2}{2 \cdot d_v}
+$$  
+
+* Note: vertical acceleration is **downwards**, so it is subtracted in the force calculation.  
+
+**Average Shaft Power (kW)**  
+* Horizontal and vertical forces:  
+
+$$
+F_h = Drag_{total} + m \cdot a_h
+$$
+
+$$
+F_v = (Weight - Lift) - m \cdot a_v
+$$
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_decel_descend_avg_shaft_power_kw(self):
+if self.mission != None and self.propulsion != None and self.environ != None:
+    q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.decel_descend_avg_h_m_p_s**2.0
+    weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+    vehicle_cl = weight_n/(q*self.wing_area_m2)
+    lift_n = q*self.wing_area_m2*vehicle_cl
+    
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0 = self._calc_total_drag_coef()
+    if cd0 == None:
+    return None
+    dp_n = q*self.wing_area_m2*cd0
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+    # horizontal accelerations
+    v0_h_m_p_s = self.mission.cruise_h_m_p_s
+    vf_h_m_p_s = 2.0*self.mission.decel_descend_avg_h_m_p_s-v0_h_m_p_s
+    d_h_m = self.mission.decel_descend_avg_h_m_p_s*self.mission.decel_descend_s
+    a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m) 
+
+    # vertical accelerations
+    v0_v_m_p_s = 0.0
+    vf_v_m_p_s = self.mission.decel_descend_v_m_p_s
+    d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.decel_descend_s
+    a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+    # force components
+    force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+    force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
+
+    return (force_h_n*self.mission.decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
 else:
     return None
 ```
