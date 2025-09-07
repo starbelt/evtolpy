@@ -88,7 +88,7 @@ where $S_{HR}$ is the seconds-to-hour conversion factor.
    
 **Displacement, Acceleration, and Final Velocity**   
 * Let:  
-  * $v_i = 0$ = initial horizontal velocity  
+  * $v_i$ = 0 = initial horizontal velocity  
   * $v_{avg}$ = average horizontal velocity (*mission.depart_taxi_avg_h_m_p_s*)  
   * $t$ = duration of taxi segment (*mission.depart_taxi_s*)  
 
@@ -138,7 +138,7 @@ else:
    
 **Displacement, Acceleration, and Final Velocity**   
 * Let:  
-  * $v_i = 0$ = initial vertical velocity  
+  * $v_i$ = 0 = initial vertical velocity  
   * $v_{avg}$ = average vertical velocity (*mission.hover_climb_avg_v_m_p_s*)  
   * $t$ = duration of hover climb segment (*mission.hover_climb_s*)    
 
@@ -190,7 +190,7 @@ else:
    
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
-  * $v_{i,h} = 0$ = initial horizontal velocity  
+  * $v_{i,h}$ = 0 = initial horizontal velocity  
   * $v_{avg,h}$ = average horizontal velocity (*mission.trans_climb_avg_h_m_p_s*)  
   * $v_v$ = vertical velocity (*mission.trans_climb_v_m_p_s*)  
   * $t$ = duration of transition climb segment (*mission.trans_climb_s*)  
@@ -337,7 +337,7 @@ else:
 * Let:  
   * $v_{i,h}$ = initial horizontal velocity (*mission.depart_proc_h_m_p_s*)
   * $v_{avg,h}$ = average horizontal velocity (*mission.accel_climb_avg_h_m_p_s*)  
-  * $v_{i,v} = 0$ = initial vertical velocity  
+  * $v_{i,v}$ = 0 = initial vertical velocity  
   * $v_{f,v}$ = final vertical velocity (*mission.accel_climb_v_m_p_s*)  
   * $t$ = duration of accelerate climb segment (*mission.accel_climb_s*)  
   
@@ -638,3 +638,170 @@ if self.mission != None and self.propulsion != None and self.environ != None:
 else:
     return None
 ```
+
+---
+## Segment I: Transition Descend  
+
+**Description:**  
+* Calculations for the **Transition Descend** segment include both **horizontal and vertical motion**.  
+* Aerodynamic lift, induced drag, parasite drag, weight, and descent forces are included.  
+* Horizontal velocity decelerates from an initial value to zero. Average horizontal velocity is used to compute initial velocity, final velocity, and acceleration.  
+* Vertical velocity changes from the deceleration descent velocity to the transition descent velocity.  
+* The average shaft power is calculated using horizontal and vertical forces, MTOM, and rotor efficiency.  
+
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,h}$ = initial horizontal velocity  
+  * $v_{f,h}$ = 0 = final horizontal velocity  
+  * $v_{i,v}$ = initial vertical velocity (*mission.decel_descend_v_m_p_s*)  
+  * $v_{f,v}$ = final vertical velocity (*mission.trans_descend_v_m_p_s*)  
+  * $v_{avg,h}$ = average horizontal velocity (*mission.trans_descend_avg_h_m_p_s*)  
+  * $t$ = duration of transition descend segment (*mission.trans_descend_s*)  
+
+* Horizontal displacement $d_h$, initial velocity $v_{i,h}$, and acceleration $a_h$:
+
+$$
+v_{i,h} = 2 \cdot v_{avg,h} - v_{f,h}
+$$
+
+$$
+d_h = v_{avg,h} \cdot t
+$$
+
+$$
+a_h = \frac{v_{f,h}^2 - v_{i,h}^2}{2 \cdot d_h}
+$$  
+
+* Vertical displacement $d_v$ and acceleration $a_v$:
+
+$$
+d_v = \frac{1}{2}(v_{i,v} + v_{f,v}) \cdot t
+$$
+
+$$
+a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
+$$  
+
+* Note: vertical acceleration is **downwards**, so it is subtracted in the force calculation.   
+
+**Average Shaft Power (kW)**  
+* Horizontal and vertical forces:  
+
+$$
+F_h = Drag_{total} + m \cdot a_h
+$$
+
+$$
+F_v = (Weight - Lift) - m \cdot a_v
+$$
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_trans_descend_avg_shaft_power_kw(self):
+if self.mission != None and self.propulsion != None and self.environ != None:
+    q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.trans_descend_avg_h_m_p_s**2.0
+    weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+    vehicle_cl = weight_n/(q*self.wing_area_m2)
+    lift_n = q*self.wing_area_m2*vehicle_cl
+
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0 = self._calc_total_drag_coef()
+    if cd0 == None:
+    return None
+    dp_n = q*self.wing_area_m2*cd0
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+    # horizontal accelerations
+    v0_h_m_p_s = 2.0*self.mission.trans_descend_avg_h_m_p_s
+    vf_h_m_p_s = 0
+    d_h_m = self.mission.trans_descend_avg_h_m_p_s*self.mission.trans_descend_s
+    a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
+
+    # vertical accelerations
+    v0_v_m_p_s = self.mission.decel_descend_v_m_p_s
+    vf_v_m_p_s = self.mission.trans_descend_v_m_p_s
+    d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.trans_descend_s
+    a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+    # force components
+    force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+    force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
+
+    return (force_h_n*self.mission.trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+else:
+    return None
+```
+
+---
+## Segment J: Hover Descend  
+
+**Description:**  
+* Calculations for the **Hover Descend** segment consider **vertical motion only**.  
+* Drag effects are neglected.  
+* Vertical velocity decreases from an initial value of $2 \cdot v_{avg}$ to zero.  
+* Average vertical velocity is provided and used to compute displacement, acceleration, and initial velocity.
+* The average shaft power is then calculated using MTOM, gravity, and vertical acceleration.  
+  
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,v}$ = initial vertical velocity
+  * $v_{f,v}$ = 0 = final vertical velocity  
+  * $v_{avg,v}$ = average vertical velocity (*mission.hover_descend_avg_v_m_p_s*)  
+  * $t$ = duration of hover descend segment (*mission.hover_descend_s*)  
+
+* Vertical displacement $d_v$, initial velocity $v_{i,v}$, and acceleration $a_v$:
+
+$$
+v_{i,v} = 2 \cdot v_{avg,v} - v_{f,v}
+$$
+
+$$
+d_v = v_{avg} \cdot t
+$$
+
+$$
+a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
+$$  
+
+* Note: vertical acceleration is **downwards**, so it is subtracted in the force calculation.  
+
+**Average Shaft Power (kW)**  
+* Vertical force:  
+
+$$
+F_v = m \cdot g - m \cdot a_v
+$$
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_v \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_hover_descend_avg_shaft_power_kw(self):
+if self.mission != None and self.propulsion != None and self.environ != None:
+    # vertical acceleration
+    v0_v_m_p_s = 2.0*self.mission.hover_descend_avg_v_m_p_s
+    vf_v_m_p_s = 0.0
+    d_v_m = self.mission.hover_descend_avg_v_m_p_s*self.mission.hover_descend_s
+    a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+    # force component
+    force_v_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2 - self.max_takeoff_mass_kg*a_v_m_p_s2
+
+    return (force_v_n*self.mission.hover_descend_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+else:
+    return None
