@@ -72,7 +72,7 @@ By integrating electric power over the mission segment duration.
 General equation (*applied for all energy segments calculation*):  
 
 $$
-E = \frac{P_{elec, avg} \cdot t}{{S_P_HR}}
+E = \frac{P_{elec, avg} \cdot t}{\text{S\_P\_HR}}
 $$  
 
 where *S_P_HR* is the seconds-to-hour conversion factor.
@@ -113,7 +113,7 @@ $$
 Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*) and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
 
 $$
-P_{shaft, avg} = \frac{m \cdot a_h \cdot v_{avg}}{\eta_{rotor} \cdot {W_P_KW}}
+P_{shaft, avg} = \frac{m \cdot a_h \cdot v_{avg}}{\eta_{rotor} \cdot \text{W\_P\_KW}}
 $$  
 
 where *W_P_KW* is the unit conversion factor to kW.
