@@ -53,13 +53,13 @@ where:
 These relations are applied differently depending on the type of maneuver (e.g., takeoff, climb, cruise, descent, hover), which is one of the reasons that leads to different average shaft power calculations for each segment.
 
 ---
-## General Workflow for Calculating Average Electric Power (kW)
+## General Workflow for Calculating Average Electric Power (kW)  
 
-1. **Calculate Average Shaft Power (kW)**  
+**Step 1: Calculate Average Shaft Power (kW)**  
 Based on aerodynamic and propulsion requirements.  
-**Note:** Different calculation will be implemented for each mission segment.
+Note: Different calculation will be implemented for each mission segment.
 
-2. **Calculate Average Electric Power (kW)**  
+**Step 2: Calculate Average Electric Power (kW)**    
 Including the efficiency of the electric power unit $\eta_{epu}$ (*power.epu_effic*).   
 General equation (*applied for all energy segments calculation*):  
 
@@ -67,7 +67,7 @@ $$
 P_{elec, avg} = \frac{P_{shaft, avg}}{\eta_{epu}}
 $$
 
-3. **Calculate Energy Consumption (kWh)**  
+**Step 3: Calculate Energy Consumption (kWh)**    
 By integrating electric power over the mission segment duration.  
 General equation (*applied for all energy segments calculation*):  
 
@@ -86,9 +86,7 @@ where $S_{HR}$ is the seconds-to-hour conversion factor.
 * Average velocity is provided and used to compute displacement, acceleration, and final velocity. 
 * The average shaft power is then calculated using MTOM, acceleration, and average velocity.
 
----
-### Displacement, Acceleration, and Final Velocity
-
+**Displacement, Acceleration, and Final Velocity**   
 Let:
 * $v_i = 0$ = initial horizontal velocity  
 * $v_{avg}$ = average horizontal velocity (*mission.depart_taxi_avg_h_m_p_s*)  
@@ -106,10 +104,9 @@ $$
 
 $$
 a_h = \frac{v_f^2}{2 d_h}
-$$
+$$  
 
----
-### Average Shaft Power (kW)
+**Average Shaft Power (kW)**   
 Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*) and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
 
 $$
