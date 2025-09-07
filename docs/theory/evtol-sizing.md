@@ -805,3 +805,66 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     return (force_v_n*self.mission.hover_descend_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
 else:
     return None
+```
+
+---
+## Segment K: Arrive Taxi  
+
+**Description:**    
+* Calculations for the **Arrive Taxi** segment consider **horizontal motion only**.  
+* Drag effects are neglected.  
+* Horizontal velocity increases from zero to a final velocity.
+* The average shaft power is calculated using MTOM, horizontal acceleration, and average horizontal velocity.  
+
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,h}$ = 0 = initial horizontal velocity  
+  * $v_{f,h}$ = final horizontal velocity  
+  * $v_{avg,h}$ = average horizontal velocity (*mission.arrive_taxi_avg_h_m_p_s*)  
+  * $t$ = duration of arrive taxi segment (*mission.arrive_taxi_s*)  
+
+* Horizontal displacement $d_h$ and acceleration $a_h$:
+
+$$
+v_{f,h} = 2 \cdot v_{avg,h} - v_{i,h}
+$$
+
+$$
+d_h = v_{avg,h} \cdot t
+$$
+
+$$
+a_h = \frac{v_{f,h}^2 - v_{i,h}^2}{2 \cdot d_h}
+$$  
+
+**Average Shaft Power (kW)**  
+* Horizontal force:  
+
+$$
+F_h = m \cdot a_h
+$$
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_arrive_taxi_avg_shaft_power_kw(self):
+if self.mission != None and self.propulsion != None and self.environ != None:
+    # horizontal accelerations
+    v0_h_m_p_s = 0.0
+    vf_h_m_p_s = 2.0*self.mission.arrive_taxi_avg_h_m_p_s
+    d_h_m = self.mission.arrive_taxi_avg_h_m_p_s*self.mission.arrive_taxi_s
+    a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
+    
+    # horizontal force 
+    force_h_n = self.max_takeoff_mass_kg*a_h_m_p_s2
+
+    return (force_h_n*self.mission.arrive_taxi_avg_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+else:
+    return None
+```
