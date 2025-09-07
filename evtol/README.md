@@ -1,7 +1,6 @@
 # The evtol Package
 
-This Python package includes classes representing an aircraft and its mission
-profile, environment, power, and propulsion.
+This Python package includes classes representing an aircraft and its mission profile, environment, power, and propulsion.
 
 ## Directory Contents
 
