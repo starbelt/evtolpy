@@ -1,24 +1,24 @@
 # Mission Segment Energy Consumption
 
 This document explains the equations used to calculate **energy consumption** across different mission segments in the aircraft model.
-* Segment A: Depart Taxi
-* Segment B: Hover Climb
-* Segment C: Transition Climb
-* Segment D: Depart Procedures
-* Segment E: Accelerate Climb
-* Segment F: Cruise
-* Segment G: Decelerate Descend
-* Segment H: Arrive Procedures
-* Segment I: Transition Descend
-* Segment J: Hover Descend
-* Segment K: Arrive Taxi
-* Segment B': Reserve Hover Climb
-* Segment C': Reserve Transition Climb
-* Segment E': Reserve Acceleration Climb
-* Segment F': Reserve Cruise
-* Segment G': Reserve Deceleration Descend
-* Segment I': Reserve Transition Descend 
-* Segment J': Reserve Hover Descend
+* [Segment A: Depart Taxi](#segment-a-depart-taxi)
+* [Segment B: Hover Climb](#segment-b-hover-climb)
+* [Segment C: Transition Climb](#segment-c-transition-climb)
+* [Segment D: Depart Procedures](#segment-d-depart-procedures)
+* [Segment E: Accelerate Climb](#segment-e-accelerate-climb)
+* [Segment F: Cruise](#segment-f-cruise)
+* [Segment G: Decelerate Descend](#segment-g-decelerate-descend)
+* [Segment H: Arrive Procedures](#segment-h-arrive-procedures)
+* [Segment I: Transition Descend](#segment-i-transition-descend)
+* [Segment J: Hover Descend](#segment-j-hover-descend)
+* [Segment K: Arrive Taxi](#segment-k-arrive-taxi)
+* [Segment B': Reserve Hover Climb](#segment-b-reserve-hover-climb)
+* [Segment C': Reserve Transition Climb](#segment-c-reserve-transition-climb)
+* [Segment E': Reserve Acceleration Climb](#segment-e-reserve-acceleration-climb)
+* [Segment F': Reserve Cruise](#segment-f-reserve-cruise)
+* [Segment G': Reserve Deceleration Descend](#segment-g-reserve-deceleration-descend)
+* [Segment I': Reserve Transition Descend](#segment-i-reserve-transition-descend)
+* [Segment J': Reserve Hover Descend](#segment-j-reserve-hover-descend)
 
 ---
 ## General Kinematic Relations
@@ -56,20 +56,20 @@ These relations are applied differently depending on the type of maneuver (e.g.,
 ## General Workflow for Calculating Average Electric Power (kW)  
 
 **Step 1: Calculate Average Shaft Power (kW)**  
-Based on aerodynamic and propulsion requirements.  
-Note: Different calculation will be implemented for each mission segment.
+* Based on aerodynamic and propulsion requirements.  
+* Note: Different calculation will be implemented for each mission segment.
 
 **Step 2: Calculate Average Electric Power (kW)**    
-Including the efficiency of the electric power unit $\eta_{epu}$ (*power.epu_effic*).   
-General equation (*applied for all energy segments calculation*):  
+* Including the efficiency of the electric power unit $\eta_{epu}$ (*power.epu_effic*).   
+* General equation (*applied for all energy segments calculation*):  
 
 $$
 P_{elec, avg} = \frac{P_{shaft, avg}}{\eta_{epu}}
 $$
 
 **Step 3: Calculate Energy Consumption (kWh)**    
-By integrating electric power over the mission segment duration.  
-General equation (*applied for all energy segments calculation*):  
+* By integrating electric power over the mission segment duration.  
+* General equation (*applied for all energy segments calculation*):  
 
 $$
 E = \frac{P_{elec, avg} \cdot t}{S_{HR}}
@@ -84,15 +84,16 @@ where $S_{HR}$ is the seconds-to-hour conversion factor.
 * Calculations for the **Depart Taxi** segment consider **horizontal motion only**. 
 * Drag effects are neglected, and the aircraft starts from rest, accelerating to a final horizontal velocity. 
 * Average velocity is provided and used to compute displacement, acceleration, and final velocity. 
-* The average shaft power is then calculated using MTOM, acceleration, and average velocity.
+* The average shaft power is then calculated using MTOM, acceleration, and average velocity.  
+   
 
 **Displacement, Acceleration, and Final Velocity**   
-Let:
-* $v_i = 0$ = initial horizontal velocity  
-* $v_{avg}$ = average horizontal velocity (*mission.depart_taxi_avg_h_m_p_s*)  
-* $t$ = duration of taxi segment (*mission.depart_taxi_s*)  
+* Let:  
+  * $v_i = 0$ = initial horizontal velocity  
+  * $v_{avg}$ = average horizontal velocity (*mission.depart_taxi_avg_h_m_p_s*)  
+  * $t$ = duration of taxi segment (*mission.depart_taxi_s*)  
 
-The horizontal displacement $d_h$ and acceleration $a_h$ are:
+* The horizontal displacement $d_h$ and acceleration $a_h$ are:
 
 $$
 d_h = v_{avg} \cdot t
@@ -105,9 +106,10 @@ $$
 $$
 a_h = \frac{v_f^2}{2 d_h}
 $$  
+  
 
 **Average Shaft Power (kW)**   
-Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*) and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
+* Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*) and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
 
 $$
 P_{shaft, avg} = \frac{m \cdot a_h \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
@@ -127,17 +129,21 @@ if self.mission != None:
 else:
     return None
 ```
+---
+## Segment B: Hover Climb  
+**Description:**   
+* 
+* 
+*   
+  
+
+**Displacement, Acceleration, and Final Velocity**    
+  
+  
+**Average Shaft Power (kW)**    
+
+```python
 
 
-
-
-
-
-
-
-
-
-
-
-
+```
 
