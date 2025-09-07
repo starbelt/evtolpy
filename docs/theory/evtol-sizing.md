@@ -83,8 +83,8 @@ where $S_{HR}$ is the seconds-to-hour conversion factor.
 **Description:**  
 * Calculations for the **Depart Taxi** segment consider **horizontal motion only**. 
 * Drag effects are neglected, and the aircraft starts from rest, accelerating to a final horizontal velocity. 
-* Average velocity is provided and used to compute displacement, acceleration, and final velocity. 
-* The average shaft power is then calculated using MTOM, acceleration, and average velocity.  
+* Average horizontal velocity is provided and used to compute displacement, acceleration, and final velocity. 
+* The average shaft power is then calculated using MTOM, horizontal acceleration, and average horizontal velocity.  
    
 
 **Displacement, Acceleration, and Final Velocity**   
@@ -132,18 +132,52 @@ else:
 ---
 ## Segment B: Hover Climb  
 **Description:**   
-* 
-* 
-*   
-  
+* Calculations for the **Hover Climb** segment consider **vertical motion only**.
+* Drag effects are neglected, and the aircraft starts from rest, accelerating to a final vertical velocity.
+* Average vertical velocity is provided and used to compute displacement, acceleration, and final velocity.
+* The average shaft power is then calculated using MTOM, gravity, vertical acceleration, and average vertical velocity.  
+   
 
-**Displacement, Acceleration, and Final Velocity**    
-  
-  
-**Average Shaft Power (kW)**    
+**Displacement, Acceleration, and Final Velocity**   
+* Let:  
+  * $v_i = 0$ = initial vertical velocity  
+  * $v_{avg}$ = average vertical velocity (*mission.hover_climb_avg_v_m_p_s*)  
+  * $t$ = duration of hover climb segment (*mission.hover_climb_s*)    
+
+* The vertical displacement $d_v$ and acceleration $a_v$ are:  
+
+$$
+d_v = v_{avg} \cdot t
+$$
+
+$$
+v_f = \frac{2 d_v}{t}
+$$
+
+$$
+a_v = \frac{v_f^2}{2 d_v}
+$$   
+   
+
+**Average Shaft Power (kW)**   
+* Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), gravitational acceleration $g$ (*environ.g_m_p_s2*), and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
+
+$$
+P_{shaft, avg} = \frac{m \cdot (g + a_v) \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
+$$    
+
+where $W_{KW}$ is the unit conversion factor to kW.
 
 ```python
-
-
+def _calc_hover_climb_avg_shaft_power_kw(self):
+if self.mission != None and self.propulsion != None:
+    d_v_m = self.mission.hover_climb_avg_v_m_p_s*self.mission.hover_climb_s
+    vf_v_m_p_s = (2.0*d_v_m)/self.mission.hover_climb_s
+    a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
+    return \
+    (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)*\
+    self.mission.hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+else:
+    return None
 ```
 
