@@ -641,7 +641,7 @@ class Aircraft:
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
       force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
 
-      return (force_h_n*self.mission.accel_climb_avg_h_m_p_s+force_v_n*self.mission.accel_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      return (force_h_n*self.mission.accel_climb_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -758,7 +758,7 @@ class Aircraft:
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
       force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
 
-      return (force_h_n*self.mission.decel_descend_avg_h_m_p_s+force_v_n*self.mission.decel_descend_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      return (force_h_n*self.mission.decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -872,7 +872,7 @@ class Aircraft:
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
       force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
 
-      return (force_h_n*self.mission.trans_descend_avg_h_m_p_s+force_v_n*self.mission.trans_descend_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      return (force_h_n*self.mission.trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1233,7 +1233,7 @@ class Aircraft:
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
       force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
 
-      return (force_h_n*self.mission.reserve_decel_descend_avg_h_m_p_s+force_v_n*self.mission.reserve_decel_descend_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      return (force_h_n*self.mission.reserve_decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1297,7 +1297,7 @@ class Aircraft:
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
       force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
 
-      return (force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+force_v_n*self.mission.reserve_trans_descend_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      return (force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1799,10 +1799,6 @@ class Aircraft:
   @property
   def cruise_cl(self):
     return self._calc_cruise_cl()
-  
-  #@property
-  #def fuselage_frontal_area_m2(self):
-  #  return self._fuselage_frontal_area_m2
 
   @property
   def fuselage_fineness_ratio(self):
@@ -1819,10 +1815,6 @@ class Aircraft:
   @property
   def fuselage_cf(self):
     return self._calc_fuselage_cf()
-
-  #@property
-  #def fuselage_cda(self):
-  #  return self._fuselage_cda
 
   @property
   def fuselage_cd0(self):
@@ -2163,9 +2155,9 @@ class Aircraft:
 # # TESTING
 # aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energy\cfg\test-all.json')
 
-# print("fuselage_wetted_area_m2", aircraft._calc_fuselage_wetted_area_m2())
-# print("single_epu_mass_kg", aircraft._calc_single_epu_mass_kg())
-# print("hover_shaft_power_kw", aircraft._calc_hover_shaft_power_kw())
+# # print("fuselage_wetted_area_m2", aircraft._calc_fuselage_wetted_area_m2())
+# # print("single_epu_mass_kg", aircraft._calc_single_epu_mass_kg())
+# # print("hover_shaft_power_kw", aircraft._calc_hover_shaft_power_kw())
 
 # # Mission energy
 # print("\n")
