@@ -214,11 +214,11 @@ $$
 * Horizontal and vertical forces:  
 
 $$
-F_h = D_{total} + m \cdot a_h
+F_h = Drag_{total} + m \cdot a_h
 $$
 
 $$
-F_v = (W - L) + m \cdot a_v
+F_v = (Weight - Lift) + m \cdot a_v
 $$
 
 * Shaft power:  
@@ -227,7 +227,7 @@ $$
 P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot v_v}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
 
 ```python
 def _calc_trans_climb_avg_shaft_power_kw(self):
