@@ -581,3 +581,60 @@ if self.mission != None and self.propulsion != None and self.environ != None:
 else:
     return None
 ```
+
+---
+## Segment H: Arrive Procedures  
+
+**Description:**  
+* Calculations for the **Arrive Procedures** segment consider **horizontal motion only**.  
+* Horizontal velocity is assumed **constant**.  
+* Vertical motion is neglected.  
+* Aerodynamic lift, induced drag, parasite drag, and horizontal drag are included.  
+* The average shaft power is calculated using horizontal forces and rotor efficiency.  
+
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_h$ = horizontal velocity (*mission.arrive_proc_h_m_p_s*)  
+  * $t$ = duration of arrive procedures segment (*mission.arrive_proc_s*)  
+
+* Horizontal motion: constant velocity, so no acceleration ($a_h = 0$).   
+
+**Average Shaft Power (kW)**  
+* Horizontal force:  
+
+$$
+F_h = Drag_{total}
+$$  
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_h}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_arrive_proc_avg_shaft_power_kw(self):
+if self.mission != None and self.propulsion != None and self.environ != None:
+    q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.arrive_proc_h_m_p_s**2.0
+    weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+    # horizontal component
+    lift_n = weight_n
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0 = self._calc_total_drag_coef()
+    if cd0 == None:
+    return None
+    dp_n = q*self.wing_area_m2*cd0
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+    # force components
+    force_h_n = total_drag_n
+
+    return (force_h_n*self.mission.arrive_proc_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+else:
+    return None
+```
