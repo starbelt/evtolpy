@@ -328,10 +328,10 @@ else:
 
 **Description:**  
 * Calculations for the **Accelerate Climb** segment include both **horizontal and vertical motion**.  
-* Aerodynamic lift, induced drag, parasite drag, weight, and horizontal/vertical accelerations are considered.  
-* Horizontal velocity starts from the end of Depart Procedures (*mission.depart_proc_h_m_p_s*) and accelerates to a final horizontal velocity. Average horizontal velocity is used to compute final horizontal velocity.  
-* Vertical velocity starts from zero and accelerates to a final vertical velocity (*mission.accel_climb_v_m_p_s*).  
-* The average shaft power is calculated using horizontal and vertical forces, MTOM, and rotor efficiency.  
+* Aerodynamic lift, induced drag, parasite drag, weight, and horizontal/vertical accelerations are included.  
+* Horizontal velocity starts from the end of Depart Procedures (*mission.depart_proc_h_m_p_s*) and accelerates to the final horizontal velocity. Average horizontal velocity is used to compute final velocity and horizontal acceleration.  
+* Vertical velocity starts from zero and accelerates to the final vertical velocity (*mission.accel_climb_v_m_p_s*).  
+* The average shaft power is calculated using horizontal and vertical forces, MTOM, and rotor efficiency.   
   
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -379,8 +379,8 @@ $$
 * Shaft power:
 
 $$
-P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot v_{f,v}}{\eta_{rotor} \cdot W_{KW}}
-$$  
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+$$   
 
 where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
 
@@ -418,7 +418,7 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
     force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
 
-    return (force_h_n*self.mission.accel_climb_avg_h_m_p_s+force_v_n*self.mission.accel_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+    return (force_h_n*self.mission.accel_climb_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
 else:
     return None
 ```
