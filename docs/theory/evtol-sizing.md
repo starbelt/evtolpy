@@ -86,7 +86,6 @@ where $S_{HR}$ is the seconds-to-hour conversion factor.
 * Average horizontal velocity is provided and used to compute displacement, acceleration, and final velocity. 
 * The average shaft power is then calculated using MTOM, horizontal acceleration, and average horizontal velocity.  
    
-
 **Displacement, Acceleration, and Final Velocity**   
 * Let:  
   * $v_i = 0$ = initial horizontal velocity  
@@ -107,7 +106,6 @@ $$
 a_h = \frac{v_f^2}{2 d_h}
 $$  
   
-
 **Average Shaft Power (kW)**   
 * Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*) and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
 
@@ -129,6 +127,7 @@ if self.mission != None:
 else:
     return None
 ```
+
 ---
 ## Segment B: Hover Climb  
 **Description:**   
@@ -137,7 +136,6 @@ else:
 * Average vertical velocity is provided and used to compute displacement, acceleration, and final velocity.
 * The average shaft power is then calculated using MTOM, gravity, vertical acceleration, and average vertical velocity.  
    
-
 **Displacement, Acceleration, and Final Velocity**   
 * Let:  
   * $v_i = 0$ = initial vertical velocity  
@@ -158,7 +156,6 @@ $$
 a_v = \frac{v_f^2}{2 d_v}
 $$   
    
-
 **Average Shaft Power (kW)**   
 * Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), gravitational acceleration $g$ (*environ.g_m_p_s2*), and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
 
@@ -181,3 +178,89 @@ else:
     return None
 ```
 
+---
+## Segment C: Transition Climb  
+**Description:**  
+* Calculations for the **Transition Climb** segment include both **horizontal and vertical motion**.  
+* Aerodynamic lift, induced drag, parasite drag, weight, and climb forces are included.  
+* Horizontal velocity starts from zero and accelerates to a final horizontal velocity. Average horizontal velocity is used to compute displacement, acceleration, and final velocity.  
+* Vertical velocity is considered **constant** (no vertical acceleration).  
+* The average shaft power is calculated using horizontal and vertical forces, MTOM, and rotor efficiency.  
+   
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,h} = 0$ = initial horizontal velocity  
+  * $v_{avg,h}$ = average horizontal velocity (*mission.trans_climb_avg_h_m_p_s*)  
+  * $v_v$ = vertical velocity (*mission.trans_climb_v_m_p_s*)  
+  * $t$ = duration of transition climb segment (*mission.trans_climb_s*)  
+
+* Horizontal displacement $d_h$ and acceleration $a_h$:
+
+$$
+d_h = v_{avg,h} \cdot t
+$$
+
+$$
+v_{f,h} = 2 \cdot v_{avg,h} - v_{i,h}
+$$
+
+$$
+a_h = \frac{v_{f,h}^2 - v_{i,h}^2}{2 \cdot d_h}
+$$  
+
+* Vertical acceleration $a_v$ = 0 (constant vertical velocity)  
+  
+**Average Shaft Power (kW)**  
+* Horizontal and vertical forces:  
+
+$$
+F_h = D_{total} + m \cdot a_h
+$$
+
+$$
+F_v = (W - L) + m \cdot a_v
+$$
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot v_v}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_trans_climb_avg_shaft_power_kw(self):
+if self.mission != None and self.propulsion != None and self.environ != None:
+    q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.trans_climb_avg_h_m_p_s**2.0
+    weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+    vehicle_cl = weight_n/(q*self.wing_area_m2)
+    lift_n = q*self.wing_area_m2*vehicle_cl
+
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0 = self._calc_total_drag_coef()
+    if cd0 == None:
+    return None
+    dp_n = q*self.wing_area_m2*cd0
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+    # horizontal acceleration
+    v0_h_m_p_s = 0.0
+    vf_h_m_p_s = 2.0*self.mission.trans_climb_avg_h_m_p_s
+    d_h_m = self.mission.trans_climb_avg_h_m_p_s*self.mission.trans_climb_s
+    a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
+    
+    # vertical component (constant velocity, no acceleration)
+    a_v_m_p_s2 = 0.0
+
+    # force components 
+    force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+    force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+
+    return (force_h_n*self.mission.trans_climb_avg_h_m_p_s+force_v_n*self.mission.trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+else:
+    return None
+```
