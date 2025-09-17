@@ -1230,7 +1230,7 @@ class Aircraft:
       if cd0 == None:
         return None
       if self.wing_airfoil_cd_at_cruise_cl != None and self.stopped_rotor_cd0 != None:
-        cd0_cruise = cd0+self.wing_airfoil_cd_at_cruise_cl+self.stopped_rotor_cd0
+        cd0_cruise = cd0+self.wing_airfoil_cd_at_cruise_cl
       else:
         cd0_cruise = cd0
       dp_n = q*self.wing_area_m2*cd0_cruise
@@ -2282,7 +2282,7 @@ class Aircraft:
     return self._calc_empty_mass_kg()
 
 # # TESTING
-aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energy\cfg\test-all.json')
+aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energy\cfg\Archer-Midnight.json')
 
 # print("_calc_trans_climb_avg_shaft_power_kw", aircraft._calc_trans_climb_avg_shaft_power_kw())
 # print("_calc_trans_descend_avg_shaft_power_kw", aircraft._calc_trans_descend_avg_shaft_power_kw())
@@ -2292,10 +2292,29 @@ aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energ
 # # print("single_epu_mass_kg", aircraft._calc_single_epu_mass_kg())
 # # print("hover_shaft_power_kw", aircraft._calc_hover_shaft_power_kw())
 
-# # Mission energy
-# print("\n")
-# print("total_energy_kw_hr", aircraft._calc_total_mission_energy_kw_hr())
-# print("\n")
+# Mission energy
+print("\n")
+print("total_energy_kw_hr", aircraft._calc_total_mission_energy_kw_hr())
+print("\n")
+print(aircraft._calc_depart_taxi_energy_kw_hr())
+print(aircraft._calc_hover_climb_energy_kw_hr())
+print(aircraft._calc_trans_climb_energy_kw_hr())
+print(aircraft._calc_depart_proc_energy_kw_hr())
+print(aircraft._calc_accel_climb_energy_kw_hr())
+print(aircraft._calc_cruise_energy_kw_hr())
+print(aircraft._calc_decel_descend_energy_kw_hr())
+print(aircraft._calc_arrive_proc_energy_kw_hr())
+print(aircraft._calc_trans_descend_energy_kw_hr())
+print(aircraft._calc_hover_descend_energy_kw_hr())
+print(aircraft._calc_arrive_taxi_energy_kw_hr())
+print(aircraft._calc_reserve_hover_climb_energy_kw_hr())
+print(aircraft._calc_reserve_trans_climb_energy_kw_hr())
+print(aircraft._calc_reserve_accel_climb_energy_kw_hr())
+print(aircraft._calc_reserve_cruise_energy_kw_hr())
+print(aircraft._calc_reserve_decel_descend_energy_kw_hr())
+print(aircraft._calc_reserve_trans_descend_energy_kw_hr())
+print(aircraft._calc_reserve_hover_descend_energy_kw_hr())
+
 
 # # Components mass
 # print("battery_mass_kg", aircraft._calc_battery_mass_kg())
@@ -2335,3 +2354,4 @@ aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energ
 # print("vert_tail_area_m2", aircraft.vert_tail_area_m2)
 # print("disk_area", aircraft.propulsion.disk_area_m2)
 # print("aspect_ratio", aircraft.wing_aspect_ratio)
+
