@@ -115,16 +115,16 @@ class Aircraft:
   #   for hover: T = m*g = 2 * air density * disk area * v_i^2
   #   induced power = T * v_i = (m*g)^(3/2) / sqrt(2 * air density * disk area)
   #   therefore hover shaft power in watts is:
-  #   ((m*g)^1.5 / (2*air density*disk area)^0.5) / rotor_efficiency
-  # return None if environ or propulsion object not populated
+  #   ((m*g)^1.5 / (2*air density*disk area)^0.5) / hover_power_effic
+  # return None if environ or power object not populated
   def _calc_hover_shaft_power_kw(self):
-    if self.environ != None and self.propulsion != None:
+    if self.environ != None and self.power != None:
       return \
        ((
         (self.environ.g_m_p_s2*self.max_takeoff_mass_kg)**1.5/
         (2.0*self.environ.air_density_sea_lvl_kg_p_m3*\
          self.propulsion.disk_area_m2)**0.5
-       )/self.propulsion.rotor_effic)/W_P_KW
+       )/self.power.hover_power_effic)/W_P_KW
     else:
       return None
 
@@ -382,7 +382,7 @@ class Aircraft:
 
       # Max RPM (min density)
       rpm_hover_sl_rpm = rpm_hover_rpm  # assuming hover calc is at sea-level
-      rpm_max_rpm = rpm_hover_sl_rpm*math.sqrt(self.environ.air_density_sea_lvl_kg_p_m3/self.environ.air_density_max_alt_kg_p_m3)
+      rpm_max_rpm = rpm_hover_sl_rpm*math.sqrt(self.environ.air_density_sea_lvl_kg_p_m3/self.environ.air_density_max_alt_kg_p_m3)*math.sqrt(self.over_torque_factor)
       omega_max_rad_s = 2.0*math.pi*rpm_max_rpm/60.0
       power_max_kw = (torque_max_nm*omega_max_rad_s)/1000.0
 
@@ -406,8 +406,8 @@ class Aircraft:
           *math.pi*(self.propulsion.rotor_diameter_m/2.0)**4
           *(omega_hover_sl_rad_s**2.0))
       )
-      # Rotor solidity (with avg CL = 0.75)
-      rotor_solidity = ct_hover*6.0/0.75
+      # Rotor solidity 
+      rotor_solidity = ct_hover*6.0/self.propulsion.rotor_avg_cl
       return rotor_solidity
   
 # ----- Depart Taxi (Segment A) -----
@@ -696,7 +696,7 @@ class Aircraft:
       dp_n = q*self.wing_area_m2*cd0_cruise
       # total drag
       total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
-  
+
       return (total_drag_n*self.mission.cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
@@ -1230,7 +1230,7 @@ class Aircraft:
       if cd0 == None:
         return None
       if self.wing_airfoil_cd_at_cruise_cl != None and self.stopped_rotor_cd0 != None:
-        cd0_cruise = cd0+self.wing_airfoil_cd_at_cruise_cl
+        cd0_cruise = cd0+self.wing_airfoil_cd_at_cruise_cl+self.stopped_rotor_cd0
       else:
         cd0_cruise = cd0
       dp_n = q*self.wing_area_m2*cd0_cruise
@@ -1647,7 +1647,7 @@ class Aircraft:
     over_torque_factor = self.over_torque_factor
 
     # common geometric term:
-    term_common = (math.pi / 4.0) * self.propulsion.rotor_diameter_m * solidity * M_2_FT
+    term_common = (math.pi / 2.0/ 2.0) * self.propulsion.rotor_diameter_m * solidity * M_2_FT
 
     tip_speed_ft_s = (
       sound_speed_m_p_s
@@ -1697,7 +1697,7 @@ class Aircraft:
     over_torque_factor = self.over_torque_factor
 
     # common geometric term 
-    term_common = (math.pi / 4.0) * self.propulsion.rotor_diameter_m * solidity * M_2_FT
+    term_common = (math.pi / 2.0 / 3.0) * self.propulsion.rotor_diameter_m * solidity * M_2_FT
 
     tip_speed_ft_s = (
       sound_speed_m_p_s
@@ -2282,7 +2282,7 @@ class Aircraft:
     return self._calc_empty_mass_kg()
 
 # # TESTING
-aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energy\cfg\Archer-Midnight.json')
+aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energy\cfg\test-all.json')
 
 # print("_calc_trans_climb_avg_shaft_power_kw", aircraft._calc_trans_climb_avg_shaft_power_kw())
 # print("_calc_trans_descend_avg_shaft_power_kw", aircraft._calc_trans_descend_avg_shaft_power_kw())
@@ -2290,46 +2290,47 @@ aircraft = Aircraft(r'C:\Users\khoan\Code\evtolpy\analysis\mission-segment-energ
 
 # # print("fuselage_wetted_area_m2", aircraft._calc_fuselage_wetted_area_m2())
 # # print("single_epu_mass_kg", aircraft._calc_single_epu_mass_kg())
-# # print("hover_shaft_power_kw", aircraft._calc_hover_shaft_power_kw())
+# print("hover_shaft_power_kw", aircraft._calc_hover_shaft_power_kw())
+# print("hover_electric_power_kw", aircraft._calc_hover_electric_power_kw())
 
-# Mission energy
-print("\n")
-print("total_energy_kw_hr", aircraft._calc_total_mission_energy_kw_hr())
-print("\n")
-print(aircraft._calc_depart_taxi_energy_kw_hr())
-print(aircraft._calc_hover_climb_energy_kw_hr())
-print(aircraft._calc_trans_climb_energy_kw_hr())
-print(aircraft._calc_depart_proc_energy_kw_hr())
-print(aircraft._calc_accel_climb_energy_kw_hr())
-print(aircraft._calc_cruise_energy_kw_hr())
-print(aircraft._calc_decel_descend_energy_kw_hr())
-print(aircraft._calc_arrive_proc_energy_kw_hr())
-print(aircraft._calc_trans_descend_energy_kw_hr())
-print(aircraft._calc_hover_descend_energy_kw_hr())
-print(aircraft._calc_arrive_taxi_energy_kw_hr())
-print(aircraft._calc_reserve_hover_climb_energy_kw_hr())
-print(aircraft._calc_reserve_trans_climb_energy_kw_hr())
-print(aircraft._calc_reserve_accel_climb_energy_kw_hr())
-print(aircraft._calc_reserve_cruise_energy_kw_hr())
-print(aircraft._calc_reserve_decel_descend_energy_kw_hr())
-print(aircraft._calc_reserve_trans_descend_energy_kw_hr())
-print(aircraft._calc_reserve_hover_descend_energy_kw_hr())
-
-
-# # Components mass
-# print("battery_mass_kg", aircraft._calc_battery_mass_kg())
-# print("wing_mass_kg", aircraft._calc_wing_mass_kg())
-# print("horiz_tail_mass_kg", aircraft._calc_horiz_tail_mass_kg())
-# print("vert_tail_mass_kg", aircraft._calc_vert_tail_mass_kg())
-# print("fuselage_mass_kg", aircraft._calc_fuselage_mass_kg())
-
-# print("boom_mass_kg", aircraft._calc_boom_mass_kg())
-# print("landing_gear_mass_kg", aircraft._calc_landing_gear_mass_kg())
-# print("epu_mass_kg", aircraft._calc_epu_mass_kg())
-# print("lift_rotor_hub_mass_kg", aircraft._calc_lift_rotor_hub_mass_kg())
-# print("tilt_rotor_mass_kg", aircraft._calc_tilt_rotor_mass_kg())
-# print("empty_mass_kg", aircraft._calc_empty_mass_kg())
+# # Mission energy
 # print("\n")
+# print("total_energy_kw_hr", aircraft._calc_total_mission_energy_kw_hr())
+# print("\n")
+# print("depart_taxi_energy_kw_hr", aircraft._calc_depart_taxi_energy_kw_hr())
+# print("hover_climb_energy_kw_hr", aircraft._calc_hover_climb_energy_kw_hr())
+# print("trans_climb_energy_kw_hr", aircraft._calc_trans_climb_energy_kw_hr())
+# print("depart_proc_energy_kw_hr", aircraft._calc_depart_proc_energy_kw_hr())
+# print("accel_climb_energy_kw_hr", aircraft._calc_accel_climb_energy_kw_hr())
+# print("cruise_energy_kw_hr", aircraft._calc_cruise_energy_kw_hr())
+# print("decel_descend_energy_kw_hr", aircraft._calc_decel_descend_energy_kw_hr())
+# print("arrive_proc_energy_kw_hr", aircraft._calc_arrive_proc_energy_kw_hr())
+# print("trans_descend_energy_kw_hr", aircraft._calc_trans_descend_energy_kw_hr())
+# print("hover_descend_energy_kw_hr", aircraft._calc_hover_descend_energy_kw_hr())
+# print("arrive_taxi_energy_kw_hr", aircraft._calc_arrive_taxi_energy_kw_hr())
+# print("reserve_hover_climb_energy_kw_hr", aircraft._calc_reserve_hover_climb_energy_kw_hr())
+# print("reserve_trans_climb_energy_kw_hr", aircraft._calc_reserve_trans_climb_energy_kw_hr())
+# print("reserve_accel_climb_energy_kw_hr", aircraft._calc_reserve_accel_climb_energy_kw_hr())
+# print("reserve_cruise_energy_kw_hr", aircraft._calc_reserve_cruise_energy_kw_hr())
+# print("reserve_decel_descend_energy_kw_hr", aircraft._calc_reserve_decel_descend_energy_kw_hr())
+# print("reserve_trans_descend_energy_kw_hr", aircraft._calc_reserve_trans_descend_energy_kw_hr())
+# print("reserve_hover_descend_energy_kw_hr", aircraft._calc_reserve_hover_descend_energy_kw_hr())
+
+
+# Components mass
+print("battery_mass_kg", aircraft._calc_battery_mass_kg())
+print("wing_mass_kg", aircraft._calc_wing_mass_kg())
+print("horiz_tail_mass_kg", aircraft._calc_horiz_tail_mass_kg())
+print("vert_tail_mass_kg", aircraft._calc_vert_tail_mass_kg())
+print("fuselage_mass_kg", aircraft._calc_fuselage_mass_kg())
+
+print("boom_mass_kg", aircraft._calc_boom_mass_kg())
+print("landing_gear_mass_kg", aircraft._calc_landing_gear_mass_kg())
+print("epu_mass_kg", aircraft._calc_epu_mass_kg())
+print("lift_rotor_hub_mass_kg", aircraft._calc_lift_rotor_hub_mass_kg())
+print("tilt_rotor_mass_kg", aircraft._calc_tilt_rotor_mass_kg())
+print("empty_mass_kg", aircraft._calc_empty_mass_kg())
+print("\n")
 
 # # Checking: Cd0
 # cd0_sum = 0.0
@@ -2354,4 +2355,5 @@ print(aircraft._calc_reserve_hover_descend_energy_kw_hr())
 # print("vert_tail_area_m2", aircraft.vert_tail_area_m2)
 # print("disk_area", aircraft.propulsion.disk_area_m2)
 # print("aspect_ratio", aircraft.wing_aspect_ratio)
+# print("wing_mac_m", aircraft._calc_wing_mac_m())
 
