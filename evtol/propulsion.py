@@ -20,6 +20,8 @@ class Propulsion:
     # propulsion properties
     self._rotor_effic = ijson['propulsion']['rotor_effic']
     self._rotor_count = ijson['propulsion']['rotor_count']
+    self._lift_rotor_count = ijson['propulsion']['lift_rotor_count']
+    self._tilt_rotor_count = ijson['propulsion']['tilt_rotor_count']
     self._rotor_diameter_m = ijson['propulsion']['rotor_diameter_m']
     self._tip_mach = ijson['propulsion']['tip_mach']
     self._rotor_avg_cl = ijson['propulsion']['rotor_avg_cl']
@@ -38,6 +40,8 @@ class Propulsion:
       return (\
        self.rotor_effic == other.rotor_effic and
        self.rotor_count == other.rotor_count and
+       self.lift_rotor_count == other.lift_rotor_count and
+       self.tilt_rotor_count == other.tilt_rotor_count and
        self.rotor_diameter_m == other.rotor_diameter_m and
        self.tip_mach == other.tip_mach and
        self.rotor_avg_cl == other.rotor_avg_cl
@@ -59,6 +63,14 @@ class Propulsion:
     # TODO: ensure cascading update calculations if rotor count changes
     self._rotor_count = new_count
     self._disk_area_m2 = self._calc_disk_area_m2()
+
+  @property
+  def lift_rotor_count(self):
+    return self._lift_rotor_count
+
+  @property
+  def tilt_rotor_count(self):
+    return self._tilt_rotor_count
 
   @property
   def rotor_diameter_m(self):

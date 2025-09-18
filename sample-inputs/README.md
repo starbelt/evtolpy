@@ -140,6 +140,8 @@ Mission segments:
 * `rotor_effic`: rotor efficiency; the ratio between the power produced by the
   rotor and the power applied (e.g. 0.8)
 * `rotor_count`: number of rotors
+* `lift_rotor_count`: number of lift rotors
+* `tilt_rotor_count`: number of tilt rotors
 * `rotor_diameter_m`: rotor diameter in meters
 * `tip_mach`: ratio of rotor tip to speed of sound; impacts noise level
 * `rotor_avg_cl`: average coefficient of lift for the rotor; thrust coefficient

@@ -23,6 +23,8 @@ class TestPropulsion(unittest.TestCase):
     propulsion = Propulsion('../sample-inputs/test-propulsion.json')
     self.assertEqual(propulsion.rotor_effic, 0.80)
     self.assertEqual(propulsion.rotor_count, 12)
+    self.assertEqual(propulsion.lift_rotor_count, 6)
+    self.assertEqual(propulsion.tilt_rotor_count, 6)
     self.assertEqual(propulsion.rotor_diameter_m, 2.0)
     self.assertEqual(propulsion.tip_mach, 0.4)
     self.assertEqual(propulsion.rotor_avg_cl, 0.625)

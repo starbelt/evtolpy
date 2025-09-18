@@ -93,6 +93,8 @@
   "propulsion": {
     "rotor_effic": 0.80,
     "rotor_count": 12,
+    "lift_rotor_count": 6,
+    "tilt_rotor_count": 6,
     "rotor_diameter_m": 2.0,
     "tip_mach": 0.4,
     "rotor_avg_cl": 0.625
