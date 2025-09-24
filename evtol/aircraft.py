@@ -1787,6 +1787,149 @@ class Aircraft:
     self.max_takeoff_mass_kg = mtow_guess
     return mtow_guess, history
 
+  # calculates subset of segments total energy
+  def _calc_segments_energy_kw_hr(self, seg_names):
+    seg_energy_map = {
+      "depart_taxi": self.depart_taxi_energy_kw_hr,
+      "hover_climb": self.hover_climb_energy_kw_hr,
+      "trans_climb": self.trans_climb_energy_kw_hr,
+      "depart_proc": self.depart_proc_energy_kw_hr,
+      "accel_climb": self.accel_climb_energy_kw_hr,
+      "cruise": self.cruise_energy_kw_hr,
+      "decel_descend": self.decel_descend_energy_kw_hr,
+      "arrive_proc": self.arrive_proc_energy_kw_hr,
+      "trans_descend": self.trans_descend_energy_kw_hr,
+      "hover_descend": self.hover_descend_energy_kw_hr,
+      "arrive_taxi": self.arrive_taxi_energy_kw_hr,
+      "reserve_hover_climb": self.reserve_hover_climb_energy_kw_hr,
+      "reserve_trans_climb": self.reserve_trans_climb_energy_kw_hr,
+      "reserve_accel_climb": self.reserve_accel_climb_energy_kw_hr,
+      "reserve_cruise": self.reserve_cruise_energy_kw_hr,
+      "reserve_decel_descend": self.reserve_decel_descend_energy_kw_hr,
+      "reserve_trans_descend": self.reserve_trans_descend_energy_kw_hr,
+      "reserve_hover_descend": self.reserve_hover_descend_energy_kw_hr,
+    }
+    return sum(seg_energy_map[s] for s in seg_names if seg_energy_map.get(s) is not None)
+
+  # quick ABU detach evaluator with pre/post energy logging
+  # does not model ABU mass or ABU return energy (quick screening tool)
+  def evaluate_abu_detach_candidates(self, candidates):
+    """
+    candidates: list of dicts describing detach points.
+      Example:
+        [
+          {"name": "after_trans_climb",
+           "segments": ["depart_taxi","hover_climb","trans_climb"]},
+          {"name": "after_accel_climb",
+           "segments": ["depart_taxi","hover_climb","trans_climb","depart_proc","accel_climb"]},
+          {"name": "mid_accel_50pct",
+           "segments": ["depart_taxi","hover_climb","trans_climb","depart_proc","accel_climb"],
+           "frac_last_segment":0.5}
+        ]
+    Returns: list of results dict
+    """
+
+    # baseline battery & empty mass
+    baseline_batt_mass_kg = self._calc_battery_mass_kg()
+    empty_mass_kg = self._calc_empty_mass_kg()
+    if baseline_batt_mass_kg is None or empty_mass_kg is None:
+        return []
+
+    # fixed segment order (critical for “remaining_segs” lookup)
+    ordered_segments = [
+      "depart_taxi","hover_climb","trans_climb","depart_proc","accel_climb",
+      "cruise","decel_descend","arrive_proc","trans_descend","hover_descend","arrive_taxi",
+      "reserve_hover_climb","reserve_trans_climb","reserve_accel_climb","reserve_cruise",
+      "reserve_decel_descend","reserve_trans_descend","reserve_hover_descend"
+    ]
+
+    # helper: compute current energy for a segment (kW·hr) using the current self state
+    def _get_seg_energy_kwh(seg_name):
+      try:
+        val = getattr(self, f"{seg_name}_energy_kw_hr")
+        return 0.0 if val is None else float(val)
+      except AttributeError:
+        return 0.0
+
+    results = []
+
+    for cand in candidates:
+      name = cand.get("name", "unnamed")
+      segs = cand.get("segments", [])
+      frac_last = cand.get("frac_last_segment", 1.0)  # 1.0: full last segment, 0.5: half of last segment etc.
+
+      # preserve baseline mtow and ensure we start from baseline for pre-detach calculation
+      prev_mtow_kg = self.max_takeoff_mass_kg  
+      self._max_takeoff_mass_kg = prev_mtow_kg
+      pre_detach_energy_log = {}  
+      
+      # compute energy used up to detach
+      energy_until_detach_kwh = 0.0
+      for i, s in enumerate(segs):
+        e_kwh = _get_seg_energy_kwh(s)
+        if i == len(segs)-1:   # fractional handling on last segment
+          e_kwh *= frac_last
+        pre_detach_energy_log[s] = e_kwh
+        energy_until_detach_kwh += e_kwh
+
+      # equivalent battery mass offloaded to ABUs
+      batt_mass_for_assist_kg = (energy_until_detach_kwh * 1000.0) / (self.power.batt_spec_energy_w_h_p_kg*(1-self.power.batt_inaccessible_energy_frac)*self.power.batt_int_factor)
+
+      # new battery mass and MTOW
+      batt_new_kg = max(0.0, baseline_batt_mass_kg - batt_mass_for_assist_kg)
+      new_mtow_kg = empty_mass_kg + self.payload_kg + batt_new_kg
+
+      # post-detach remaining mission energy with updated mtow
+      self._max_takeoff_mass_kg = new_mtow_kg
+      post_detach_energy_log = {}
+      remaining_energy_kwh_new_mtow = 0.0
+
+      if segs:
+        last_seg = segs[-1]
+        if last_seg in ordered_segments:
+          detach_idx = ordered_segments.index(last_seg)
+          remaining_segs = ordered_segments[detach_idx+1:]
+
+          # if fractional detach, add remainder of last segment (recomputed at new mtow)
+          if frac_last < 1.0:
+            remainder_energy = _get_seg_energy_kwh(last_seg) * (1.0 - frac_last)
+            post_detach_energy_log[last_seg + "_remainder"] = remainder_energy
+            remaining_energy_kwh_new_mtow += remainder_energy
+
+          # add all following segments (recomputed at new mtow)
+          for rs in remaining_segs:
+            e_kwh = _get_seg_energy_kwh(rs)
+            if e_kwh is not None:
+              post_detach_energy_log[rs] = e_kwh
+              remaining_energy_kwh_new_mtow += e_kwh
+      else:
+        # if no detach segments given, treat whole mission as post-detach (recomputed)
+        for s in ordered_segments:
+          e_kwh = _get_seg_energy_kwh(s)
+          if e_kwh is not None:
+            post_detach_energy_log[s] = e_kwh
+            remaining_energy_kwh_new_mtow += e_kwh
+      
+      # restore MTOW to baseline
+      self._max_takeoff_mass_kg = prev_mtow_kg
+
+      # record
+      results.append({
+        "name": name,
+        "energy_until_detach_kwh": energy_until_detach_kwh,
+        "batt_mass_for_assist_kg": batt_mass_for_assist_kg,
+        "baseline_batt_mass_kg": baseline_batt_mass_kg,
+        "batt_new_kg": batt_new_kg,
+        "new_mtow_kg": new_mtow_kg,
+        "pre_detach_energy_log": pre_detach_energy_log,
+        "post_detach_energy_log": post_detach_energy_log,
+        "remaining_mission_kwh_est": remaining_energy_kwh_new_mtow,
+        "total_mission_kwh_with_new_mtow_est": energy_until_detach_kwh + remaining_energy_kwh_new_mtow,
+      })
+
+    return results
+
+
   @property
   def max_takeoff_mass_kg(self):
     return self._max_takeoff_mass_kg

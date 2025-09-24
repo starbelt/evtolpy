@@ -1,0 +1,4 @@
+name,energy_until_detach_kwh,batt_mass_for_assist_kg,baseline_batt_mass_kg,batt_new_kg,new_mtow_kg,remaining_mission_kwh_est,total_mission_kwh_with_new_mtow_est
+after_trans_climb,2.845612,17.348645,315.132718,297.784073,2368.483463,47.879442,50.725054
+after_accel_climb,8.293288,50.561124,315.132718,264.571594,2335.270983,41.783116,50.076405
+mid_accel_50pct,5.835173,35.574898,315.132718,279.557820,2350.257209,44.505326,50.340499
