@@ -240,7 +240,7 @@ for row in data_rows:
 
   # title with full detach segment name
   detach_seg_label = human_labels[last_pre_idx] if last_pre_idx >= 0 else "Unknown"
-  ax.set_title(f"Mission Segment Energy – Detach After {detach_seg_label}")
+  ax.set_title(f"Mission Segment Energy \nDetach After {detach_seg_label}")
 
   ax.set_ylabel("Energy (kW·hr)")
   ax.set_xlabel("Mission Segment")
