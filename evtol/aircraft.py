@@ -1753,7 +1753,7 @@ class Aircraft:
     return subtotal * (1.0 + self.mass_margin_factor)
 
   # iterate Maximum Takeoff Weight (MTOW) until convergence
-  def _iterate_mtow(self, tol=1e-3, max_iter=100):
+  def _iterate_mtow(self, tol=1e-3, max_iter=150):
     mtow_guess = self.max_takeoff_mass_kg
     history = []
 
@@ -1783,6 +1783,7 @@ class Aircraft:
           "empty_mass_kg": empty_mass_kg,
           "battery_mass_kg": battery_mass_kg,
           "payload_mass_kg": self.payload_kg,
+          "total_energy_converged_kw_hr": self._calc_total_mission_energy_kw_hr()
       })
 
       if abs(delta) < tol:
@@ -1792,6 +1793,7 @@ class Aircraft:
       mtow_guess = new_mtow
     
     self.max_takeoff_mass_kg = mtow_guess
+
     return mtow_guess, history
 
 

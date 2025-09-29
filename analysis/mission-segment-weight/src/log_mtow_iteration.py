@@ -29,7 +29,7 @@ with open(log_path, "w", newline="") as csvfile:
     csvwriter = csv.writer(csvfile)
     csvwriter.writerow([
         "iteration", "mtow_guess_kg", "new_mtow_kg", "delta_kg", 
-        "empty_mass_kg", "battery_mass_kg", "payload_mass_kg"
+        "empty_mass_kg", "battery_mass_kg", "payload_mass_kg", "total_energy_converged_kw_hr"
     ])
     for row in history:
         csvwriter.writerow([
@@ -39,6 +39,8 @@ with open(log_path, "w", newline="") as csvfile:
             f"{row['delta_kg']:.6f}",
             f"{row['empty_mass_kg']:.6f}",
             f"{row['battery_mass_kg']:.6f}",
-            f"{row['payload_mass_kg']:.6f}"
+            f"{row['payload_mass_kg']:.6f}",
+            f"{row['total_energy_converged_kw_hr']:.6f}"
+
         ])
 
