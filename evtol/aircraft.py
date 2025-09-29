@@ -1763,6 +1763,13 @@ class Aircraft:
       # recalculate dependent masses on this guess
       empty_mass_kg = self.empty_mass_kg
       battery_mass_kg = self.battery_mass_kg
+
+      if battery_mass_kg is None:
+        raise ValueError(
+            f"Battery mass could not be computed at iteration {i}. "
+            f"Likely mission infeasible for this config."
+        )
+
       new_mtow = empty_mass_kg + self.payload_kg + battery_mass_kg
 
       delta = new_mtow - mtow_guess
@@ -1787,63 +1794,37 @@ class Aircraft:
     self.max_takeoff_mass_kg = mtow_guess
     return mtow_guess, history
 
-  # calculates subset of segments total energy
-  def _calc_segments_energy_kw_hr(self, seg_names):
-    seg_energy_map = {
-      "depart_taxi": self.depart_taxi_energy_kw_hr,
-      "hover_climb": self.hover_climb_energy_kw_hr,
-      "trans_climb": self.trans_climb_energy_kw_hr,
-      "depart_proc": self.depart_proc_energy_kw_hr,
-      "accel_climb": self.accel_climb_energy_kw_hr,
-      "cruise": self.cruise_energy_kw_hr,
-      "decel_descend": self.decel_descend_energy_kw_hr,
-      "arrive_proc": self.arrive_proc_energy_kw_hr,
-      "trans_descend": self.trans_descend_energy_kw_hr,
-      "hover_descend": self.hover_descend_energy_kw_hr,
-      "arrive_taxi": self.arrive_taxi_energy_kw_hr,
-      "reserve_hover_climb": self.reserve_hover_climb_energy_kw_hr,
-      "reserve_trans_climb": self.reserve_trans_climb_energy_kw_hr,
-      "reserve_accel_climb": self.reserve_accel_climb_energy_kw_hr,
-      "reserve_cruise": self.reserve_cruise_energy_kw_hr,
-      "reserve_decel_descend": self.reserve_decel_descend_energy_kw_hr,
-      "reserve_trans_descend": self.reserve_trans_descend_energy_kw_hr,
-      "reserve_hover_descend": self.reserve_hover_descend_energy_kw_hr,
-    }
-    return sum(seg_energy_map[s] for s in seg_names if seg_energy_map.get(s) is not None)
 
-  # quick ABU detach evaluator with pre/post energy logging
-  # does not model ABU mass or ABU return energy (quick screening tool)
-  def evaluate_abu_detach_candidates(self, candidates):
+  # ABU detach evaluator with pre/post energy logging
+  # treat ABU as a self-contained unit
+  def evaluate_abu_detach_candidates(self, candidates, abu_spec=None):    
     """
     candidates: list of dicts describing detach points.
       Example:
         [
-          {"name": "after_trans_climb",
-           "segments": ["depart_taxi","hover_climb","trans_climb"]},
           {"name": "after_accel_climb",
-           "segments": ["depart_taxi","hover_climb","trans_climb","depart_proc","accel_climb"]},
-          {"name": "mid_accel_50pct",
-           "segments": ["depart_taxi","hover_climb","trans_climb","depart_proc","accel_climb"],
-           "frac_last_segment":0.5}
+           "segments": ["depart_taxi","hover_climb","trans_climb","depart_proc","accel_climb"]}
         ]
-    Returns: list of results dict
     """
 
-    # baseline battery & empty mass
-    baseline_batt_mass_kg = self._calc_battery_mass_kg()
-    empty_mass_kg = self._calc_empty_mass_kg()
-    if baseline_batt_mass_kg is None or empty_mass_kg is None:
-        return []
+    ## default ABU specifications
+    if abu_spec is None:
+      abu_spec = {
+        "n_abus": 1,                          # number of ABUs attached (default 1)
+        "E_mission_kwh_per_abu": 4.0,         # usable ABU energy reserved to assist aircraft [kWh]
+        "E_ops_kwh_per_abu": 1.0,             # energy reserved for ABU's own safe ops after detach [kWh]
+        "m_struct_kg_per_abu": 20.0,          # ABU structural mass [kg]
+        "m_integration_kg_per_abu": 2.0,      # ABU integration hardware mass [kg]
+      }
 
-    # fixed segment order (critical for “remaining_segs” lookup)
-    ordered_segments = [
-      "depart_taxi","hover_climb","trans_climb","depart_proc","accel_climb",
-      "cruise","decel_descend","arrive_proc","trans_descend","hover_descend","arrive_taxi",
-      "reserve_hover_climb","reserve_trans_climb","reserve_accel_climb","reserve_cruise",
-      "reserve_decel_descend","reserve_trans_descend","reserve_hover_descend"
-    ]
+    n_abus = int(abu_spec.get("n_abus", 1))
+    E_mission_per_abu_kwh = float(abu_spec.get("E_mission_kwh_per_abu", 0.0))
+    E_ops_per_abu_kwh = float(abu_spec.get("E_ops_kwh_per_abu", 0.0))
+    m_struct_per_abu_kg = float(abu_spec.get("m_struct_kg_per_abu", 0.0))
+    m_integration_per_abu_kg = float(abu_spec.get("m_integration_kg_per_abu", 0.0))
 
-    # helper: compute current energy for a segment (kW·hr) using the current self state
+    ## helpers
+    # get per-segment energy (kWh) based on current self state (uses attributes like {seg}_energy_kw_hr)
     def _get_seg_energy_kwh(seg_name):
       try:
         val = getattr(self, f"{seg_name}_energy_kw_hr")
@@ -1851,84 +1832,222 @@ class Aircraft:
       except AttributeError:
         return 0.0
 
+    # convert energy (kWh) to battery mass (kg) 
+    def _energy_kwh_to_batt_kg(e_kwh):
+      if e_kwh <= 0.0:
+        return 0.0
+      usable_wh_per_kg = (
+        self.power.batt_spec_energy_w_h_p_kg
+        * (1.0 - self.power.batt_inaccessible_energy_frac)
+        * self.power.batt_int_factor
+      )
+      if usable_wh_per_kg <= 0.0:
+        return 0.0
+      return (e_kwh * 1000.0) / usable_wh_per_kg
+
+    # estimate ABU rotor+hub mass using NDARC Section 19.2 AFDD00 rotor + hub mass model
+    def _calc_single_lift_rotor_hub_mass_kg():
+      """
+      Quick patch: temporarily override lift_rotor_count in propulsion
+      to reuse existing NDARC rotor+hub mass function.
+      """
+      # Save original getter
+      orig_getter = type(self.propulsion).lift_rotor_count.fget
+
+      try:
+        # Monkey patch to force number of rotors
+        type(self.propulsion).lift_rotor_count = property(lambda _self: n_abus)
+
+        # Call original mass function
+        return self._calc_lift_rotor_hub_mass_kg()
+
+      finally:
+        # Restore original getter no matter what
+        type(self.propulsion).lift_rotor_count = property(orig_getter)
+
+    ## baseline values (no ABU attached)
+    baseline_batt_mass_kg = self._calc_battery_mass_kg()
+    empty_mass_kg = self._calc_empty_mass_kg()
+    if baseline_batt_mass_kg is None or empty_mass_kg is None:
+      return [] 
+
+    prev_mtow_kg = self.max_takeoff_mass_kg  # baseline MTOW
+    # baseline total mission energy (kWh) computed at baseline MTOW
+    # ensure object uses baseline MTOW:
+    self._max_takeoff_mass_kg = prev_mtow_kg
+    ordered_segments = [
+      "depart_taxi","hover_climb","trans_climb","depart_proc","accel_climb",
+      "cruise","decel_descend","arrive_proc","trans_descend","hover_descend","arrive_taxi",
+      "reserve_hover_climb","reserve_trans_climb","reserve_accel_climb","reserve_cruise",
+      "reserve_decel_descend","reserve_trans_descend","reserve_hover_descend"
+    ]
+    baseline_total_mission_kwh = sum(_get_seg_energy_kwh(s) for s in ordered_segments)
+
+    ## ABU per-unit mass breakdown
+    # battery masses
+    m_batt_mission_per_abu_kg = _energy_kwh_to_batt_kg(E_mission_per_abu_kwh)
+    m_batt_ops_per_abu_kg = _energy_kwh_to_batt_kg(E_ops_per_abu_kwh)
+
+    # rotor mass per ABU 
+    rot_hub_single_kg = _calc_single_lift_rotor_hub_mass_kg()
+    m_rotor_per_abu_kg = rot_hub_single_kg
+
+    # total ABU mass per unit
+    m_abu_total_per_abu_kg = (
+      m_struct_per_abu_kg
+      + m_integration_per_abu_kg
+      + m_rotor_per_abu_kg
+      + m_batt_mission_per_abu_kg
+      + m_batt_ops_per_abu_kg
+    )
+
+    # total ABU fleet mass
+    m_abu_total_all_kg = m_abu_total_per_abu_kg * n_abus
+
+    # ABU aggregated energies
+    E_abu_mission_total_kwh = E_mission_per_abu_kwh * n_abus
+    E_abu_ops_total_kwh = E_ops_per_abu_kwh * n_abus
+
+    ## prepare results list
     results = []
 
+    # iterate candidates
     for cand in candidates:
       name = cand.get("name", "unnamed")
       segs = cand.get("segments", [])
-      frac_last = cand.get("frac_last_segment", 1.0)  # 1.0: full last segment, 0.5: half of last segment etc.
 
-      # preserve baseline mtow and ensure we start from baseline for pre-detach calculation
-      prev_mtow_kg = self.max_takeoff_mass_kg  
-      self._max_takeoff_mass_kg = prev_mtow_kg
-      pre_detach_energy_log = {}  
-      
-      # compute energy used up to detach
-      energy_until_detach_kwh = 0.0
-      for i, s in enumerate(segs):
-        e_kwh = _get_seg_energy_kwh(s)
-        if i == len(segs)-1:   # fractional handling on last segment
-          e_kwh *= frac_last
-        pre_detach_energy_log[s] = e_kwh
-        energy_until_detach_kwh += e_kwh
+      # ----------------------------
+      # Stage A: Pre-detach evaluation with ABU(s) attached
+      # ----------------------------
+      # MTOW while ABU(s) are attached
+      MTOW_attached = self._max_takeoff_mass_kg + m_abu_total_all_kg
+      self._max_takeoff_mass_kg = MTOW_attached
 
-      # equivalent battery mass offloaded to ABUs
-      batt_mass_for_assist_kg = (energy_until_detach_kwh * 1000.0) / (self.power.batt_spec_energy_w_h_p_kg*(1-self.power.batt_inaccessible_energy_frac)*self.power.batt_int_factor)
+      # sequentially step through the candidate's pre-detach segments
+      # consume ABU mission energy 
+      E_abu_remaining_kwh = E_abu_mission_total_kwh
+      pre_detach_log = {}
+      aircraft_energy_pre_detach_kwh = 0.0
+      E_abu_used_kwh = 0.0
 
-      # new battery mass and MTOW
-      batt_new_kg = max(0.0, baseline_batt_mass_kg - batt_mass_for_assist_kg)
-      new_mtow_kg = empty_mass_kg + self.payload_kg + batt_new_kg
+      # for each pre-detach segment
+      for s in segs:
+        seg_total_kwh = _get_seg_energy_kwh(s)
+        # ABU supplies up to remaining mission energy it still has
+        # if ABU mission energy exhausted before finishing candidate segments, the logic below already handles it because supplied_by_abu_kwh will be 0
+        supplied_by_abu_kwh = min(seg_total_kwh, E_abu_remaining_kwh)
+        # aircraft supplies the residual for this segment
+        aircraft_kwh = seg_total_kwh - supplied_by_abu_kwh
 
-      # post-detach remaining mission energy with updated mtow
-      self._max_takeoff_mass_kg = new_mtow_kg
-      post_detach_energy_log = {}
-      remaining_energy_kwh_new_mtow = 0.0
+        # bookkeeping
+        E_abu_remaining_kwh -= supplied_by_abu_kwh
+        E_abu_used_kwh += supplied_by_abu_kwh
+        aircraft_energy_pre_detach_kwh += aircraft_kwh
 
+        pre_detach_log[s] = {
+          "seg_total_kwh": seg_total_kwh,
+          "abu_kwh": supplied_by_abu_kwh,
+          "aircraft_kwh": aircraft_kwh
+        }
+
+      # ----------------------------
+      # Stage B: Determine new main battery mass and MTOW after detach
+      # ----------------------------
+      # mass of main battery energy offloaded to ABUs (kg)
+      mass_offloaded_kg = _energy_kwh_to_batt_kg(E_abu_used_kwh)
+      main_batt_new_kg = max(0.0, baseline_batt_mass_kg - mass_offloaded_kg)
+
+      # MTOW after detaching ABUs
+      MTOW_detached = MTOW_attached - baseline_batt_mass_kg - m_abu_total_all_kg + main_batt_new_kg 
+
+      # ----------------------------
+      # Stage C: Post-detach evaluation at lighter MTOW (ABUs detached)
+      # ----------------------------
+      self._max_takeoff_mass_kg = MTOW_detached
+
+      post_detach_log = {}
+      # aircraft battery supply post-detach
+      remaining_energy_kwh_post = 0.0
+
+      # determine the remaining segments by finding the index of the detach segment and takes everything after it
       if segs:
         last_seg = segs[-1]
         if last_seg in ordered_segments:
           detach_idx = ordered_segments.index(last_seg)
-          remaining_segs = ordered_segments[detach_idx+1:]
-
-          # if fractional detach, add remainder of last segment (recomputed at new mtow)
-          if frac_last < 1.0:
-            remainder_energy = _get_seg_energy_kwh(last_seg) * (1.0 - frac_last)
-            post_detach_energy_log[last_seg + "_remainder"] = remainder_energy
-            remaining_energy_kwh_new_mtow += remainder_energy
-
-          # add all following segments (recomputed at new mtow)
-          for rs in remaining_segs:
-            e_kwh = _get_seg_energy_kwh(rs)
-            if e_kwh is not None:
-              post_detach_energy_log[rs] = e_kwh
-              remaining_energy_kwh_new_mtow += e_kwh
+          remaining_segs = ordered_segments[detach_idx + 1 :]
+        else:
+          remaining_segs = ordered_segments[:]
       else:
-        # if no detach segments given, treat whole mission as post-detach (recomputed)
-        for s in ordered_segments:
-          e_kwh = _get_seg_energy_kwh(s)
-          if e_kwh is not None:
-            post_detach_energy_log[s] = e_kwh
-            remaining_energy_kwh_new_mtow += e_kwh
-      
-      # restore MTOW to baseline
+        remaining_segs = ordered_segments[:]
+
+      # calculations for each remaining segment
+      for rs in remaining_segs:
+        seg_kwh = _get_seg_energy_kwh(rs) # evaluated at MTOW_detached
+        post_detach_log[rs] = seg_kwh
+        remaining_energy_kwh_post += seg_kwh
+
+      # ----------------------------
+      # Stage D: Feasibility and totals
+      # ----------------------------
+      # ABU ops feasibility: ABU mission energy is strictly separate from ops energy
+      # check that ABU had enough dedicated ops reserve (E_abu_ops_total_kwh) available
+      # in this model mission energy and ops energy are separate allocations, so feasibility is:
+      #   - E_abu_used_kwh must not exceed E_abu_mission_total_kwh (guaranteed by logic)
+      #   - ops energy is available because it was reserved separately (user-specified)
+      feasible_ops = True
+      # infeasible if ABU mission energy supplied exceeded allocated mission reserve 
+      if E_abu_used_kwh > E_abu_mission_total_kwh + 1e-12:
+        feasible_ops = False
+
+      # total system energy 
+      total_system_kwh_after = (
+        aircraft_energy_pre_detach_kwh
+        + remaining_energy_kwh_post
+        + E_abu_used_kwh         # ABU mission energy actually supplied to aircraft
+        + E_abu_ops_total_kwh    # ABU reserved ops energy (spent by ABU after detach)
+      )
+
+      # aircraft-only energy consumed after ABU usage (kWh) 
+      # the amount of energy the aircraft must supply over the whole mission
+      aircraft_total_kwh_after = aircraft_energy_pre_detach_kwh + remaining_energy_kwh_post
+
+      # restore MTOW to baseline 
       self._max_takeoff_mass_kg = prev_mtow_kg
 
-      # record
+      # ABU mass breakdown details
+      abu_mass_breakdown = {
+        "n_abus": n_abus,
+        "m_struct_total_kg": m_struct_per_abu_kg * n_abus,
+        "m_integration_total_kg": m_integration_per_abu_kg * n_abus,
+        "m_rotor_total_kg": m_rotor_per_abu_kg * n_abus,
+        "m_batt_mission_total_kg": m_batt_mission_per_abu_kg * n_abus,
+        "m_batt_ops_total_kg": m_batt_ops_per_abu_kg * n_abus,
+        "m_abu_total_per_abu_kg": m_abu_total_per_abu_kg,
+        "m_abu_total_all_kg": m_abu_total_all_kg,
+      }
+
+      # append results
       results.append({
         "name": name,
-        "energy_until_detach_kwh": energy_until_detach_kwh,
-        "batt_mass_for_assist_kg": batt_mass_for_assist_kg,
+        "E_abu_mission_total_kwh": E_abu_mission_total_kwh,
+        "E_abu_ops_total_kwh": E_abu_ops_total_kwh,
+        "E_abu_used_kwh": E_abu_used_kwh,
+        "batt_mass_offloaded_kg": mass_offloaded_kg,
         "baseline_batt_mass_kg": baseline_batt_mass_kg,
-        "batt_new_kg": batt_new_kg,
-        "new_mtow_kg": new_mtow_kg,
-        "pre_detach_energy_log": pre_detach_energy_log,
-        "post_detach_energy_log": post_detach_energy_log,
-        "remaining_mission_kwh_est": remaining_energy_kwh_new_mtow,
-        "total_mission_kwh_with_new_mtow_est": energy_until_detach_kwh + remaining_energy_kwh_new_mtow,
+        "main_batt_new_kg": main_batt_new_kg,
+        "MTOW_attached_kg": MTOW_attached,
+        "MTOW_detached_kg": MTOW_detached,
+        "pre_detach_segment_log": pre_detach_log,
+        "post_detach_segment_log": post_detach_log,
+        "abu_mass_breakdown": abu_mass_breakdown,
+        "feasible_ops": feasible_ops,
+        "baseline_total_mission_kwh": baseline_total_mission_kwh,
+        "aircraft_total_kwh_after": aircraft_total_kwh_after,
+        "total_system_kwh_after": total_system_kwh_after,
       })
 
+    # return all candidate results
     return results
-
 
   @property
   def max_takeoff_mass_kg(self):

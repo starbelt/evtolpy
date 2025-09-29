@@ -49,212 +49,151 @@ with open(log_csv, 'r') as csvfile:
 
 # header and rows
 header = rows[0]           # e.g. ['candidate','depart_taxi_pre','hover_climb_pre',...]
-data_rows = rows[1:]       # each row is a candidate
-
-# parse header columns into base_name and suffix (pre/post/remainder/none)
-col_info = []  # list of tuples (col_index, base_name, suffix)
-pattern = re.compile(r'^(?P<base>.+?)(?:_(?P<suffix>pre|post|remainder))?$')
+data_rows = rows[1:]       # one row per candidate
 
 # mapping segment label
 seg_label_map = {
-    "depart_taxi": "Depart Taxi",
-    "hover_climb": "Hover Climb",
-    "trans_climb": "Transition Climb",
-    "depart_proc": "Depart Procedures",
-    "accel_climb": "Accelerate Climb",
-    "cruise": "Cruise",
-    "decel_descend": "Decelerate Descend",
-    "arrive_proc": "Arrive Procedures",
-    "trans_descend": "Transition Descend",
-    "hover_descend": "Hover Descend",
-    "arrive_taxi": "Arrive Taxi",
-    "reserve_hover_climb": "Reserve Hover Climb",
-    "reserve_trans_climb": "Reserve Transition Climb",
-    "reserve_accel_climb": "Reserve Accelerate Climb",
-    "reserve_cruise": "Reserve Cruise",
-    "reserve_decel_descend": "Reserve Decelerate Descend",
-    "reserve_trans_descend": "Reserve Transition Descend",
-    "reserve_hover_descend": "Reserve Hover Descend",
+  "depart_taxi": "Depart Taxi",
+  "hover_climb": "Hover Climb",
+  "trans_climb": "Transition Climb",
+  "depart_proc": "Depart Procedures",
+  "accel_climb": "Accelerate Climb",
+  "cruise": "Cruise",
+  "decel_descend": "Decelerate Descend",
+  "arrive_proc": "Arrive Procedures",
+  "trans_descend": "Transition Descend",
+  "hover_descend": "Hover Descend",
+  "arrive_taxi": "Arrive Taxi",
+  "reserve_hover_climb": "Reserve Hover Climb",
+  "reserve_trans_climb": "Reserve Transition Climb",
+  "reserve_accel_climb": "Reserve Accelerate Climb",
+  "reserve_cruise": "Reserve Cruise",
+  "reserve_decel_descend": "Reserve Decelerate Descend",
+  "reserve_trans_descend": "Reserve Transition Descend",
+  "reserve_hover_descend": "Reserve Hover Descend",
 }
 
-segments = header[1:]
-human_labels = [seg_label_map.get(seg, seg) for seg in segments]
-
+## parse header into (segment_base, suffix)
+# example: 'hover_climb_pre' → ('hover_climb','pre')
+pattern = re.compile(r"^(?P<base>.+?)(?:_(?P<suffix>pre|post|remainder))?$")
+col_info = []
 for idx, col in enumerate(header):
   if idx == 0:
-    # first column should be 'candidate' (name)
-    col_info.append((idx, 'candidate', None))
+    col_info.append((idx, "candidate", None))
     continue
-  m = pattern.match(col)
-  if not m:
-    base = col
-    suffix = None
-  else:
-    base = m.group('base')
-    suffix = m.group('suffix')  # may be None
+  match = pattern.match(col)
+  base = match.group("base") if match else col
+  suffix = match.group("suffix") if match else None
   col_info.append((idx, base, suffix))
 
-# build ordered base list preserving header order
+# preserve order of base segments
 base_order = []
-for _, base, _ in col_info[1:]:
-  if base not in base_order:
-    base_order.append(base)
+for _, seg_base, _ in col_info[1:]:
+  if seg_base not in base_order:
+    base_order.append(seg_base)
 
-# create mapping base -> dict of column indices for suffix types
-base_col_indices = {b: {'pre': None, 'post': None, 'remainder': None, 'none': None} for b in base_order}
-for idx, base, suffix in col_info[1:]:
-  key = 'none' if suffix is None else suffix
-  # if multiple same-named columns exist, prefer explicit pre/post over none, but keep last-seen
-  base_col_indices[base][key] = idx
+# map base segment → column indices per suffix
+base_col_indices = {b: {"pre": None, "post": None, "remainder": None, "none": None} for b in base_order}
+for idx, seg_base, suffix in col_info[1:]:
+  key = "none" if suffix is None else suffix
+  base_col_indices[seg_base][key] = idx
 
-# helper to parse float robustly
-def _to_float(s):
+## helper to safely parse floats
+def safe_float(s):
   try:
     return float(s)
   except Exception:
     return 0.0
 
-# loop candidates and plot each
-for row in data_rows:
-  if len(row) == 0:
+## main loop: process each candidate row
+for cand_row in data_rows:
+  if not cand_row:
     continue
-  cand_name = row[0]
-  # arrays to hold pre and post numeric values per base segment
-  pre_vals = []
-  post_vals = []
-  total_vals = []
-  bases = base_order  # for plotting X axis
+  cand_name = cand_row[0]
 
-  for base in bases:
-    cols = base_col_indices[base]
-    pre_val = 0.0
-    post_val = 0.0
-    none_val = 0.0
-    remainder_val = 0.0
+  pre_energy, post_energy, total_energy = [], [], []
 
-    # fetch numbers if indices exist
-    if cols['pre'] is not None and cols['pre'] < len(row):
-      pre_val = _to_float(row[cols['pre']])
-    if cols['post'] is not None and cols['post'] < len(row):
-      post_val = _to_float(row[cols['post']])
-    if cols['remainder'] is not None and cols['remainder'] < len(row):
-      remainder_val = _to_float(row[cols['remainder']])
-    if cols['none'] is not None and cols['none'] < len(row):
-      none_val = _to_float(row[cols['none']])
+  # collect segment-wise values
+  for seg_base in base_order:
+    cols = base_col_indices[seg_base]
+    pre_val = safe_float(cand_row[cols["pre"]]) if cols["pre"] else 0.0
+    post_val = safe_float(cand_row[cols["post"]]) if cols["post"] else 0.0
+    remainder_val = safe_float(cand_row[cols["remainder"]]) if cols["remainder"] else 0.0
+    none_val = safe_float(cand_row[cols["none"]]) if cols["none"] else 0.0
 
-    # interpret none_val:
-    # - If both pre and post are zero and none_val exists, treat none_val as the segment's value (no explicit split).
-    # - If pre or post are present, treat none_val as additional (rare).
-    if pre_val == 0.0 and post_val == 0.0 and (not isclose(none_val, 0.0)):
-      # single-column case, assume entire value is 'pre' if it's in the early segments
-      # We'll treat it as 'pre' initially — split point determined below
-      pre_val = none_val
+    # handle "none" suffix (no pre/post distinction in CSV)
+    if pre_val == 0.0 and post_val == 0.0 and not isclose(none_val, 0.0):
+      pre_val = none_val  # assign entirely to pre-detach
 
-    # remainder is a 'post' contribution to the same segment (e.g. fractional remainder of last segment)
+    # remainder counts toward post-detach
     post_val += remainder_val
 
-    pre_vals.append(pre_val)
-    post_vals.append(post_val)
-    total_vals.append(pre_val + post_val)
+    pre_energy.append(pre_val)
+    post_energy.append(post_val)
+    total_energy.append(pre_val + post_val)
 
-  # determine split index for dashed line:
-  # find last index where pre_vals > 0 (meaning that segment was supplied pre-detach)
-  last_pre_idx = -1
-  for i, pv in enumerate(pre_vals):
-    if pv > 1e-9:   # small tolerance
-      last_pre_idx = i
+  # find last pre-detach segment index
+  last_pre_idx = max((i for i, v in enumerate(pre_energy) if v > 1e-9), default=-1)
 
-  # If no explicit pre-post columns were present and pre_vals are all non-zero (single-column case),
-  # try to detect split by finding a contiguous run of non-zero values at start that correspond to pre.
-  # (but only if no explicit pre/post were present in header)
-  explicit_prepost_present = any(('pre' in h or 'post' in h or 'remainder' in h) for h in header[1:])
-  if (last_pre_idx == len(bases)-1) and (not explicit_prepost_present):
-    # try to find reasonable split by searching for a big jump (this is heuristic)
-    vals = total_vals
-    # look for index where cumulative energy crosses 50% of total or a large drop in per-segment energy
-    tot = sum(vals)
-    if tot > 0:
-      cum = 0.0
-      split_candidate = -1
-      for i, v in enumerate(vals):
-        cum += v
-        if cum >= 0.5*tot:
-          split_candidate = i
-          break
-      if split_candidate >= 0:
-          last_pre_idx = split_candidate
 
-  # plotting
-  N = len(bases)
+  ## plotting
+  N = len(base_order)
   x = np.arange(N)
-  width = 0.8
 
   fig, ax = plt.subplots(figsize=(14, 6))
 
-  pre_color = 'tab:blue'
-  post_color = 'tab:orange'
-
-  # decide one value + one color per segment
+  colors = []
   seg_vals = []
-  seg_colors = []
-  last_pre_idx = -1
-  for i, base in enumerate(bases):
-    pre_val = pre_vals[i]
-    post_val = post_vals[i]
-    total_val = total_vals[i]
-
-    if pre_val > 1e-9:   # treat as pre-detach
-      seg_vals.append(pre_val)
-      seg_colors.append(pre_color)
-      last_pre_idx = i
-    elif post_val > 1e-9:  # treat as post-detach
-      seg_vals.append(post_val)
-      seg_colors.append(post_color)
+  for i, seg_base in enumerate(base_order):
+    if pre_energy[i] > 1e-9:
+      seg_vals.append(pre_energy[i])
+      colors.append("tab:blue")
+    elif post_energy[i] > 1e-9:
+      seg_vals.append(post_energy[i])
+      colors.append("tab:orange")
     else:
       seg_vals.append(0.0)
-      seg_colors.append('lightgrey')  # unused / zero
+      colors.append("lightgrey")
 
   # draw bars
-  bars = ax.bar(x, seg_vals, width, color=seg_colors)
+  bars = ax.bar(x, seg_vals, width=0.8, color=colors)
 
-  # annotate values
+  # annotate values above bars
   for i, v in enumerate(seg_vals):
     if v > 1e-8:
       ax.text(
         x[i],
         v + 0.01 * max(1.0, max(seg_vals)),
         f"{v:.4f}",
-        ha='center',
-        va='bottom',
-        fontsize=8
+        ha="center",
+        va="bottom",
+        fontsize=8,
       )
 
-  # dashed vertical separator at detach point
-  if last_pre_idx >= 0 and last_pre_idx < N - 1:
-    ax.axvline(last_pre_idx + 0.5, color='k', linestyle='--', linewidth=1.0)
+  # add dashed line at detach point
+  if 0 <= last_pre_idx < N - 1:
+    ax.axvline(last_pre_idx + 0.5, color="k", linestyle="--", linewidth=1.0)
 
-  # x tick labels: human-readable names
-  human_labels = [seg_label_map.get(b, b.replace('_', ' ').title()) for b in bases]
+  # labels
+  human_labels = [seg_label_map.get(b, b.replace("_", " ").title()) for b in base_order]
   ax.set_xticks(x)
-  ax.set_xticklabels(human_labels, rotation=45, ha='right')
+  ax.set_xticklabels(human_labels, rotation=45, ha="right")
 
-  # title with full detach segment name
-  detach_seg_label = human_labels[last_pre_idx] if last_pre_idx >= 0 else "Unknown"
-  ax.set_title(f"Mission Segment Energy \nDetach After {detach_seg_label}")
-
+  detach_label = human_labels[last_pre_idx] if last_pre_idx >= 0 else "Unknown"
+  ax.set_title(f"Mission Segment Energy \nDetach After {detach_label}")
   ax.set_ylabel("Energy (kW·hr)")
   ax.set_xlabel("Mission Segment")
 
-  # add legend manually (since bars are colored by logic)
+  # Legend
   legend_handles = [
-    plt.Rectangle((0,0),1,1, color=pre_color, label="Pre-detach"),
-    plt.Rectangle((0,0),1,1, color=post_color, label="Post-detach")
+    plt.Rectangle((0, 0), 1, 1, color="tab:blue", label="Pre-detach"),
+    plt.Rectangle((0, 0), 1, 1, color="tab:orange", label="Post-detach"),
   ]
   ax.legend(handles=legend_handles, loc="upper right")
 
   plt.tight_layout()
 
   # save figure
-  fname = out_dir + f"mission-segment-abu-analysis-energy-{cand_name}.pdf"
-  fig.savefig(fname, format='pdf')
+  out_file = out_dir + f"mission-segment-abu-analysis-energy-{cand_name}.pdf"
+  fig.savefig(out_file, format="pdf")
   plt.close(fig)
