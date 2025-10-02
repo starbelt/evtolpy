@@ -4,24 +4,24 @@ This document explains the equations used to calculate **energy consumption** ac
 
 ## Table of Contents
 * [General Kinematic Relations](#general-kinematic-relations)     
+
 * [General Workflow for Calculating Average Electric Power (kW)](#general-workflow-for-calculating-average-electric-power-kw)  
+
 * [Average Shaft Power Calculation](#average-shaft-power-calculation)
 
-* **Mission Segment Energy Consumption**
-  
-  | **Main Mission**                                                | **Reserve Mission**                                                                  |
-  |-----------------------------------------------------------------|--------------------------------------------------------------------------------------|
-  | [Segment A: Depart Taxi](#segment-a-depart-taxi)                | [Segment B': Reserve Hover Climb](#segment-b-reserve-hover-climb)                    |
-  | [Segment B: Hover Climb](#segment-b-hover-climb)                | [Segment C': Reserve Transition Climb](#segment-c-reserve-transition-climb)          |
-  | [Segment C: Transition Climb](#segment-c-transition-climb)      | [Segment E': Reserve Acceleration Climb](#segment-e-reserve-acceleration-climb)      |
-  | [Segment D: Depart Procedures](#segment-d-depart-procedures)    | [Segment F': Reserve Cruise](#segment-f-reserve-cruise)                              |
-  | [Segment E: Accelerate Climb](#segment-e-accelerate-climb)      | [Segment G': Reserve Deceleration Descend](#segment-g-reserve-deceleration-descend)  |
-  | [Segment F: Cruise](#segment-f-cruise)                          | [Segment I': Reserve Transition Descend](#segment-i-reserve-transition-descend)      |
-  | [Segment G: Decelerate Descend](#segment-g-decelerate-descend)  | [Segment J': Reserve Hover Descend](#segment-j-reserve-hover-descend)                |
-  | [Segment H: Arrive Procedures](#segment-h-arrive-procedures)    |                                                                                      |
-  | [Segment I: Transition Descend](#segment-i-transition-descend)  |                                                                                      |
-  | [Segment J: Hover Descend](#segment-j-hover-descend)            |                                                                                      |
-  | [Segment K: Arrive Taxi](#segment-k-arrive-taxi)                |                                                                                      |
+  | Main Mission                                                            | Reserve Mission                                                                      |
+  |-------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+  | [Segment A: Depart Taxi](#segment-a-depart-taxi)                        | [Segment B': Reserve Hover Climb](#segment-b-reserve-hover-climb)                    |
+  | [Segment B: Hover Climb](#segment-b-hover-climb)                        | [Segment C': Reserve Transition Climb](#segment-c-reserve-transition-climb)          |
+  | [Segment C: Transition Climb](#segment-c-transition-climb)              | [Segment E': Reserve Acceleration Climb](#segment-e-reserve-acceleration-climb)      |
+  | [Segment D: Depart Procedures](#segment-d-depart-procedures)            | [Segment F': Reserve Cruise](#segment-f-reserve-cruise)                              |
+  | [Segment E: Accelerate Climb](#segment-e-accelerate-climb)              | [Segment G': Reserve Deceleration Descend](#segment-g-reserve-deceleration-descend)  |
+  | [Segment F: Cruise](#segment-f-cruise)                                  | [Segment I': Reserve Transition Descend](#segment-i-reserve-transition-descend)      |
+  | [Segment G: Decelerate Descend](#segment-g-decelerate-descend)          | [Segment J': Reserve Hover Descend](#segment-j-reserve-hover-descend)                |
+  | [Segment H: Arrive Procedures](#segment-h-arrive-procedures)            |                                                                                      |
+  | [Segment I: Transition Descend](#segment-i-transition-descend)          |                                                                                      |
+  | [Segment J: Hover Descend](#segment-j-hover-descend)                    |                                                                                      |
+  | [Segment K: Arrive Taxi](#segment-k-arrive-taxi)                        |                                                                                      |
 
 
 Note: The above mission profile is adapted from [Uber Elevate's *UberAir Vehicle Requirements and Mission*](../../references/summary-mission-and-requirements.pdf)
