@@ -547,14 +547,18 @@ P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{
 $$  
 
 * **Adjustments:**  
-  1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
-  $$
-  P_{thrust\_assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
-  $$  
-  2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
-  $$
-  F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
-  $$  
+
+1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+
+$$
+P_{thrust\_assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
+$$  
+
+2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+
+$$
+F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+$$  
 
 where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
 
@@ -744,17 +748,22 @@ $$
 P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
-
 * **Adjustments:**  
-  1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
-  $$
-  P_{thrust\_assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
-  $$  
-  2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
-  $$
-  F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
-  $$  
+
+1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+
+$$
+P_{thrust\_assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
+$$  
+
+2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+
+$$
+F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*). 
+
 
 ```python
 def _calc_trans_descend_avg_shaft_power_kw(self):
