@@ -163,7 +163,7 @@ $$
 P_{shaft, avg} = \frac{m \cdot (g + a_v) \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
 $$    
 
-where $g$ is the gravitational acceleration and $W_{KW}$ is the unit conversion factor to kW.
+where $W_{KW}$ is the unit conversion factor to kW.
 
 ```python
 def _calc_hover_climb_avg_shaft_power_kw(self):
@@ -184,14 +184,15 @@ def _calc_hover_climb_avg_shaft_power_kw(self):
 **Description:**  
 * Calculations for the **Transition Climb** segment include both **horizontal and vertical motion**.  
 * Aerodynamic lift, induced drag, parasite drag, weight, and climb forces are included.  
-* Horizontal velocity starts from zero and accelerates to a final horizontal velocity. Average horizontal velocity is used to compute displacement, acceleration, and final velocity.  
-* Vertical velocity is considered **constant** (no vertical acceleration).  
-* The average shaft power is calculated using horizontal and vertical forces, MTOM, and rotor efficiency.  
+* Horizontal velocity starts from 0 and increases to a final velocity estimated from the average.  
+* Vertical velocity is considered **constant** throughout the segment (no vertical acceleration).  
+* The average shaft power is calculated using horizontal and vertical forces with rotor efficiency.  
    
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
   * $v_{i,h}$ = 0 = initial horizontal velocity  
   * $v_{avg,h}$ = average horizontal velocity (*mission.trans_climb_avg_h_m_p_s*)  
+  * $v_{f,h}$ = final horizontal velocity  
   * $v_v$ = vertical velocity (*mission.trans_climb_v_m_p_s*)  
   * $t$ = duration of transition climb segment (*mission.trans_climb_s*)  
 
@@ -329,16 +330,17 @@ def _calc_depart_proc_avg_shaft_power_kw(self):
 ## Segment E: Accelerate Climb  
 
 **Description:**  
-* Calculations for the **Accelerate Climb** segment include both **horizontal and vertical motion**.  
+* Calculations for the **Accelerate Climb** segment include **horizontal and vertical motion**.  
 * Aerodynamic lift, induced drag, parasite drag, weight, and horizontal/vertical accelerations are included.  
-* Horizontal velocity starts from the end of Depart Procedures (*mission.depart_proc_h_m_p_s*) and accelerates to the final horizontal velocity. Average horizontal velocity is used to compute final velocity and horizontal acceleration.  
+* Horizontal velocity starts from the final velocity of the previous segment and accelerates further.  
 * Vertical velocity starts from zero and accelerates to the final vertical velocity (*mission.accel_climb_v_m_p_s*).  
-* The average shaft power is calculated using horizontal and vertical forces, MTOM, and rotor efficiency.   
+* The average shaft power is calculated using horizontal and vertical forces and rotor efficiency.   
   
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
   * $v_{i,h}$ = initial horizontal velocity (*mission.depart_proc_h_m_p_s*)
   * $v_{avg,h}$ = average horizontal velocity (*mission.accel_climb_avg_h_m_p_s*)  
+  * $v_{f,h}$ = final horizontal velocity  
   * $v_{i,v}$ = 0 = initial vertical velocity  
   * $v_{f,v}$ = final vertical velocity (*mission.accel_climb_v_m_p_s*)  
   * $t$ = duration of accelerate climb segment (*mission.accel_climb_s*)  
@@ -546,7 +548,7 @@ $$
 P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-* **Adjustments:**  
+* **Special Adjustments:**  
 
 1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
 
@@ -748,7 +750,7 @@ $$
 P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-* **Adjustments:**  
+* **Special Adjustments:**  
 
 1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
 
@@ -961,3 +963,650 @@ def _calc_arrive_taxi_avg_shaft_power_kw(self):
 
 ---
 ## Segment B': Reserve Hover Climb
+**Description:**  
+* Calculations for the **Reserve Hover Climb** segment consider **vertical motion only**.  
+* Drag effects are neglected, and the aircraft starts from rest.  
+* Average vertical velocity is provided and used to compute displacement and final vertical velocity.  
+* The average shaft power is then calculated using MTOM, gravity, vertical acceleration, and average vertical velocity.  
+
+**Displacement, Acceleration, and Final Velocity**  
+* Let:  
+  * $v_i$  = 0= initial vertical velocity  
+  * $v_{avg}$ = average vertical velocity (*mission.reserve_hover_climb_avg_v_m_p_s*)  
+  * $t$ = duration of reserve hover climb segment (*mission.reserve_hover_climb_s*)  
+
+* Vertical displacement $d_v$ and final velocity $v_f$:  
+
+$$
+d_v = v_{avg} \cdot t
+$$
+
+$$
+v_f = 2 \cdot v_{avg}
+$$
+
+$$
+a_v = \frac{v_f^2}{2 \cdot d_v}
+$$  
+
+**Average Shaft Power (kW)**  
+* Using aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), gravitational acceleration $g$ (*environ.g_m_p_s2*), and rotor efficiency $\eta_{rotor}$ (*propulsion.rotor_effic*):  
+
+$$
+P_{shaft, avg} = \frac{m \cdot (g + a_v) \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW.
+
+```python
+def _calc_reserve_hover_climb_avg_shaft_power_kw(self):
+  if self.mission != None and self.propulsion != None:
+    d_v_m = self.mission.reserve_hover_climb_avg_v_m_p_s*self.mission.reserve_hover_climb_s
+    vf_v_m_p_s = 2.0*self.mission.reserve_hover_climb_avg_v_m_p_s
+    a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
+    return \
+      (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)*\
+      self.mission.reserve_hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+  else:
+    return None
+```
+
+---
+## Segment C': Reserve Transition Climb  
+
+**Description:**  
+* Calculations for the **Reserve Transition Climb** segment include **horizontal and vertical motion**.  
+* Aerodynamic lift, induced drag, parasite drag, weight, and climb forces are included.  
+* Horizontal velocity starts from 0 and increases to a final velocity estimated from the average.  
+* Vertical velocity is considered **constant** throughout the segment (no vertical acceleration).  
+* The average shaft power is calculated using horizontal and vertical forces with rotor efficiency.  
+
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,h}$ = 0 = initial horizontal velocity  
+  * $v_{avg,h}$ = average horizontal velocity (*mission.reserve_trans_climb_avg_h_m_p_s*)  
+  * $v_{f,h}$ = final horizontal velocity  
+  * $v_{v}$ = vertical velocity (*mission.reserve_trans_climb_v_m_p_s*)  
+  * $t$ = duration of reserve transition climb segment (*mission.reserve_trans_climb_s*)  
+
+* Horizontal displacement $d_h$ and acceleration $a_h$:  
+
+$$
+d_h = v_{avg,h} \cdot t
+$$
+
+$$
+v_{f,h} = 2 \cdot v_{avg,h} - v_{i,h}
+$$
+
+$$
+a_h = \frac{v_{f,h}^2 - v_{i,h}^2}{2 \cdot d_h}
+$$  
+
+* Vertical acceleration $a_v$ = 0 (constant vertical velocity)  
+
+**Average Shaft Power (kW)**  
+* Horizontal and vertical forces:  
+
+$$
+F_h = Drag_{total} + m \cdot a_h
+$$
+
+$$
+F_v = (Weight - Lift) + m \cdot a_v
+$$  
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot v_v}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).   
+
+```python
+def _calc_reserve_trans_climb_avg_shaft_power_kw(self):
+  if self.mission != None and self.propulsion != None and self.environ != None:
+    q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_trans_climb_avg_h_m_p_s**2.0
+    theta = math.atan2(self.mission.reserve_trans_climb_v_m_p_s, self.mission.reserve_trans_climb_avg_h_m_p_s)
+
+    weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+    lift_n = weight_n*math.cos(theta)
+    vehicle_cl = lift_n/(q*self.wing_area_m2)
+
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0 = self._calc_total_drag_coef()
+    if cd0 == None:
+      return None
+    dp_n = q*self.wing_area_m2*cd0
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+    # horizontal accelerations
+    v0_h_m_p_s = 0.0
+    vf_h_m_p_s = 2.0*self.mission.reserve_trans_climb_avg_h_m_p_s
+    d_h_m = self.mission.reserve_trans_climb_avg_h_m_p_s*self.mission.reserve_trans_climb_s
+    a_h_m_p_s2 = (vf_h_m_p_s**2.0 - v0_h_m_p_s**2.0)/(2.0*d_h_m)
+
+    # vertical component (constant velocity, no acceleration)
+    a_v_m_p_s2 = 0.0
+
+    # force components
+    force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+    force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+
+    return (force_h_n*self.mission.reserve_trans_climb_avg_h_m_p_s+force_v_n*self.mission.reserve_trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+  else:
+    return None
+```
+
+---
+## Segment E': Reserve Acceleration Climb  
+
+**Description:**  
+* Calculations for the **Reserve Acceleration Climb** segment include **horizontal and vertical motion**.  
+* Aerodynamic lift, induced drag, parasite drag, weight, and horizontal/vertical accelerations are included.  
+* Horizontal velocity starts from the final velocity of the previous segment and accelerates further.  
+* Vertical velocity is constant throughout the segment (no vertical acceleration).  
+* The average shaft power is calculated using horizontal and vertical forces with rotor efficiency.  
+
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,h}$ = initial horizontal velocity  
+  * $v_{avg,h}^{previous}$ = average horizontal velocity of the previous segment (*mission.reserve_trans_climb_avg_h_m_p_s*)
+  * $v_{avg,h}$ = average horizontal velocity (*mission.reserve_accel_climb_avg_h_m_p_s*)  
+  * $v_{f,h}$ = final horizontal velocity  
+  * $v_v$ = vertical velocity (*mission.reserve_accel_climb_v_m_p_s*)  
+  * $t$ = duration of reserve acceleration climb segment (*mission.reserve_accel_climb_s*)  
+
+* Horizontal displacement $d_h$ and acceleration $a_h$:  
+
+$$
+d_h = v_{avg,h} \cdot t
+$$
+
+$$
+v_{i,h} = 2 \cdot v_{avg,h}^{previous} - v_{i,h}
+$$
+
+$$
+v_{f,h} = 2 \cdot v_{avg,h} - v_{i,h}
+$$
+
+$$
+a_h = \frac{v_{f,h}^2 - v_{i,h}^2}{2 \cdot d_h}
+$$  
+
+* Vertical acceleration $a_v$ = 0 (constant vertical velocity)  
+
+**Average Shaft Power (kW)**  
+* Horizontal and vertical forces:  
+
+$$
+F_h = Drag_{total} + m \cdot a_h
+$$
+
+$$
+F_v = (Weight - Lift) + m \cdot a_v
+$$  
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot v_v}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_reserve_accel_climb_avg_shaft_power_kw(self):
+  if self.mission != None and self.propulsion != None and self.environ != None:
+    q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_accel_climb_avg_h_m_p_s**2.0
+    theta = math.atan2(self.mission.reserve_accel_climb_v_m_p_s, self.mission.reserve_accel_climb_avg_h_m_p_s)
+
+    weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+    lift_n = weight_n*math.cos(theta)
+    vehicle_cl = lift_n/(q*self.wing_area_m2)
+
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0 = self._calc_total_drag_coef()
+    if cd0 == None:
+      return None
+    dp_n = q*self.wing_area_m2*cd0
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+    
+    # horizontal accelerations
+    v0_h_m_p_s = 2.0*self.mission.reserve_trans_climb_avg_h_m_p_s
+    vf_h_m_p_s = 2.0*self.mission.reserve_accel_climb_avg_h_m_p_s-v0_h_m_p_s
+    d_h_m = self.mission.reserve_accel_climb_avg_h_m_p_s*self.mission.reserve_accel_climb_s
+    a_h_m_p_s2 = (vf_h_m_p_s**2.0 - v0_h_m_p_s**2.0)/(2.0*d_h_m)
+
+    # vertical component (constant velocity, no acceleration)
+    a_v_m_p_s2 = 0.0
+
+    # force components
+    force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+    force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+    return (force_h_n*self.mission.reserve_accel_climb_avg_h_m_p_s+force_v_n*self.mission.reserve_accel_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+  else:
+    return None
+```
+
+---
+## Segment F': Reserve Cruise  
+
+**Description:**  
+* Calculations for the ** Reserve Cruise** segment consider **horizontal motion only**.  
+* Horizontal velocity is assumed **constant**.  
+* Vertical motion is neglected.  
+* Aerodynamic lift, induced drag, parasite drag, and horizontal drag are included.  
+* The average shaft power is calculated using horizontal forces and rotor efficiency.  
+
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_h$ = horizontal velocity (*mission.reserve_cruise_h_m_p_s*)  
+  * $t$ = duration of cruise segment (*mission.reserve_cruise_s*)  
+
+* Horizontal motion: constant velocity, so no acceleration ($a_h = 0$).  
+
+**Average Shaft Power (kW)**  
+* Horizontal force:  
+
+$$
+F_h = Drag_{total}
+$$  
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_h}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_reserve_cruise_avg_shaft_power_kw(self):
+  if self.mission != None and self.propulsion != None and self.environ != None:
+    q = 0.5*self.environ.air_density_max_alt_kg_p_m3*self.mission.reserve_cruise_h_m_p_s**2.0
+    weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+    lift_n = weight_n
+    
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0 = self._calc_total_drag_coef()
+    if cd0 == None:
+      return None
+    if self.wing_airfoil_cd_at_cruise_cl != None and self.stopped_rotor_cd0 != None:
+      cd0_cruise = cd0+self.wing_airfoil_cd_at_cruise_cl+self.stopped_rotor_cd0
+    else:
+      cd0_cruise = cd0
+    dp_n = q*self.wing_area_m2*cd0_cruise
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+    return (total_drag_n*self.mission.reserve_cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+  else:
+    return None
+```
+
+---
+## Segment G: Reserve Decelerate Descend  
+
+**Description:**  
+* Calculations for the **Reserve Decelerate Descend** segment include **horizontal and vertical motion**.  
+* Aerodynamic lift, induced drag, parasite drag, weight, horizontal deceleration, vertical thrust assist (if gravity is insufficient), and spoiler drag (if power is negative) are included.  
+* Horizontal velocity starts from cruise velocity and decelerates to a final horizontal velocity. Average horizontal velocity is used to compute displacement, acceleration, and final velocity.  
+* Vertical velocity starts from 0 and accelerates downwards to *mission.reserve_decel_descend_v_m_p_s*.  
+* The average shaft power is calculated using horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
+
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,h}$ = initial horizontal velocity (*mission.cruise_h_m_p_s*)  
+  * $v_{avg,h}$ = average horizontal velocity (*mission.reserve_decel_descend_avg_h_m_p_s*)  
+  * $v_{i,v}$ = 0 = initial vertical velocity 
+  * $v_{f,v}$ = vertical velocity (*mission.reserve_decel_descend_v_m_p_s*)  
+  * $t$ = duration of decelerate descend segment (*mission.reserve_decel_descend_s*)  
+
+* Horizontal displacement $d_h$ and acceleration $a_h$:
+
+$$
+d_h = v_{avg,h} \cdot t
+$$
+
+$$
+v_{f,h} = 2 \cdot v_{avg,h} - v_{i,h}
+$$
+
+$$
+a_h = \frac{v_{f,h}^2 - v_{i,h}^2}{2 \cdot d_h}
+$$  
+
+* Vertical displacement $d_v$ and acceleration $a_v$:
+
+$$
+d_v = \frac{v_{f,v}}{2} \cdot t
+$$
+
+$$
+a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
+$$  
+
+* Note: vertical acceleration is **downwards**, so it is subtracted in the force calculation.  
+
+**Average Shaft Power (kW)**  
+* Horizontal and vertical forces:  
+
+$$
+F_h = Drag_{total} + m \cdot a_h
+$$
+
+$$
+F_v = (Weight - Lift) - m \cdot a_v
+$$
+
+* Shaft power (baseline):  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+* **Special Adjustments:**  
+
+1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+
+$$
+P_{thrust, assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
+$$  
+
+2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+
+$$
+F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_reserve_decel_descend_avg_shaft_power_kw(self):
+  if self.mission != None and self.propulsion != None and self.environ != None:
+    q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_decel_descend_avg_h_m_p_s**2.0
+    theta = math.atan2(self.mission.reserve_decel_descend_v_m_p_s, self.mission.reserve_decel_descend_avg_h_m_p_s)
+
+    weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+    lift_n = weight_n*math.cos(theta)
+    vehicle_cl = lift_n/(q*self.wing_area_m2)
+
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0 = self._calc_total_drag_coef()
+    if cd0 == None:
+      return None
+    dp_n = q*self.wing_area_m2*cd0
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+    # horizontal accelerations
+    v0_h_m_p_s = self.mission.reserve_cruise_h_m_p_s
+    vf_h_m_p_s = 2.0*self.mission.reserve_decel_descend_avg_h_m_p_s-v0_h_m_p_s
+    d_h_m = self.mission.reserve_decel_descend_avg_h_m_p_s*self.mission.reserve_decel_descend_s
+    a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
+
+    # vertical acceleration 
+    v0_v_m_p_s = 0.0
+    vf_v_m_p_s = self.mission.reserve_decel_descend_v_m_p_s
+    d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.reserve_decel_descend_s
+    a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+    # force components
+    force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+    force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2 # physical: downward, speeding up
+
+    # compute shaft power baseline
+    shaft_power_kw = (force_h_n*self.mission.reserve_decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+    
+    # check vertical deficit: if gravity cannot provide enough, add vertical thrust assist shaft power
+    vertical_deficit_n = self.max_takeoff_mass_kg*a_v_m_p_s2-(weight_n-lift_n)
+    shaft_power_deficit_kw = 0.0
+    if vertical_deficit_n > 0.0:
+      # convert deficit to power explicitly
+      shaft_power_deficit_kw = (vertical_deficit_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+    
+    # total shaft power (baseline + vertical assist)
+    shaft_power_kw += shaft_power_deficit_kw
+
+    # check for negative power to add spoiler drag
+    if shaft_power_kw < 0.0:
+      # required additional horizontal force to neutralize negative power
+      required_extra_force_n = -force_h_n
+      # compute equivalent delta Cd
+      delta_cd_spoiler = required_extra_force_n/(q*self.wing_area_m2)
+      if delta_cd_spoiler < 0.0:
+        delta_cd_spoiler = 0.0
+      # recompute with spoilers
+      dp_spoiler_n = q*self.wing_area_m2*delta_cd_spoiler
+      total_drag_n = (di_n+dp_n+dp_spoiler_n)*self.trim_drag_factor*self.excres_protub_factor
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+    
+      # total shaft power
+      shaft_power_kw = (force_h_n*self.mission.reserve_decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+
+    return shaft_power_kw
+  else:
+    return None
+```
+
+---
+## Segment I: Reserve Transition Descend  
+
+**Description:**  
+* Calculations for the **Reserve Transition Descend** segment include **horizontal and vertical motion**.  
+* Aerodynamic lift, induced drag, parasite drag, weight, descent forces, vertical thrust assist (if gravity is insufficient), and spoiler drag (if power is negative) are included.  
+* Horizontal velocity starts from an estimated initial value and decelerates to zero. 
+* Vertical velocity starts from the previous descend velocity and changes to *mission.reserve_trans_descend_v_m_p_s*.  
+* The average shaft power is calculated using horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
+
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,h}$ = initial horizontal velocity  
+  * $v_{f,h}^{previous}$ = final horizontal velocity of the previous segment (*mission.reserve_cruise_h_m_p_s*)
+  * $v_{f,h}$ = 0 = final horizontal velocity  
+  * $v_{i,v}$ = initial vertical velocity (*mission.reserve_decel_descend_v_m_p_s*)  
+  * $v_{f,v}$ = final vertical velocity (*mission.reserve_trans_descend_v_m_p_s*)  
+  * $v_{avg,h}$ = average horizontal velocity (*mission.reserve_trans_descend_avg_h_m_p_s*)  
+  * $t$ = duration of transition descend segment (*mission.reserve_trans_descend_s*)  
+
+* Horizontal displacement $d_h$, initial velocity $v_{i,h}$, and acceleration $a_h$:
+
+$$
+v_{i,h} = 2 \cdot v_{avg,h} - v_{f,h}^{previous}
+$$
+
+$$
+d_h = v_{avg,h} \cdot t
+$$
+
+$$
+a_h = \frac{v_{f,h}^2 - v_{i,h}^2}{2 \cdot d_h}
+$$  
+
+* Vertical displacement $d_v$ and acceleration $a_v$:
+
+$$
+d_v = \frac{v_{i,v} + v_{f,v}}{2} \cdot t
+$$
+
+$$
+a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
+$$  
+
+**Average Shaft Power (kW)**  
+* Horizontal and vertical forces:  
+
+$$
+F_h = Drag_{total} + m \cdot a_h
+$$
+
+$$
+F_v = (Weight - Lift) - m \cdot a_v
+$$
+
+* Shaft power (baseline):  
+
+$$
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+* **Special Adjustments:**  
+
+1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+
+$$
+P_{thrust, assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
+$$  
+
+2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+
+$$
+F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*). 
+
+```python
+def _calc_reserve_trans_descend_avg_shaft_power_kw(self):
+  if self.mission != None and self.propulsion != None and self.environ != None:    
+    q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.reserve_trans_descend_avg_h_m_p_s**2.0
+    theta = math.atan2(self.mission.reserve_trans_descend_v_m_p_s, self.mission.reserve_trans_descend_avg_h_m_p_s)
+
+    weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
+    lift_n = weight_n*math.cos(theta)
+    vehicle_cl = lift_n/(q*self.wing_area_m2)
+
+    # induced drag
+    di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
+    # parasite drag
+    cd0 = self._calc_total_drag_coef()
+    if cd0 == None:
+      return None
+    dp_n = q*self.wing_area_m2*cd0
+    # total drag
+    total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+    # horizontal accelerations
+    v0_h_m_p_s = 2.0*self.mission.reserve_decel_descend_avg_h_m_p_s-self.mission.reserve_cruise_h_m_p_s
+    vf_h_m_p_s = 0
+    d_h_m = self.mission.reserve_trans_descend_avg_h_m_p_s*self.mission.reserve_trans_descend_s
+    a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
+
+    # vertical acceleration 
+    v0_v_m_p_s = self.mission.reserve_decel_descend_v_m_p_s
+    vf_v_m_p_s = self.mission.reserve_trans_descend_v_m_p_s
+    d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.reserve_trans_descend_s
+    a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+    # force components
+    force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+    force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+
+    # compute shaft power baseline
+    shaft_power_kw = (force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+    
+    # check vertical deficit: if gravity cannot provide enough, add vertical thrust assist shaft power
+    vertical_deficit_n = self.max_takeoff_mass_kg*a_v_m_p_s2-(weight_n-lift_n)
+    shaft_power_deficit_kw = 0.0
+    if vertical_deficit_n > 0.0:
+      # convert deficit to power explicitly
+      shaft_power_deficit_kw = (vertical_deficit_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+    
+    # total shaft power (baseline + vertical assist)
+    shaft_power_kw += shaft_power_deficit_kw
+
+    # check for negative power to add spoiler drag
+    if shaft_power_kw < 0.0:
+      # required additional horizontal force to neutralize negative power
+      required_extra_force_n = -force_h_n
+      # compute equivalent delta Cd
+      delta_cd_spoiler = required_extra_force_n/(q*self.wing_area_m2)
+      if delta_cd_spoiler < 0.0:
+        delta_cd_spoiler = 0.0
+      # recompute with spoilers
+      dp_spoiler_n = q*self.wing_area_m2*delta_cd_spoiler
+      total_drag_n = (di_n+dp_n+dp_spoiler_n)*self.trim_drag_factor*self.excres_protub_factor
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+    
+      # total shaft power
+      shaft_power_kw = (force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+
+    return shaft_power_kw
+  else:
+    return None
+```
+
+
+---
+## Segment J: Reserve Hover Descend  
+
+**Description:**  
+* Calculations for the **Reserve Hover Descend** segment consider **vertical motion only**.  
+* Drag effects are neglected.  
+* Vertical velocity decreases from an initial value of $2 \cdot v_{avg}$ to zero.  
+* Average vertical velocity is provided and used to compute displacement, acceleration, and initial velocity.
+* The average shaft power is then calculated using MTOM, gravity, and vertical acceleration.  
+  
+**Displacement, Acceleration, and Velocity Components**  
+* Let:  
+  * $v_{i,v}$ = initial vertical velocity
+  * $v_{f,v}$ = 0 = final vertical velocity  
+  * $v_{avg,v}$ = average vertical velocity (*mission.reserve_hover_descend_avg_v_m_p_s*)  
+  * $t$ = duration of hover descend segment (*mission.reserve_hover_descend_s*)  
+
+* Vertical displacement $d_v$, initial velocity $v_{i,v}$, and acceleration $a_v$:
+
+$$
+v_{i,v} = 2 \cdot v_{avg,v} - v_{f,v}
+$$
+
+$$
+d_v = v_{avg} \cdot t
+$$
+
+$$
+a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
+$$  
+
+**Average Shaft Power (kW)**  
+* Vertical force:  
+
+$$
+F_v = m \cdot g + m \cdot a_v
+$$
+
+* Shaft power:  
+
+$$
+P_{shaft, avg} = \frac{F_v \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
+
+```python
+def _calc_reserve_hover_descend_avg_shaft_power_kw(self):
+  if self.mission != None and self.propulsion != None:
+    # vertical accelerations
+    v0_v_m_p_s = 2.0*self.mission.reserve_hover_descend_avg_v_m_p_s
+    vf_v_m_p_s = 0.0
+    d_v_m = self.mission.reserve_hover_descend_avg_v_m_p_s*self.mission.reserve_hover_descend_s
+    a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+
+    # force component
+    force_v_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2+self.max_takeoff_mass_kg*a_v_m_p_s2
+
+    return (force_v_n*self.mission.reserve_hover_descend_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+```
