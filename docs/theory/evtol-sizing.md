@@ -2,21 +2,29 @@
 
 This document explains the equations used to calculate **energy consumption** across different mission segments in the aircraft model.
 
-| **Main Mission**                                                | **Reserve Mission**                                                                  |
-|-----------------------------------------------------------------|--------------------------------------------------------------------------------------|
-| [Segment A: Depart Taxi](#segment-a-depart-taxi)                | [Segment B': Reserve Hover Climb](#segment-b-reserve-hover-climb)                    |
-| [Segment B: Hover Climb](#segment-b-hover-climb)                | [Segment C': Reserve Transition Climb](#segment-c-reserve-transition-climb)          |
-| [Segment C: Transition Climb](#segment-c-transition-climb)      | [Segment E': Reserve Acceleration Climb](#segment-e-reserve-acceleration-climb)      |
-| [Segment D: Depart Procedures](#segment-d-depart-procedures)    | [Segment F': Reserve Cruise](#segment-f-reserve-cruise)                              |
-| [Segment E: Accelerate Climb](#segment-e-accelerate-climb)      | [Segment G': Reserve Deceleration Descend](#segment-g-reserve-deceleration-descend)  |
-| [Segment F: Cruise](#segment-f-cruise)                          | [Segment I': Reserve Transition Descend](#segment-i-reserve-transition-descend)      |
-| [Segment G: Decelerate Descend](#segment-g-decelerate-descend)  | [Segment J': Reserve Hover Descend](#segment-j-reserve-hover-descend)                |
-| [Segment H: Arrive Procedures](#segment-h-arrive-procedures)    |                                                                                      |
-| [Segment I: Transition Descend](#segment-i-transition-descend)  |                                                                                      |
-| [Segment J: Hover Descend](#segment-j-hover-descend)            |                                                                                      |
-| [Segment K: Arrive Taxi](#segment-k-arrive-taxi)                |                                                                                      |
+## Table of Contents
+* [General Kinematic Relations](#general-kinematic-relations)     
+* [General Workflow for Calculating Average Electric Power (kW)](#general-workflow-for-calculating-average-electric-power-kw)  
+* [Average Shaft Power Calculation](#average-shaft-power-calculation)
 
-Note: The above mission profile is adapted from [Uber Elevate's *UberAir Vehicle Requirements and Mission*](./references/summary-mission-and-requirements.pdf)
+* **Mission Segment Energy Consumption**
+  
+  | **Main Mission**                                                | **Reserve Mission**                                                                  |
+  |-----------------------------------------------------------------|--------------------------------------------------------------------------------------|
+  | [Segment A: Depart Taxi](#segment-a-depart-taxi)                | [Segment B': Reserve Hover Climb](#segment-b-reserve-hover-climb)                    |
+  | [Segment B: Hover Climb](#segment-b-hover-climb)                | [Segment C': Reserve Transition Climb](#segment-c-reserve-transition-climb)          |
+  | [Segment C: Transition Climb](#segment-c-transition-climb)      | [Segment E': Reserve Acceleration Climb](#segment-e-reserve-acceleration-climb)      |
+  | [Segment D: Depart Procedures](#segment-d-depart-procedures)    | [Segment F': Reserve Cruise](#segment-f-reserve-cruise)                              |
+  | [Segment E: Accelerate Climb](#segment-e-accelerate-climb)      | [Segment G': Reserve Deceleration Descend](#segment-g-reserve-deceleration-descend)  |
+  | [Segment F: Cruise](#segment-f-cruise)                          | [Segment I': Reserve Transition Descend](#segment-i-reserve-transition-descend)      |
+  | [Segment G: Decelerate Descend](#segment-g-decelerate-descend)  | [Segment J': Reserve Hover Descend](#segment-j-reserve-hover-descend)                |
+  | [Segment H: Arrive Procedures](#segment-h-arrive-procedures)    |                                                                                      |
+  | [Segment I: Transition Descend](#segment-i-transition-descend)  |                                                                                      |
+  | [Segment J: Hover Descend](#segment-j-hover-descend)            |                                                                                      |
+  | [Segment K: Arrive Taxi](#segment-k-arrive-taxi)                |                                                                                      |
+
+
+Note: The above mission profile is adapted from [Uber Elevate's *UberAir Vehicle Requirements and Mission*](../../references/summary-mission-and-requirements.pdf)
 
 ---
 ## General Kinematic Relations
@@ -76,7 +84,14 @@ $$
 where $S_{HR}$ is the seconds-to-hour conversion factor.
 
 ---
-## Segment A: Depart Taxi
+
+
+
+---
+
+## Average Shaft Power Calculation
+
+### Segment A: Depart Taxi
 
 **Description:**  
 * Calculations for the **Depart Taxi** segment consider **horizontal motion only**. 
@@ -126,7 +141,7 @@ def _calc_depart_taxi_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment B: Hover Climb  
+### Segment B: Hover Climb  
 **Description:**   
 * Calculations for the **Hover Climb** segment consider **vertical motion only**.
 * Drag effects are neglected, and the aircraft starts from rest, accelerating to a final vertical velocity.
@@ -175,7 +190,7 @@ def _calc_hover_climb_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment C: Transition Climb  
+### Segment C: Transition Climb  
 
 **Description:**  
 * Calculations for the **Transition Climb** segment include both **horizontal and vertical motion**.  
@@ -266,7 +281,7 @@ def _calc_trans_climb_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment D: Depart Procedures  
+### Segment D: Depart Procedures  
 
 **Description:**  
 * Calculations for the **Depart Procedures** segment consider **horizontal motion only**.  
@@ -323,7 +338,7 @@ def _calc_depart_proc_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment E: Accelerate Climb  
+### Segment E: Accelerate Climb  
 
 **Description:**  
 * Calculations for the **Accelerate Climb** segment include **horizontal and vertical motion**.  
@@ -426,7 +441,7 @@ def _calc_accel_climb_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment F: Cruise  
+### Segment F: Cruise  
 
 **Description:**  
 * Calculations for the **Cruise** segment consider **horizontal motion only**.  
@@ -484,7 +499,7 @@ def _calc_cruise_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment G: Decelerate Descend  
+### Segment G: Decelerate Descend  
 
 **Description:**  
 * Calculations for the **Decelerate Descend** segment include **horizontal and vertical motion**.  
@@ -630,7 +645,7 @@ def _calc_decel_descend_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment H: Arrive Procedures  
+### Segment H: Arrive Procedures  
 
 **Description:**  
 * Calculations for the **Arrive Procedures** segment consider **horizontal motion only**.  
@@ -687,7 +702,7 @@ def _calc_arrive_proc_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment I: Transition Descend  
+### Segment I: Transition Descend  
 
 **Description:**  
 * Calculations for the **Transition Descend** segment include **horizontal and vertical motion**.  
@@ -833,7 +848,7 @@ def _calc_trans_descend_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment J: Hover Descend  
+### Segment J: Hover Descend  
 
 **Description:**  
 * Calculations for the **Hover Descend** segment consider **vertical motion only**.  
@@ -895,7 +910,7 @@ def _calc_hover_descend_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment K: Arrive Taxi  
+### Segment K: Arrive Taxi  
 
 **Description:**    
 * Calculations for the **Arrive Taxi** segment consider **horizontal motion only**.  
@@ -957,7 +972,7 @@ def _calc_arrive_taxi_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment B': Reserve Hover Climb
+### Segment B': Reserve Hover Climb
 **Description:**  
 * Calculations for the **Reserve Hover Climb** segment consider **vertical motion only**.  
 * Drag effects are neglected, and the aircraft starts from rest.  
@@ -1006,7 +1021,7 @@ def _calc_reserve_hover_climb_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment C': Reserve Transition Climb  
+### Segment C': Reserve Transition Climb  
 
 **Description:**  
 * Calculations for the **Reserve Transition Climb** segment include **horizontal and vertical motion**.  
@@ -1097,7 +1112,7 @@ def _calc_reserve_trans_climb_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment E': Reserve Acceleration Climb  
+### Segment E': Reserve Acceleration Climb  
 
 **Description:**  
 * Calculations for the **Reserve Acceleration Climb** segment include **horizontal and vertical motion**.  
@@ -1192,7 +1207,7 @@ def _calc_reserve_accel_climb_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment F': Reserve Cruise  
+### Segment F': Reserve Cruise  
 
 **Description:**  
 * Calculations for the **Reserve Cruise** segment consider **horizontal motion only**.  
@@ -1250,7 +1265,7 @@ def _calc_reserve_cruise_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment G: Reserve Decelerate Descend  
+### Segment G: Reserve Decelerate Descend  
 
 **Description:**  
 * Calculations for the **Reserve Decelerate Descend** segment include **horizontal and vertical motion**.  
@@ -1397,7 +1412,7 @@ def _calc_reserve_decel_descend_avg_shaft_power_kw(self):
 ```
 
 ---
-## Segment I: Reserve Transition Descend  
+### Segment I: Reserve Transition Descend  
 
 **Description:**  
 * Calculations for the **Reserve Transition Descend** segment include **horizontal and vertical motion**.  
@@ -1546,7 +1561,7 @@ def _calc_reserve_trans_descend_avg_shaft_power_kw(self):
 
 
 ---
-## Segment J: Reserve Hover Descend  
+### Segment J: Reserve Hover Descend  
 
 **Description:**  
 * Calculations for the **Reserve Hover Descend** segment consider **vertical motion only**.  
