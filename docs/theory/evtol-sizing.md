@@ -551,7 +551,7 @@ $$
 1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
 
 $$
-P_{thrust\_assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
+P_{thrust, assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
 $$  
 
 2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
@@ -753,7 +753,7 @@ $$
 1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
 
 $$
-P_{thrust\_assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
+P_{thrust, assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
 $$  
 
 2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
@@ -958,3 +958,6 @@ def _calc_arrive_taxi_avg_shaft_power_kw(self):
   else:
     return None
 ```
+
+---
+## Segment B': Reserve Hover Climb
