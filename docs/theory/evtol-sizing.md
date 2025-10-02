@@ -83,8 +83,7 @@ where $S_{HR}$ is the seconds-to-hour conversion factor.
 **Description:**  
 * Calculations for the **Depart Taxi** segment consider **horizontal motion only**. 
 * Drag effects are neglected, and the aircraft starts from rest, accelerating to a final horizontal velocity. 
-* Average horizontal velocity is provided and used to compute displacement, acceleration, and final velocity. 
-* The average shaft power is then calculated using MTOM, horizontal acceleration, and average horizontal velocity.  
+* Average shaft power is then calculated based on MTOM, horizontal acceleration, and average horizontal velocity.  
    
 **Displacement, Acceleration, and Final Velocity**   
 * Let:  
@@ -133,8 +132,7 @@ def _calc_depart_taxi_avg_shaft_power_kw(self):
 **Description:**   
 * Calculations for the **Hover Climb** segment consider **vertical motion only**.
 * Drag effects are neglected, and the aircraft starts from rest, accelerating to a final vertical velocity.
-* Average vertical velocity is provided and used to compute displacement, acceleration, and final velocity.
-* The average shaft power is then calculated using MTOM, gravity, vertical acceleration, and average vertical velocity.  
+* Average shaft power is then calculated based on MTOM, gravity, vertical acceleration, and average vertical velocity.  
    
 **Displacement, Acceleration, and Final Velocity**   
 * Let:  
@@ -186,7 +184,7 @@ def _calc_hover_climb_avg_shaft_power_kw(self):
 * Aerodynamic lift, induced drag, parasite drag, weight, and climb forces are included.  
 * Horizontal velocity starts from 0 and increases to a final velocity estimated from the average.  
 * Vertical velocity is considered **constant** throughout the segment (no vertical acceleration).  
-* The average shaft power is calculated using horizontal and vertical forces with rotor efficiency.  
+* Average shaft power is then calculated based on horizontal and vertical forces with rotor efficiency.  
    
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -277,7 +275,7 @@ def _calc_trans_climb_avg_shaft_power_kw(self):
 * Horizontal velocity is assumed **constant**.  
 * Vertical motion is neglected.
 * Aerodynamic lift, induced drag, parasite drag, and horizontal drag are included.  
-* The average shaft power is calculated using horizontal forces and rotor efficiency.  
+* Average shaft power is then calculated based on horizontal forces and rotor efficiency.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -334,11 +332,11 @@ def _calc_depart_proc_avg_shaft_power_kw(self):
 * Aerodynamic lift, induced drag, parasite drag, weight, and horizontal/vertical accelerations are included.  
 * Horizontal velocity starts from the final velocity of the previous segment and accelerates further.  
 * Vertical velocity starts from zero and accelerates to the final vertical velocity (*mission.accel_climb_v_m_p_s*).  
-* The average shaft power is calculated using horizontal and vertical forces and rotor efficiency.   
+* Average shaft power is then calculated based on horizontal and vertical forces and rotor efficiency.   
   
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
-  * $v_{i,h}$ = initial horizontal velocity (*mission.depart_proc_h_m_p_s*)
+  * $v_{i,h}$ = initial horizontal velocity = final horizontal velocity of previous segment (*mission.depart_proc_h_m_p_s*)
   * $v_{avg,h}$ = average horizontal velocity (*mission.accel_climb_avg_h_m_p_s*)  
   * $v_{f,h}$ = final horizontal velocity  
   * $v_{i,v}$ = 0 = initial vertical velocity  
@@ -437,7 +435,7 @@ def _calc_accel_climb_avg_shaft_power_kw(self):
 * Horizontal velocity is assumed **constant**.  
 * Vertical motion is neglected.  
 * Aerodynamic lift, induced drag, parasite drag, and horizontal drag are included.  
-* The average shaft power is calculated using horizontal forces and rotor efficiency.  
+* Average shaft power is then calculated based on horizontal forces and rotor efficiency.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -492,10 +490,10 @@ def _calc_cruise_avg_shaft_power_kw(self):
 
 **Description:**  
 * Calculations for the **Decelerate Descend** segment include **horizontal and vertical motion**.  
-* Aerodynamic lift, induced drag, parasite drag, weight, horizontal deceleration, vertical thrust assist (if gravity is insufficient), and spoiler drag (if power is negative) are included.  
-* Horizontal velocity starts from cruise velocity and decelerates to a final horizontal velocity. Average horizontal velocity is used to compute displacement, acceleration, and final velocity.  
+* Aerodynamic lift, induced drag, parasite drag, weight, and horizontal deceleration are included. Additionally, vertical thrust assist and spoiler drag are applied automatically when needed. 
+* Horizontal velocity starts from cruise velocity and decelerates to a final horizontal velocity.  
 * Vertical velocity starts from 0 and accelerates downwards to *mission.decel_descend_v_m_p_s*.  
-* The average shaft power is calculated using horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
+* Average shaft power is then calculated based on horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -548,15 +546,15 @@ $$
 P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-* **Special Adjustments:**  
+**Special Automatic Adjustments:**  
 
-1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+**1.  Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
 
 $$
 P_{thrust, assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
 $$  
 
-2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+**2. Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
 
 $$
 F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
@@ -641,7 +639,7 @@ def _calc_decel_descend_avg_shaft_power_kw(self):
 * Horizontal velocity is assumed **constant**.  
 * Vertical motion is neglected.  
 * Aerodynamic lift, induced drag, parasite drag, and horizontal drag are included.  
-* The average shaft power is calculated using horizontal forces and rotor efficiency.  
+* Average shaft power is then calculated based on horizontal forces and rotor efficiency.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -695,10 +693,10 @@ def _calc_arrive_proc_avg_shaft_power_kw(self):
 
 **Description:**  
 * Calculations for the **Transition Descend** segment include **horizontal and vertical motion**.  
-* Aerodynamic lift, induced drag, parasite drag, weight, descent forces, vertical thrust assist (if gravity is insufficient), and spoiler drag (if power is negative) are included.  
-* Horizontal velocity starts from an estimated initial value and decelerates to zero. Average horizontal velocity is used to compute displacement, acceleration, and final velocity.  
+* Aerodynamic lift, induced drag, parasite drag, weight, and descent forces are included. Additionally, vertical thrust assist and spoiler drag are applied automatically when needed.    
+* Horizontal velocity starts from an estimated initial value and decelerates to zero.
 * Vertical velocity starts from the previous descend velocity and changes to *mission.trans_descend_v_m_p_s*.  
-* The average shaft power is calculated using horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
+* Average shaft power is then calculated based on horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -741,7 +739,7 @@ F_h = Drag_{total} + m \cdot a_h
 $$
 
 $$
-F_v = (Weight - Lift) - m \cdot a_v
+F_v = (Weight - Lift) + m \cdot a_v
 $$
 
 * Shaft power (baseline):  
@@ -750,15 +748,15 @@ $$
 P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-* **Special Adjustments:**  
+**Special Automatic Adjustments:**  
 
-1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+**1.  Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
 
 $$
 P_{thrust, assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
 $$  
 
-2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+**2. Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
 
 $$
 F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
@@ -842,9 +840,8 @@ def _calc_trans_descend_avg_shaft_power_kw(self):
 **Description:**  
 * Calculations for the **Hover Descend** segment consider **vertical motion only**.  
 * Drag effects are neglected.  
-* Vertical velocity decreases from an initial value of $2 \cdot v_{avg}$ to zero.  
-* Average vertical velocity is provided and used to compute displacement, acceleration, and initial velocity.
-* The average shaft power is then calculated using MTOM, gravity, and vertical acceleration.  
+* Vertical velocity decreases from an estimated initial value to zero.  
+* Average shaft power is then calculated based on MTOM, gravity, and vertical acceleration.  
   
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -871,7 +868,7 @@ $$
 * Vertical force:  
 
 $$
-F_v = m \cdot g + m \cdot a_v
+F_v = m \cdot (g + a_v)
 $$
 
 * Shaft power:  
@@ -906,7 +903,7 @@ def _calc_hover_descend_avg_shaft_power_kw(self):
 * Calculations for the **Arrive Taxi** segment consider **horizontal motion only**.  
 * Drag effects are neglected.  
 * Horizontal velocity increases from zero to a final velocity.
-* The average shaft power is calculated using MTOM, horizontal acceleration, and average horizontal velocity.  
+* Average shaft power is then calculated based on MTOM, horizontal acceleration, and average horizontal velocity.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -966,8 +963,7 @@ def _calc_arrive_taxi_avg_shaft_power_kw(self):
 **Description:**  
 * Calculations for the **Reserve Hover Climb** segment consider **vertical motion only**.  
 * Drag effects are neglected, and the aircraft starts from rest.  
-* Average vertical velocity is provided and used to compute displacement and final vertical velocity.  
-* The average shaft power is then calculated using MTOM, gravity, vertical acceleration, and average vertical velocity.  
+* Average shaft power is then calculated based on MTOM, gravity, vertical acceleration, and average vertical velocity.  
 
 **Displacement, Acceleration, and Final Velocity**  
 * Let:  
@@ -1019,7 +1015,7 @@ def _calc_reserve_hover_climb_avg_shaft_power_kw(self):
 * Aerodynamic lift, induced drag, parasite drag, weight, and climb forces are included.  
 * Horizontal velocity starts from 0 and increases to a final velocity estimated from the average.  
 * Vertical velocity is considered **constant** throughout the segment (no vertical acceleration).  
-* The average shaft power is calculated using horizontal and vertical forces with rotor efficiency.  
+* Average shaft power is then calculated based on horizontal and vertical forces with rotor efficiency.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -1110,7 +1106,7 @@ def _calc_reserve_trans_climb_avg_shaft_power_kw(self):
 * Aerodynamic lift, induced drag, parasite drag, weight, and horizontal/vertical accelerations are included.  
 * Horizontal velocity starts from the final velocity of the previous segment and accelerates further.  
 * Vertical velocity is constant throughout the segment (no vertical acceleration).  
-* The average shaft power is calculated using horizontal and vertical forces with rotor efficiency.  
+* Average shaft power is then calculated based on horizontal and vertical forces with rotor efficiency.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -1201,11 +1197,11 @@ def _calc_reserve_accel_climb_avg_shaft_power_kw(self):
 ## Segment F': Reserve Cruise  
 
 **Description:**  
-* Calculations for the ** Reserve Cruise** segment consider **horizontal motion only**.  
+* Calculations for the **Reserve Cruise** segment consider **horizontal motion only**.  
 * Horizontal velocity is assumed **constant**.  
 * Vertical motion is neglected.  
 * Aerodynamic lift, induced drag, parasite drag, and horizontal drag are included.  
-* The average shaft power is calculated using horizontal forces and rotor efficiency.  
+* Average shaft power is then calculated based on horizontal forces and rotor efficiency.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -1260,14 +1256,14 @@ def _calc_reserve_cruise_avg_shaft_power_kw(self):
 
 **Description:**  
 * Calculations for the **Reserve Decelerate Descend** segment include **horizontal and vertical motion**.  
-* Aerodynamic lift, induced drag, parasite drag, weight, horizontal deceleration, vertical thrust assist (if gravity is insufficient), and spoiler drag (if power is negative) are included.  
-* Horizontal velocity starts from cruise velocity and decelerates to a final horizontal velocity. Average horizontal velocity is used to compute displacement, acceleration, and final velocity.  
-* Vertical velocity starts from 0 and accelerates downwards to *mission.reserve_decel_descend_v_m_p_s*.  
-* The average shaft power is calculated using horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
+* Aerodynamic lift, induced drag, parasite drag, weight, and horizontal deceleration are included. Additionally, vertical thrust assist and spoiler drag are applied automatically when needed. 
+* Horizontal velocity starts from previous segment's velocity and decelerates to a final horizontal velocity. 
+* Vertical velocity starts from 0 and accelerates downwards to this segment's final velocity.  
+* Average shaft power is then calculated based on horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
-  * $v_{i,h}$ = initial horizontal velocity (*mission.cruise_h_m_p_s*)  
+  * $v_{i,h}$ = initial horizontal velocity = previous segment final velocity (*mission.cruise_h_m_p_s*)  
   * $v_{avg,h}$ = average horizontal velocity (*mission.reserve_decel_descend_avg_h_m_p_s*)  
   * $v_{i,v}$ = 0 = initial vertical velocity 
   * $v_{f,v}$ = vertical velocity (*mission.reserve_decel_descend_v_m_p_s*)  
@@ -1316,15 +1312,15 @@ $$
 P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-* **Special Adjustments:**  
+**Special Automatic Adjustments:**  
 
-1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+**1.  Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
 
 $$
 P_{thrust, assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
 $$  
 
-2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+**2. Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
 
 $$
 F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
@@ -1407,15 +1403,16 @@ def _calc_reserve_decel_descend_avg_shaft_power_kw(self):
 
 **Description:**  
 * Calculations for the **Reserve Transition Descend** segment include **horizontal and vertical motion**.  
-* Aerodynamic lift, induced drag, parasite drag, weight, descent forces, vertical thrust assist (if gravity is insufficient), and spoiler drag (if power is negative) are included.  
+* Aerodynamic lift, induced drag, parasite drag, weight, and descent forces are included. Additionally, vertical thrust assist and spoiler drag are applied automatically when needed.    
 * Horizontal velocity starts from an estimated initial value and decelerates to zero. 
-* Vertical velocity starts from the previous descend velocity and changes to *mission.reserve_trans_descend_v_m_p_s*.  
-* The average shaft power is calculated using horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
+* Vertical velocity starts from the previous descend velocity and changes to this segment's final velocity.  
+* Average shaft power is then calculated based on horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
   * $v_{i,h}$ = initial horizontal velocity  
-  * $v_{f,h}^{previous}$ = final horizontal velocity of the previous segment (*mission.reserve_cruise_h_m_p_s*)
+  * $v_{avg,h}^{previous}$ = previous segment's average horizontal velocity (*mission.reserve_decel_descend_avg_h_m_p_s*)  
+  * $v_{i,h}^{previous}$ = initial horizontal velocity of the previous segment (*mission.reserve_cruise_h_m_p_s*)
   * $v_{f,h}$ = 0 = final horizontal velocity  
   * $v_{i,v}$ = initial vertical velocity (*mission.reserve_decel_descend_v_m_p_s*)  
   * $v_{f,v}$ = final vertical velocity (*mission.reserve_trans_descend_v_m_p_s*)  
@@ -1425,7 +1422,7 @@ def _calc_reserve_decel_descend_avg_shaft_power_kw(self):
 * Horizontal displacement $d_h$, initial velocity $v_{i,h}$, and acceleration $a_h$:
 
 $$
-v_{i,h} = 2 \cdot v_{avg,h} - v_{f,h}^{previous}
+v_{i,h} = v_{f,h}^{previous} = 2 \cdot v_{avg,h}^{previous} - v_{i,h}^{previous}
 $$
 
 $$
@@ -1454,7 +1451,7 @@ F_h = Drag_{total} + m \cdot a_h
 $$
 
 $$
-F_v = (Weight - Lift) - m \cdot a_v
+F_v = (Weight - Lift) + m \cdot a_v
 $$
 
 * Shaft power (baseline):  
@@ -1463,15 +1460,15 @@ $$
 P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-* **Special Adjustments:**  
+**Special Automatic Adjustments:**  
 
-1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+**1. Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
 
 $$
 P_{thrust, assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
 $$  
 
-2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+**2. Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
 
 $$
 F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
@@ -1556,9 +1553,8 @@ def _calc_reserve_trans_descend_avg_shaft_power_kw(self):
 **Description:**  
 * Calculations for the **Reserve Hover Descend** segment consider **vertical motion only**.  
 * Drag effects are neglected.  
-* Vertical velocity decreases from an initial value of $2 \cdot v_{avg}$ to zero.  
-* Average vertical velocity is provided and used to compute displacement, acceleration, and initial velocity.
-* The average shaft power is then calculated using MTOM, gravity, and vertical acceleration.  
+* Vertical velocity decreases from an estimated initial value to zero.  
+* Average shaft power is then calculated based on MTOM, gravity, and vertical acceleration.  
   
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -1585,7 +1581,7 @@ $$
 * Vertical force:  
 
 $$
-F_v = m \cdot g + m \cdot a_v
+F_v = m \cdot (g + a_v)
 $$
 
 * Shaft power:  
