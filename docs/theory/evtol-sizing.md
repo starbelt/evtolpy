@@ -117,14 +117,14 @@ where $W_{KW}$ is the unit conversion factor to kW.
 
 ```python
 def _calc_depart_taxi_avg_shaft_power_kw(self):
-if self.mission != None:
+  if self.mission != None:
     d_h_m = self.mission.depart_taxi_avg_h_m_p_s*self.mission.depart_taxi_s
     vf_h_m_p_s = (2.0*d_h_m)/self.mission.depart_taxi_s
     a_h_m_p_s2 = vf_h_m_p_s**2.0/(2.0*d_h_m)
     return \
-    (self.max_takeoff_mass_kg*a_h_m_p_s2*\
-    self.mission.depart_taxi_avg_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-else:
+      (self.max_takeoff_mass_kg*a_h_m_p_s2*\
+      self.mission.depart_taxi_avg_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+  else:
     return None
 ```
 
@@ -163,18 +163,18 @@ $$
 P_{shaft, avg} = \frac{m \cdot (g + a_v) \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
 $$    
 
-where $W_{KW}$ is the unit conversion factor to kW.
+where $g$ is the gravitational acceleration and $W_{KW}$ is the unit conversion factor to kW.
 
 ```python
 def _calc_hover_climb_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None:
+  if self.mission != None and self.propulsion != None:
     d_v_m = self.mission.hover_climb_avg_v_m_p_s*self.mission.hover_climb_s
     vf_v_m_p_s = (2.0*d_v_m)/self.mission.hover_climb_s
     a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
     return \
-    (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)*\
-    self.mission.hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-else:
+      (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)*\
+      self.mission.hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+  else:
     return None
 ```
 
@@ -232,18 +232,20 @@ where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft
 
 ```python
 def _calc_trans_climb_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None and self.environ != None:
+  if self.mission != None and self.propulsion != None and self.environ != None:
     q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.trans_climb_avg_h_m_p_s**2.0
+    theta = math.atan2(self.mission.trans_climb_v_m_p_s, self.mission.trans_climb_avg_h_m_p_s)
+
     weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-    vehicle_cl = weight_n/(q*self.wing_area_m2)
-    lift_n = q*self.wing_area_m2*vehicle_cl
+    lift_n = weight_n*math.cos(theta)
+    vehicle_cl = lift_n/(q*self.wing_area_m2)
 
     # induced drag
     di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
     # parasite drag
     cd0 = self._calc_total_drag_coef()
     if cd0 == None:
-    return None
+      return None
     dp_n = q*self.wing_area_m2*cd0
     # total drag
     total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
@@ -253,7 +255,7 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     vf_h_m_p_s = 2.0*self.mission.trans_climb_avg_h_m_p_s
     d_h_m = self.mission.trans_climb_avg_h_m_p_s*self.mission.trans_climb_s
     a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
-    
+      
     # vertical component (constant velocity, no acceleration)
     a_v_m_p_s2 = 0.0
 
@@ -262,7 +264,7 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
 
     return (force_h_n*self.mission.trans_climb_avg_h_m_p_s+force_v_n*self.mission.trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-else:
+  else:
     return None
 ```
 
@@ -300,7 +302,7 @@ where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor e
 
 ```python
 def _calc_depart_proc_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None and self.environ != None:
+  if self.mission != None and self.propulsion != None and self.environ != None:
     q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.depart_proc_h_m_p_s**2.0
     weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
     lift_n = weight_n
@@ -310,7 +312,7 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     # parasite drag
     cd0 = self._calc_total_drag_coef()
     if cd0 == None:
-    return None
+      return None
     dp_n = q*self.wing_area_m2*cd0
     # total drag
     total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
@@ -319,7 +321,7 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     force_h_n = total_drag_n
 
     return (force_h_n*self.mission.depart_proc_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-else:
+  else:
     return None
 ```
 
@@ -386,18 +388,20 @@ where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft
 
 ```python
 def _calc_accel_climb_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None and self.environ != None:
+  if self.mission != None and self.propulsion != None and self.environ != None:
     q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.accel_climb_avg_h_m_p_s**2.0
+    theta = math.atan2(self.mission.accel_climb_v_m_p_s, self.mission.accel_climb_avg_h_m_p_s)
+
     weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-    vehicle_cl = weight_n/(q*self.wing_area_m2)
-    lift_n = q*self.wing_area_m2*vehicle_cl
-    
+    lift_n = weight_n*math.cos(theta)
+    vehicle_cl = lift_n/(q*self.wing_area_m2)
+
     # induced drag
     di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
     # parasite drag
     cd0 = self._calc_total_drag_coef()
     if cd0 == None:
-    return None
+      return None
     dp_n = q*self.wing_area_m2*cd0
     # total drag
     total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
@@ -419,7 +423,7 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
 
     return (force_h_n*self.mission.accel_climb_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
-else:
+  else:
     return None
 ```
 
@@ -457,7 +461,7 @@ where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor e
 
 ```python
 def _calc_cruise_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None and self.environ != None:
+  if self.mission != None and self.propulsion != None and self.environ != None:
     q = 0.5*self.environ.air_density_max_alt_kg_p_m3*self.mission.cruise_h_m_p_s**2.0
     weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
     lift_n = weight_n
@@ -467,17 +471,17 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     # parasite drag
     cd0 = self._calc_total_drag_coef()
     if cd0 == None:
-    return None
+      return None
     if self.wing_airfoil_cd_at_cruise_cl != None and self.stopped_rotor_cd0 != None:
-    cd0_cruise = cd0+self.wing_airfoil_cd_at_cruise_cl+self.stopped_rotor_cd0
+      cd0_cruise = cd0+self.wing_airfoil_cd_at_cruise_cl+self.stopped_rotor_cd0
     else:
-    cd0_cruise = cd0
+      cd0_cruise = cd0
     dp_n = q*self.wing_area_m2*cd0_cruise
     # total drag
     total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
     return (total_drag_n*self.mission.cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-else:
+  else:
     return None
 ```
 
@@ -485,17 +489,18 @@ else:
 ## Segment G: Decelerate Descend  
 
 **Description:**  
-* Calculations for the **Decelerate Descend** segment include both **horizontal and vertical motion**.  
-* Aerodynamic lift, induced drag, parasite drag, weight, horizontal deceleration, and vertical descent are included.  
+* Calculations for the **Decelerate Descend** segment include **horizontal and vertical motion**.  
+* Aerodynamic lift, induced drag, parasite drag, weight, horizontal deceleration, vertical thrust assist (if gravity is insufficient), and spoiler drag (if power is negative) are included.  
 * Horizontal velocity starts from cruise velocity and decelerates to a final horizontal velocity. Average horizontal velocity is used to compute displacement, acceleration, and final velocity.  
-* Vertical velocity starts from zero and accelerates downwards to the final descent velocity.  
-* The average shaft power is calculated using horizontal and vertical forces, MTOM, and rotor efficiency.  
+* Vertical velocity starts from 0 and accelerates downwards to *mission.decel_descend_v_m_p_s*.  
+* The average shaft power is calculated using horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
   * $v_{i,h}$ = initial horizontal velocity (*mission.cruise_h_m_p_s*)  
   * $v_{avg,h}$ = average horizontal velocity (*mission.decel_descend_avg_h_m_p_s*)  
-  * $v_v$ = vertical velocity (*mission.decel_descend_v_m_p_s*)  
+  * $v_{i,v}$ = 0 = initial vertical velocity 
+  * $v_{f,v}$ = vertical velocity (*mission.decel_descend_v_m_p_s*)  
   * $t$ = duration of decelerate descend segment (*mission.decel_descend_s*)  
 
 * Horizontal displacement $d_h$ and acceleration $a_h$:
@@ -515,11 +520,11 @@ $$
 * Vertical displacement $d_v$ and acceleration $a_v$:
 
 $$
-d_v = \frac{v_v}{2} \cdot t
+d_v = \frac{v_{f,v}}{2} \cdot t
 $$
 
 $$
-a_v = \frac{v_v^2 - 0^2}{2 \cdot d_v}
+a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
 $$  
 
 * Note: vertical acceleration is **downwards**, so it is subtracted in the force calculation.  
@@ -535,28 +540,40 @@ $$
 F_v = (Weight - Lift) - m \cdot a_v
 $$
 
-* Shaft power:  
+* Shaft power (baseline):  
 
 $$
 P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
+* **Adjustments:**  
+  1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+  $$
+  P_{thrust\_assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
+  $$  
+  2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+  $$
+  F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+  $$  
+
 where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
 
 ```python
 def _calc_decel_descend_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None and self.environ != None:
+  if self.mission != None and self.propulsion != None and self.environ != None:     
     q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.decel_descend_avg_h_m_p_s**2.0
+    theta = math.atan2(self.mission.decel_descend_v_m_p_s, self.mission.decel_descend_avg_h_m_p_s)
+
     weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-    vehicle_cl = weight_n/(q*self.wing_area_m2)
-    lift_n = q*self.wing_area_m2*vehicle_cl
-    
+    lift_n = weight_n*math.cos(theta)
+    vehicle_cl = lift_n/(q*self.wing_area_m2)
+
     # induced drag
     di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
     # parasite drag
     cd0 = self._calc_total_drag_coef()
     if cd0 == None:
-    return None
+      return None
     dp_n = q*self.wing_area_m2*cd0
     # total drag
     total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
@@ -575,10 +592,38 @@ if self.mission != None and self.propulsion != None and self.environ != None:
 
     # force components
     force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-    force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
+    force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2 # physical: downward, speeding up
 
-    return (force_h_n*self.mission.decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
-else:
+    # compute shaft power baseline
+    shaft_power_kw = (force_h_n*self.mission.decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+
+    # check vertical deficit: if gravity cannot provide enough, add vertical thrust assist shaft power
+    vertical_deficit_n = self.max_takeoff_mass_kg*a_v_m_p_s2-(weight_n-lift_n)
+    shaft_power_deficit_kw = 0.0
+    if vertical_deficit_n > 0.0:
+      shaft_power_deficit_kw = (vertical_deficit_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+
+    # total shaft power (baseline + vertical assist)
+    shaft_power_kw += shaft_power_deficit_kw
+
+    # check for negative power to add spoiler drag
+    if shaft_power_kw < 0.0:
+      # required additional horizontal force to neutralize negative power
+      required_extra_force_n = -force_h_n
+      # compute equivalent delta Cd
+      delta_cd_spoiler = required_extra_force_n/(q*self.wing_area_m2)
+      if delta_cd_spoiler < 0.0:
+        delta_cd_spoiler = 0.0
+      # recompute with spoilers
+      dp_spoiler_n = q*self.wing_area_m2*delta_cd_spoiler
+      total_drag_n = (di_n+dp_n+dp_spoiler_n)*self.trim_drag_factor*self.excres_protub_factor
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+
+      # total shaft power (with spoiler drag and vertical assist)
+      shaft_power_kw = (force_h_n*self.mission.decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+
+    return shaft_power_kw
+  else:
     return None
 ```
 
@@ -616,7 +661,7 @@ where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor e
 
 ```python
 def _calc_arrive_proc_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None and self.environ != None:
+  if self.mission != None and self.propulsion != None and self.environ != None:
     q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.arrive_proc_h_m_p_s**2.0
     weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
     # horizontal component
@@ -626,7 +671,7 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     # parasite drag
     cd0 = self._calc_total_drag_coef()
     if cd0 == None:
-    return None
+      return None
     dp_n = q*self.wing_area_m2*cd0
     # total drag
     total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
@@ -635,7 +680,7 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     force_h_n = total_drag_n
 
     return (force_h_n*self.mission.arrive_proc_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-else:
+  else:
     return None
 ```
 
@@ -643,11 +688,11 @@ else:
 ## Segment I: Transition Descend  
 
 **Description:**  
-* Calculations for the **Transition Descend** segment include both **horizontal and vertical motion**.  
-* Aerodynamic lift, induced drag, parasite drag, weight, and descent forces are included.  
-* Horizontal velocity decelerates from an initial value to zero. Average horizontal velocity is used to compute initial velocity, final velocity, and acceleration.  
-* Vertical velocity changes from the deceleration descent velocity to the transition descent velocity.  
-* The average shaft power is calculated using horizontal and vertical forces, MTOM, and rotor efficiency.  
+* Calculations for the **Transition Descend** segment include **horizontal and vertical motion**.  
+* Aerodynamic lift, induced drag, parasite drag, weight, descent forces, vertical thrust assist (if gravity is insufficient), and spoiler drag (if power is negative) are included.  
+* Horizontal velocity starts from an estimated initial value and decelerates to zero. Average horizontal velocity is used to compute displacement, acceleration, and final velocity.  
+* Vertical velocity starts from the previous descend velocity and changes to *mission.trans_descend_v_m_p_s*.  
+* The average shaft power is calculated using horizontal and vertical forces, rotor efficiency, and includes adjustments for vertical thrust deficit and spoiler drag.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -675,14 +720,12 @@ $$
 * Vertical displacement $d_v$ and acceleration $a_v$:
 
 $$
-d_v = \frac{1}{2}(v_{i,v} + v_{f,v}) \cdot t
+d_v = \frac{|v_{i,v}| + |v_{f,v}|}{2} \cdot t
 $$
 
 $$
 a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
 $$  
-
-* Note: vertical acceleration is **downwards**, so it is subtracted in the force calculation.   
 
 **Average Shaft Power (kW)**  
 * Horizontal and vertical forces:  
@@ -695,28 +738,40 @@ $$
 F_v = (Weight - Lift) - m \cdot a_v
 $$
 
-* Shaft power:  
+* Shaft power (baseline):  
 
 $$
-P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+P_{shaft, avg} = \frac{F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
 where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
 
+* **Adjustments:**  
+  1. **Vertical thrust assist:** If vertical acceleration requires more thrust than gravity provides, add additional shaft power:  
+  $$
+  P_{thrust\_assist} = \frac{(m \cdot a_v - (Weight - Lift)) \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}, \quad \text{if } m \cdot a_v > (Weight - Lift)
+  $$  
+  2. **Spoiler drag:** If total shaft power is negative, add equivalent spoiler drag to increase horizontal force:  
+  $$
+  F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+  $$  
+
 ```python
 def _calc_trans_descend_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None and self.environ != None:
+  if self.mission != None and self.propulsion != None and self.environ != None:
     q = 0.5*self.environ.air_density_sea_lvl_kg_p_m3*self.mission.trans_descend_avg_h_m_p_s**2.0
+    theta = math.atan2(self.mission.trans_descend_v_m_p_s, self.mission.trans_descend_avg_h_m_p_s)
+
     weight_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2
-    vehicle_cl = weight_n/(q*self.wing_area_m2)
-    lift_n = q*self.wing_area_m2*vehicle_cl
+    lift_n = weight_n*math.cos(theta)
+    vehicle_cl = lift_n/(q*self.wing_area_m2)
 
     # induced drag
     di_n = (lift_n**2.0)/(q*self.wing_area_m2*math.pi*self.wing_aspect_ratio*self.span_effic_factor)
     # parasite drag
     cd0 = self._calc_total_drag_coef()
     if cd0 == None:
-    return None
+      return None
     dp_n = q*self.wing_area_m2*cd0
     # total drag
     total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
@@ -728,17 +783,45 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
     # vertical accelerations
-    v0_v_m_p_s = self.mission.decel_descend_v_m_p_s
-    vf_v_m_p_s = self.mission.trans_descend_v_m_p_s
-    d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.trans_descend_s
+    v0_v_m_p_s = self.mission.decel_descend_v_m_p_s 
+    vf_v_m_p_s = self.mission.trans_descend_v_m_p_s 
+    d_v_m = 0.5*(abs(v0_v_m_p_s)+abs(vf_v_m_p_s))*self.mission.trans_descend_s
     a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
     # force components
     force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-    force_v_n = (weight_n-lift_n)-self.max_takeoff_mass_kg*a_v_m_p_s2
+    force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
 
-    return (force_h_n*self.mission.trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
-else:
+    # compute shaft power baseline
+    shaft_power_kw = (force_h_n*self.mission.trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+
+    # check vertical deficit: if gravity cannot provide enough, add vertical thrust assist shaft power
+    vertical_deficit_n = self.max_takeoff_mass_kg*a_v_m_p_s2-(weight_n-lift_n)
+    shaft_power_deficit_kw = 0.0
+    if vertical_deficit_n > 0.0:
+      shaft_power_deficit_kw = (vertical_deficit_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+
+    # total shaft power (baseline + vertical assist)
+    shaft_power_kw += shaft_power_deficit_kw
+
+    # check for negative power to add spoiler drag
+    if shaft_power_kw < 0.0:
+      # required additional horizontal force to neutralize negative power
+      required_extra_force_n = -force_h_n
+      # compute equivalent delta Cd
+      delta_cd_spoiler = required_extra_force_n/(q*self.wing_area_m2)
+      if delta_cd_spoiler < 0.0:
+        delta_cd_spoiler = 0.0
+      # recompute with spoilers
+      dp_spoiler_n = q*self.wing_area_m2*delta_cd_spoiler
+      total_drag_n = (di_n+dp_n+dp_spoiler_n)*self.trim_drag_factor*self.excres_protub_factor
+      force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
+
+      # total shaft power (with spoiler drag and vertical assist)
+      shaft_power_kw = (force_h_n*self.mission.trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+
+    return shaft_power_kw
+  else:
     return None
 ```
 
@@ -773,13 +856,11 @@ $$
 a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
 $$  
 
-* Note: vertical acceleration is **downwards**, so it is subtracted in the force calculation.  
-
 **Average Shaft Power (kW)**  
 * Vertical force:  
 
 $$
-F_v = m \cdot g - m \cdot a_v
+F_v = m \cdot g + m \cdot a_v
 $$
 
 * Shaft power:  
@@ -792,18 +873,18 @@ where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft
 
 ```python
 def _calc_hover_descend_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None and self.environ != None:
-    # vertical acceleration
+  if self.mission != None and self.propulsion != None and self.environ != None:
+    # vertical accelerations
     v0_v_m_p_s = 2.0*self.mission.hover_descend_avg_v_m_p_s
     vf_v_m_p_s = 0.0
     d_v_m = self.mission.hover_descend_avg_v_m_p_s*self.mission.hover_descend_s
     a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
     # force component
-    force_v_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2 - self.max_takeoff_mass_kg*a_v_m_p_s2
+    force_v_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2+self.max_takeoff_mass_kg*a_v_m_p_s2
 
     return (force_v_n*self.mission.hover_descend_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-else:
+  else:
     return None
 ```
 
@@ -854,7 +935,7 @@ where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft
 
 ```python
 def _calc_arrive_taxi_avg_shaft_power_kw(self):
-if self.mission != None and self.propulsion != None and self.environ != None:
+  if self.mission != None and self.propulsion != None and self.environ != None:
     # horizontal accelerations
     v0_h_m_p_s = 0.0
     vf_h_m_p_s = 2.0*self.mission.arrive_taxi_avg_h_m_p_s
@@ -865,6 +946,6 @@ if self.mission != None and self.propulsion != None and self.environ != None:
     force_h_n = self.max_takeoff_mass_kg*a_h_m_p_s2
 
     return (force_h_n*self.mission.arrive_taxi_avg_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
-else:
+  else:
     return None
 ```

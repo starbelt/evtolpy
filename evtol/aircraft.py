@@ -728,6 +728,7 @@ class Aircraft:
   # includes aerodynamic lift, induced drag, parasite drag, weight, horizontal deceleration, vertical thrust assist if gravity is insufficient, and spoiler drag if power is negative
   # horizontal velocity: initial = cruise_h_m_p_s, average velocity provided → used to compute final velocity
   # vertical velocity: initial = 0, accelerates to decel_descend_v_m_p_s (downwards)
+  # provide vertical thrust assist and spoiler drag (if needed)
   # return None if mission, propulsion, or environment object not populated
   def _calc_decel_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:     
@@ -872,6 +873,7 @@ class Aircraft:
   # includes aerodynamic lift, induced drag, parasite drag, weight, descent forces, vertical thrust assist if gravity is insufficient, and spoiler drag if power is negative
   # horizontal velocity: initial estimated from average, final = 0 (vehicle decelerates to stop)
   # vertical velocity: initial = decel_descend_v_m_p_s, final = trans_descend_v_m_p_s
+  # provide vertical thrust assist and spoiler drag (if needed)
   # return None if mission, propulsion, or environment object not populated
   def _calc_trans_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
@@ -1266,6 +1268,7 @@ class Aircraft:
 # ----- Reserve Deceleration Descend (Segment G') -----
   # requires mission reserve_decel_descend_avg_h_m_p_s, reserve_decel_descend_v_m_p_s, reserve_decel_descend_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, descend forces, and vertical thrust assist if gravity is insufficient
+  # provide vertical thrust assist and spoiler drag (if needed)
   # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_decel_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
@@ -1361,6 +1364,7 @@ class Aircraft:
   # requires mission reserve_trans_descend_avg_h_m_p_s, reserve_trans_descend_v_m_p_s, reserve_trans_descend_s
   # includes aerodynamic lift, induced drag, parasite drag, weight, descend forces, vertical thrust assist if gravity is insufficient, and spoiler drag if power is negative
   # horizontal velocity: initial from reserve decel segment to 0; vertical velocity changes from previous segment to final
+  # provide vertical thrust assist and spoiler drag (if needed)
   # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_trans_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:    
