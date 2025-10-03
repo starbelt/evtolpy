@@ -140,11 +140,11 @@ D_p = q \cdot S \cdot C_{D0}
 $$  
 
 **Total Drag Force** 
-* The total drag force is the sum of induced and parasite drag, including empirical correction factors for trim and protuberances:  
+* The total drag force is the sum of induced and parasite drag, including empirical correction factorss for trim and protuberances:  
 
 $$
-D_{\text{total}} = (D_i + D_p) \cdot \text{trim\_drag\_factor} \cdot \text{excres\_protub\_factor}
-$$ 
+D_{total} = (D_i + D_p) \cdot \text{Trim drag factor} \cdot \text{Excrescence and protuberance factor}
+$$  
 
 **Application in Shaft Power Calculation**  
 * For each mission segment, the total drag $D_{total}$ is used to compute the **horizontal force component** in the shaft power formula:  
