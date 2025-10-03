@@ -1,11 +1,16 @@
 # Mission Segment Energy Consumption
 
-This document explains the equations used to calculate **energy consumption** across different mission segments in the aircraft model.
+This document explains the equations used to calculate energy consumption across different mission segments in the aircraft model.
 
 ## Table of Contents
-* [General Kinematic Relations](#general-kinematic-relations)     
 
 * [General Workflow for Calculating Average Electric Power (kW)](#general-workflow-for-calculating-average-electric-power-kw)  
+
+* [Reference Equations](#reference-equations)
+
+  - [General Kinematic Relations](#general-kinematic-relations)     
+
+  - [Aerodynamics Drag Modeling](#aerodynamics-drag-modeling)
 
 * [Average Shaft Power Calculation](#average-shaft-power-calculation)
 
@@ -27,7 +32,41 @@ This document explains the equations used to calculate **energy consumption** ac
 Note: The above mission profile is adapted from [Uber Elevate's *UberAir Vehicle Requirements and Mission*](../../references/summary-mission-and-requirements.pdf)
 
 ---
-## General Kinematic Relations
+---
+## General Workflow for Calculating Average Electric Power (kW)  
+
+**Step 1: Calculate Average Shaft Power (kW)**  
+* Based on aerodynamic and propulsion requirements.  
+* Note: Different calculation will be implemented for each mission segment.
+* General equation:
+
+$$
+P_{shaft,avg} = \frac{F_h \cdot v_h + F_v \cdot v_v}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+**Step 2: Calculate Average Electric Power (kW)**    
+* Including the efficiency of the electric power unit $\eta_{epu}$ (*power.epu_effic*).   
+* General equation (*applied for all energy segments calculation*):  
+
+$$
+P_{elec, avg} = \frac{P_{shaft, avg}}{\eta_{epu}}
+$$
+
+**Step 3: Calculate Energy Consumption (kWh)**    
+* By integrating electric power over the mission segment duration.  
+* General equation (*applied for all energy segments calculation*):  
+
+$$
+E = \frac{P_{elec, avg} \cdot t}{S_{HR}}
+$$  
+
+where $S_{HR}$ is the seconds-to-hour conversion factor.
+
+---
+---
+## Reference Equations
+
+### General Kinematic Relations
 
 Energy consumption calculations often require **velocity**, **displacement**, and **acceleration** values for each mission segment. These are derived from the fundamental kinematic equations:
 
@@ -59,36 +98,71 @@ where:
 These relations are applied differently depending on the type of maneuver (e.g., takeoff, climb, cruise, descent, hover), which is one of the reasons that leads to different average shaft power calculations for each segment.
 
 ---
-## General Workflow for Calculating Average Electric Power (kW)  
+### Aerodynamics Drag Modeling
 
-**Step 1: Calculate Average Shaft Power (kW)**  
-* Based on aerodynamic and propulsion requirements.  
-* Note: Different calculation will be implemented for each mission segment.
+**Description:**  
+* Drag modeling is a key component of the **average shaft power calculation** for each mission segment.  
+* The total aerodynamic drag is computed as a combination of **induced drag** (due to lift generation) and **parasite drag** (profile drag from aircraft components).  
+* Drag coefficients account for contributions from the **fuselage, horizontal tail, vertical tail, landing gear**, and optionally **wing airfoil** and **stopped rotor** effects for cruise conditions.  
 
-**Step 2: Calculate Average Electric Power (kW)**    
-* Including the efficiency of the electric power unit $\eta_{epu}$ (*power.epu_effic*).   
-* General equation (*applied for all energy segments calculation*):  
-
-$$
-P_{elec, avg} = \frac{P_{shaft, avg}}{\eta_{epu}}
-$$
-
-**Step 3: Calculate Energy Consumption (kWh)**    
-* By integrating electric power over the mission segment duration.  
-* General equation (*applied for all energy segments calculation*):  
+**Total Parasite Drag Coefficient**  
+* The total parasite drag coefficient $C_{D0,total}$ is computed as the sum of available components:  
 
 $$
-E = \frac{P_{elec, avg} \cdot t}{S_{HR}}
+C_{D0,total} = C_{D0,fuselage} + C_{D0,horiz\_tail} + C_{D0,vert\_tail} + C_{D0,landing\_gear}
 $$  
 
-where $S_{HR}$ is the seconds-to-hour conversion factor.
+* For cruise segments (F and F'), additional contributions are included:  
+
+$$
+C_{D0,cruise} = C_{D0,total} + C_{D0,wing\_airfoil\_cruise} + C_{D0,stopped\_rotor}
+$$  
+
+**Induced Drag**  
+* Induced drag is calculated based on lift:  
+
+$$
+D_i = \frac{L^2}{q \cdot S \cdot \pi \cdot AR \cdot e}
+$$  
+
+where:  
+  * $L$ = aerodynamic lift  
+  * $q = 0.5 \cdot \rho \cdot V^2$ = dynamic pressure  
+  * $S$ = wing planform area  
+  * $AR$ = wing aspect ratio  
+  * $e$ = span efficiency factor  
+
+**Parasite Drag**  
+* Parasite drag force is computed using the total parasite drag coefficient:  
+
+$$
+D_p = q \cdot S \cdot C_{D0}
+$$  
+
+**Total Drag Force** 
+* The total drag force is the sum of induced and parasite drag, including empirical correction factors for trim and protuberances:  
+
+$$
+D_{total} = (D_i + D_p) \cdot \text{trim\_drag\_factor} \cdot \text{excres\_protub\_factor}
+$$  
+
+**Application in Shaft Power Calculation**  
+* For each mission segment, the total drag $D_{total}$ is used to compute the **horizontal force component** in the shaft power formula:  
+
+$$
+F_h = D_{total} + m \cdot a_h
+$$  
+
+* Vertical force components and accelerations are combined for segments with climb or descent to compute the total shaft power:  
+
+$$
+P_{shaft,avg} = \frac{F_h \cdot v_h + F_v \cdot v_v}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+This modular approach allows segment-specific drag modeling while accounting for lift-induced effects, parasite drag from multiple components, and special cruise adjustments for stopped rotors or wing airfoil contributions.
 
 ---
-
-
-
 ---
-
 ## Average Shaft Power Calculation
 
 ### Segment A: Depart Taxi
@@ -227,7 +301,7 @@ $$
 * Horizontal and vertical forces:  
 
 $$
-F_h = Drag_{total} + m \cdot a_h
+F_h = D_{total} + m \cdot a_h
 $$
 
 $$
@@ -301,7 +375,7 @@ def _calc_trans_climb_avg_shaft_power_kw(self):
 * Horizontal force:  
 
 $$
-F_h = Drag_{total}
+F_h = D_{total}
 $$  
 
 * Shaft power:  
@@ -384,7 +458,7 @@ $$
 * Horizontal and vertical forces:
 
 $$
-F_h = Drag_{total} + m \cdot a_h
+F_h = D_{total} + m \cdot a_h
 $$
 
 $$
@@ -461,7 +535,7 @@ def _calc_accel_climb_avg_shaft_power_kw(self):
 * Horizontal force:  
 
 $$
-F_h = Drag_{total}
+F_h = D_{total}
 $$  
 
 * Shaft power:  
@@ -546,7 +620,7 @@ $$
 * Horizontal and vertical forces:  
 
 $$
-F_h = Drag_{total} + m \cdot a_h
+F_h = D_{total} + m \cdot a_h
 $$
 
 $$
@@ -665,7 +739,7 @@ def _calc_decel_descend_avg_shaft_power_kw(self):
 * Horizontal force:  
 
 $$
-F_h = Drag_{total}
+F_h = D_{total}
 $$  
 
 * Shaft power:  
@@ -748,7 +822,7 @@ $$
 * Horizontal and vertical forces:  
 
 $$
-F_h = Drag_{total} + m \cdot a_h
+F_h = D_{total} + m \cdot a_h
 $$
 
 $$
@@ -1058,7 +1132,7 @@ $$
 * Horizontal and vertical forces:  
 
 $$
-F_h = Drag_{total} + m \cdot a_h
+F_h = D_{total} + m \cdot a_h
 $$
 
 $$
@@ -1154,7 +1228,7 @@ $$
 * Horizontal and vertical forces:  
 
 $$
-F_h = Drag_{total} + m \cdot a_h
+F_h = D_{total} + m \cdot a_h
 $$
 
 $$
@@ -1227,7 +1301,7 @@ def _calc_reserve_accel_climb_avg_shaft_power_kw(self):
 * Horizontal force:  
 
 $$
-F_h = Drag_{total}
+F_h = D_{total}
 $$  
 
 * Shaft power:  
@@ -1312,7 +1386,7 @@ $$
 * Horizontal and vertical forces:  
 
 $$
-F_h = Drag_{total} + m \cdot a_h
+F_h = D_{total} + m \cdot a_h
 $$
 
 $$
@@ -1460,7 +1534,7 @@ $$
 * Horizontal and vertical forces:  
 
 $$
-F_h = Drag_{total} + m \cdot a_h
+F_h = D_{total} + m \cdot a_h
 $$
 
 $$
