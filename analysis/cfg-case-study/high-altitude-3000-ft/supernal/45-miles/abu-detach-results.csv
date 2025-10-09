@@ -1,0 +1,2 @@
+name,E_abu_mission_total_kwh,E_abu_ops_total_kwh,E_abu_used_kwh,batt_mass_offloaded_kg,baseline_batt_mass_kg,main_batt_new_kg,MTOW_attached_kg,MTOW_detached_kg,feasible_ops,baseline_total_mission_kwh,aircraft_total_kwh_after,total_system_kwh_after
+after_accel_climb,10.000000,0.500000,10.000000,60.966316,513.938995,452.972679,3304.037362,3139.033684,True,84.298844,73.335556,83.835556
