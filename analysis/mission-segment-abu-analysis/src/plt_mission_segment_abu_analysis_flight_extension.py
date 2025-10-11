@@ -113,8 +113,8 @@ if len(valid_combined) > 0:
 
   ax1.plot(x_vals, range_vals, '-o', color=color1, linewidth=1.5, markersize=5, label='Extended Range')
   ax1.set_xlabel('ABU Mission Energy (kWh)')
-  ax1.set_ylabel('Extended Range (miles)', color=color1)
-  ax1.tick_params(axis='y', labelcolor=color1)
+  ax1.set_ylabel('Extended Range (miles)')
+  ax1.tick_params(axis='y')
   ax1.grid(True, linestyle='--', alpha=0.6)
 
   # add point labels for range
@@ -124,12 +124,17 @@ if len(valid_combined) > 0:
   # second axis for extended flight time
   ax2 = ax1.twinx()
   ax2.plot(x_vals, time_vals_min, '--s', color=color2, linewidth=1.5, markersize=5, label='Extra Flight Time')
-  ax2.set_ylabel('Extended Flight Time (minutes)', color=color2)
-  ax2.tick_params(axis='y', labelcolor=color2)
+  ax2.set_ylabel('Extended Flight Time (minutes)')
+  ax2.tick_params(axis='y')
 
   # add point labels for time
   for xx, yy in zip(x_vals, time_vals_min):
     ax2.text(xx, yy - 0.3, f'{yy:.2f}', color=color2, ha='center', va='top', fontsize=8)
+
+  # add combined legend
+  lines1, labels1 = ax1.get_legend_handles_labels()
+  lines2, labels2 = ax2.get_legend_handles_labels()
+  ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=9, frameon=True)
 
   plt.title('Extended Flight Range & Time vs. ABU Mission Energy')
   fig.tight_layout()
