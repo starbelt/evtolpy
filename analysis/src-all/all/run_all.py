@@ -29,9 +29,13 @@ def run_case(base_dir, config):
         f"python log_mtow_iteration.py {config} {base_dir}",
         f"python plt_mtow_iteration.py {base_dir}mtow-iteration.csv {base_dir}",
 
-        # ABU
+        # ABU (1): Assisted Takeoff
         f"python log_mission_segment_abu_analysis_energy.py {config} {base_dir}",
         f"python plt_mission_segment_abu_analysis_energy.py {base_dir}mission-segment-abu-analysis-energy.csv {base_dir}",
+
+        # ABU (2): Extended Flight
+        f"python log_mission_segment_abu_analysis_flight_extension.py {config} {base_dir}",
+        f"python plt_mission_segment_abu_analysis_flight_extension.py {base_dir}mission-segment-abu-analysis-flight-extension.csv {base_dir}",
     ]
 
     for cmd in commands:
