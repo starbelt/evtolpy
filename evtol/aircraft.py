@@ -2055,8 +2055,7 @@ class Aircraft:
     # return all candidate results
     return results
   
-
-  # ABU Evaluator - Extended Flight Time with Mid-Flight ABU Attachment (Cruise Segment)
+  # ABU Evaluator - Extended Flight Time with Mid-Flight ABU Attachment (Attached full-segment)
   # quantify extended flight endurance when an ABU attaches mid-flight
   # ABU adds mass and provides additional energy during the segment. 
   # saved baseline battery energy is converted into extra flight time and range.
@@ -2067,12 +2066,24 @@ class Aircraft:
 
     results = []
 
-    # compute baseline cruise performance (no ABU)
+    # baseline cruise performance (no ABU)
     baseline_mtow_kg = self.max_takeoff_mass_kg
     baseline_cruise_energy_kwh = self._calc_cruise_energy_kw_hr()
     baseline_cruise_power_kw = self._calc_cruise_avg_electric_power_kw()
-
     cruise_speed_m_p_s = self.mission.cruise_h_m_p_s
+
+    # battery parameters
+    spec_energy_Wh_p_kg = self.power.batt_spec_energy_w_h_p_kg
+    batt_int_factor = self.power.batt_int_factor
+    batt_accessible_energy_frac = 1.0 - self.power.batt_inaccessible_energy_frac
+
+    # default ABU specifications
+    abu_spec = {
+      "n_abus": 1,                     # number of ABUs attached (default 1)
+      "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
+      "struct_frac": 0.20,             # structural fraction of battery mass
+      "integration_frac": 0.05,        # integration hardware fraction of battery mass
+    }
 
     # estimate ABU rotor+hub mass using NDARC Section 19.2 AFDD00 rotor + hub mass model
     def _calc_single_lift_rotor_hub_mass_kg():
@@ -2094,26 +2105,13 @@ class Aircraft:
         # restore original getter 
         type(self.propulsion).lift_rotor_count = property(orig_getter)
 
-    # battery parameters
-    spec_energy_Wh_p_kg = self.power.batt_spec_energy_w_h_p_kg
-    batt_int_factor = self.power.batt_int_factor
-    batt_accessible_energy_frac = 1.0 - self.power.batt_inaccessible_energy_frac
-
-    # default ABU specifications
-    abu_spec = {
-      "n_abus": 1,                     # number of ABUs attached (default 1)
-      "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops after detach [kWh]
-      "struct_frac": 0.20,             # structural fraction of battery mass
-      "integration_frac": 0.05,        # integration hardware fraction of battery mass
-    }
-
     # sweep ABU mission energy levels
     for E_abu_kwh in E_mission_kwh_per_abu_list:
 
       # ABU energy modeling 
+      n_abus = abu_spec["n_abus"]
       E_mission_kwh_per_abu = E_abu_kwh
       E_ops_kwh_per_abu = abu_spec["E_ops_kwh_per_abu"]
-      n_abus = abu_spec["n_abus"]
 
       # total ABU energy = mission + self-operations
       E_total_kwh_per_abu = E_mission_kwh_per_abu + E_ops_kwh_per_abu
@@ -2130,7 +2128,7 @@ class Aircraft:
       m_abu_struct_kg = abu_spec["struct_frac"] * m_abu_batt_kg
       m_abu_integ_kg = abu_spec["integration_frac"] * m_abu_batt_kg
 
-      # total ABU mass (battery + structure + integration + rotor) per ABU
+      # total ABU mass (battery + structure + integration + rotor) per unit
       m_abu_total_kg = m_abu_batt_kg + m_abu_struct_kg + m_abu_integ_kg + m_rot_hub_kg
       m_abu_total_all_kg = n_abus * m_abu_total_kg
 
@@ -2174,6 +2172,164 @@ class Aircraft:
     self.max_takeoff_mass_kg = baseline_mtow_kg
 
     # return results for all ABU cases
+    return results
+
+  # ABU Evaluator - Extended Flight Time (Detach-on-Depletion or End-of-Cruise)
+  # quantify extended flight endurance when ABU detaches upon depletion
+  # or at the end of the baseline cruise segment (whichever comes first)
+  # splits cruise into two phases: attached (ABU supplies power) and post-detach (aircraft only)
+  # structural + integration overheads are modeled per ABU specs.
+  def _evaluate_extended_flight_detach_on_depletion_or_end(self, E_mission_kwh_per_abu_list):
+    if self.mission == None or self.propulsion == None or self.environ == None or self.power == None:
+      return None
+
+    results = []
+
+    # baseline cruise performance (no ABU)
+    baseline_mtow_kg = self.max_takeoff_mass_kg
+    baseline_cruise_energy_kwh = self._calc_cruise_energy_kw_hr()
+    baseline_cruise_power_kw = self._calc_cruise_avg_electric_power_kw()
+    cruise_speed_m_p_s = self.mission.cruise_h_m_p_s
+
+    # battery parameters
+    spec_energy_Wh_p_kg = self.power.batt_spec_energy_w_h_p_kg
+    batt_int_factor = self.power.batt_int_factor
+    batt_accessible_energy_frac = 1.0 - self.power.batt_inaccessible_energy_frac
+
+    # default ABU specifications
+    abu_spec = {
+      "n_abus": 1,                     # number of ABUs attached (default 1)
+      "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
+      "struct_frac": 0.20,             # structural fraction of battery mass
+      "integration_frac": 0.05,        # integration hardware fraction of battery mass
+    }
+
+    # estimate ABU rotor+hub mass using NDARC Section 19.2 AFDD00 rotor + hub mass model
+    def _calc_single_lift_rotor_hub_mass_kg():
+      """
+      Quick patch: temporarily override lift_rotor_count in propulsion
+      to reuse existing NDARC rotor+hub mass function.
+      """
+      # save original getter
+      orig_getter = type(self.propulsion).lift_rotor_count.fget
+
+      try:
+        # monkey patch to force number of rotors
+        type(self.propulsion).lift_rotor_count = property(lambda _self: n_abus)
+
+        # call original mass function
+        return self._calc_lift_rotor_hub_mass_kg()
+
+      finally:
+        # restore original getter 
+        type(self.propulsion).lift_rotor_count = property(orig_getter)
+
+    # sweep ABU mission energies
+    for E_abu_kwh in E_mission_kwh_per_abu_list:
+
+      # ABU energy modeling 
+      n_abus = abu_spec["n_abus"]
+      E_mission_kwh_per_abu = E_abu_kwh
+      E_ops_kwh_per_abu = abu_spec["E_ops_kwh_per_abu"]
+
+      # total ABU energy = mission + self-operations
+      E_total_kwh_per_abu = E_mission_kwh_per_abu + E_ops_kwh_per_abu
+
+      # compute ABU battery mass
+      m_abu_batt_kg = (E_total_kwh_per_abu * 1000.0) / (
+        spec_energy_Wh_p_kg * batt_accessible_energy_frac * batt_int_factor
+      )
+
+      # rotor mass per ABU 
+      m_rot_hub_kg = _calc_single_lift_rotor_hub_mass_kg()
+
+      # add structural and integration overhead
+      m_abu_struct_kg = abu_spec["struct_frac"] * m_abu_batt_kg
+      m_abu_integ_kg = abu_spec["integration_frac"] * m_abu_batt_kg
+
+      # total ABU mass (battery + structure + integration + rotor) per unit
+      m_abu_total_kg = m_abu_batt_kg + m_abu_struct_kg + m_abu_integ_kg + m_rot_hub_kg
+      m_abu_total_all_kg = n_abus * m_abu_total_kg
+
+      # ------------------------------
+      # Phase 1: Attached (ABU supplies power)
+      # ------------------------------
+      self.max_takeoff_mass_kg = baseline_mtow_kg + m_abu_total_all_kg
+      P_cruise_attach_kw = self._calc_cruise_avg_electric_power_kw()
+      if P_cruise_attach_kw == None:
+        continue
+
+      # time until ABU depletion (s)
+      t_attached_until_depletion_s = (E_mission_kwh_per_abu * n_abus) / P_cruise_attach_kw * 3600
+
+      # baseline cruise duration (s)
+      t_baseline_cruise_s = (baseline_cruise_energy_kwh / baseline_cruise_power_kw) * 3600
+
+      # effective attach duration = shorter of ABU depletion or baseline cruise time
+      t_attached_effective_s = min(t_attached_until_depletion_s, t_baseline_cruise_s)
+
+      # ABU energy actually used (limited by baseline cruise duration)
+      E_cruise_attach_kwh = P_cruise_attach_kw * (t_attached_effective_s / 3600)
+      E_abu_used_kwh = min(E_mission_kwh_per_abu * n_abus, E_cruise_attach_kwh)
+
+      # range covered during attached phase
+      range_attached_mi = t_attached_effective_s * cruise_speed_m_p_s * 0.000621371
+
+      # ------------------------------
+      # Phase 2: Post-detach (aircraft-only)
+      # ------------------------------
+      P_cruise_post_kw = baseline_cruise_power_kw  # same aerodynamic config
+
+      # saved baseline energy during attached phase
+      E_saved_kwh = min(
+        baseline_cruise_power_kw * (t_attached_effective_s / 3600.0),
+        baseline_cruise_energy_kwh
+      )
+
+      # convert saved energy into additional cruise endurance (lighter MTOW)
+      extra_time_s = E_saved_kwh / P_cruise_post_kw * 3600
+      extra_range_mi = extra_time_s * cruise_speed_m_p_s * 0.000621371
+
+      # total (attached + extra)
+      total_extended_time_s = t_attached_effective_s + extra_time_s
+      total_extended_range_mi = range_attached_mi + extra_range_mi
+
+      # flag if ABU still had energy left when cruise ended
+      overcapacity_flag = t_attached_until_depletion_s > t_baseline_cruise_s
+
+      # flag if ABU exactly covers baseline cruise (within tolerance)
+      full_coverage_flag = abs(E_saved_kwh - baseline_cruise_energy_kwh) < 1e-3
+
+      # store result
+      results.append({
+        "n_abus": n_abus,
+        "E_abu_mission_kwh": E_mission_kwh_per_abu,
+        "E_abu_total_kwh": E_total_kwh_per_abu,
+        "m_abu_batt_kg": m_abu_batt_kg,
+        "m_abu_struct_kg": m_abu_struct_kg,
+        "m_abu_integ_kg": m_abu_integ_kg,
+        "m_rot_hub_kg": m_rot_hub_kg,
+        "m_abu_total_all_kg": m_abu_total_all_kg,
+        "P_cruise_attach_kw": P_cruise_attach_kw,
+        "P_cruise_post_kw": P_cruise_post_kw,
+        "baseline_cruise_energy_kwh": baseline_cruise_energy_kwh,
+        "E_cruise_attach_kwh": E_cruise_attach_kwh,
+        "E_abu_used_kwh": E_abu_used_kwh,
+        "E_saved_kwh": E_saved_kwh,
+        "t_attached_until_depletion_s": t_attached_until_depletion_s,
+        "t_attached_effective_s": t_attached_effective_s,
+        "extra_time_s": extra_time_s,
+        "total_extended_time_s": total_extended_time_s,
+        "range_attached_mi": range_attached_mi,
+        "extra_range_mi": extra_range_mi,
+        "total_extended_range_mi": total_extended_range_mi,
+        "overcapacity": overcapacity_flag,
+        "full_coverage_flag": full_coverage_flag
+      })
+
+    # restore MTOW
+    self.max_takeoff_mass_kg = baseline_mtow_kg
+
     return results
 
   @property
