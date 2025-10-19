@@ -4,6 +4,6 @@ This directory contains code documentation.
 
 ## Directory Contents
 
-* [theory](theory/README.md): Calculation theory
-* [api](theory/README.md): API
+* [theory](theory/README.md): Theory documentation
+* [api](api/README.md): API documentation
 
