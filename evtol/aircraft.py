@@ -1,4 +1,4 @@
-# aircraft.py
+ # aircraft.py
 #
 # A Python class containing aircraft characteristics
 #
@@ -2060,7 +2060,7 @@ class Aircraft:
   # ABU adds mass and provides additional energy during the segment. 
   # saved baseline battery energy is converted into extra flight time and range.
   # structural + integration overheads are modeled per ABU specs.
-  def _evaluate_extended_flight(self, E_mission_kwh_per_abu_list):
+  def _evaluate_extended_flight(self, E_mission_kwh_per_abu_list, abu_spec=None):
     if self.mission == None or self.propulsion == None or self.environ == None or self.power == None:
       return None
 
@@ -2078,12 +2078,13 @@ class Aircraft:
     batt_accessible_energy_frac = 1.0 - self.power.batt_inaccessible_energy_frac
 
     # default ABU specifications
-    abu_spec = {
-      "n_abus": 1,                     # number of ABUs attached (default 1)
-      "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
-      "struct_frac": 0.20,             # structural fraction of battery mass
-      "integration_frac": 0.05,        # integration hardware fraction of battery mass
-    }
+    if abu_spec is None:
+      abu_spec = {
+        "n_abus": 1,                     # number of ABUs attached (default 1)
+        "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
+        "struct_frac": 0.20,             # structural fraction of battery mass
+        "integration_frac": 0.05,        # integration hardware fraction of battery mass
+      }
 
     # estimate ABU rotor+hub mass using NDARC Section 19.2 AFDD00 rotor + hub mass model
     def _calc_single_lift_rotor_hub_mass_kg():
@@ -2174,12 +2175,12 @@ class Aircraft:
     # return results for all ABU cases
     return results
 
-  # ABU Evaluator - Extended Flight Time (Detach-on-Depletion or End-of-Cruise)
-  # quantify extended flight endurance when ABU detaches upon depletion
-  # or at the end of the baseline cruise segment (whichever comes first)
-  # splits cruise into two phases: attached (ABU supplies power) and post-detach (aircraft only)
+  # ABU Evaluator - Extended Flight Time with Mid-Flight ABU Attachment (Detach-on-Depletion or End-of-Cruise)
+  # quantify extended flight endurance when ABU detaches upon depletion 
+  # or at the end of the baseline segment (whichever comes first)
+  # splits segment into two phases: attached (ABU supplies power) and post-detach (aircraft only)
   # structural + integration overheads are modeled per ABU specs.
-  def _evaluate_extended_flight_detach_on_depletion_or_end(self, E_mission_kwh_per_abu_list):
+  def _evaluate_extended_flight_detach_on_depletion_or_end(self, E_mission_kwh_per_abu_list, abu_spec=None):
     if self.mission == None or self.propulsion == None or self.environ == None or self.power == None:
       return None
 
@@ -2197,12 +2198,13 @@ class Aircraft:
     batt_accessible_energy_frac = 1.0 - self.power.batt_inaccessible_energy_frac
 
     # default ABU specifications
-    abu_spec = {
-      "n_abus": 1,                     # number of ABUs attached (default 1)
-      "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
-      "struct_frac": 0.20,             # structural fraction of battery mass
-      "integration_frac": 0.05,        # integration hardware fraction of battery mass
-    }
+    if abu_spec is None:
+      abu_spec = {
+        "n_abus": 1,                     # number of ABUs attached (default 1)
+        "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
+        "struct_frac": 0.20,             # structural fraction of battery mass
+        "integration_frac": 0.05,        # integration hardware fraction of battery mass
+      }
 
     # estimate ABU rotor+hub mass using NDARC Section 19.2 AFDD00 rotor + hub mass model
     def _calc_single_lift_rotor_hub_mass_kg():

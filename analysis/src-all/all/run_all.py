@@ -11,31 +11,35 @@ def run_command(cmd):
 
 def run_case(base_dir, config):
     commands = [
-        # Energy
-        f"python log_mission_segment_energy.py {config} {base_dir}",
-        f"python plt_mission_segment_energy.py {base_dir}mission-segment-energy.csv {base_dir}",
+        # # Energy
+        # f"python log_mission_segment_energy.py {config} {base_dir}",
+        # f"python plt_mission_segment_energy.py {base_dir}mission-segment-energy.csv {base_dir}",
 
-        # Power
-        f"python log_power_profile_all.py {config} {base_dir}",
-        f"python plt_power_profile_all.py {base_dir}power-profile-all.csv {base_dir}",
+        # # Power
+        # f"python log_power_profile_all.py {config} {base_dir}",
+        # f"python plt_power_profile_all.py {base_dir}power-profile-all.csv {base_dir}",
 
-        f"python log_power_all.py {config} {base_dir}",
-        f"python plt_power_all.py {base_dir}power-all.csv {base_dir}",
+        # f"python log_power_all.py {config} {base_dir}",
+        # f"python plt_power_all.py {base_dir}power-all.csv {base_dir}",
 
-        # Weight
-        f"python log_mass_breakdown.py {config} {base_dir}",
-        f"python plt_mass_breakdown.py {base_dir}mass-breakdown.csv {base_dir}",
+        # # Weight
+        # f"python log_mass_breakdown.py {config} {base_dir}",
+        # f"python plt_mass_breakdown.py {base_dir}mass-breakdown.csv {base_dir}",
 
-        f"python log_mtow_iteration.py {config} {base_dir}",
-        f"python plt_mtow_iteration.py {base_dir}mtow-iteration.csv {base_dir}",
+        # f"python log_mtow_iteration.py {config} {base_dir}",
+        # f"python plt_mtow_iteration.py {base_dir}mtow-iteration.csv {base_dir}",
 
-        # ABU (1): Assisted Takeoff
-        f"python log_mission_segment_abu_analysis_energy.py {config} {base_dir}",
-        f"python plt_mission_segment_abu_analysis_energy.py {base_dir}mission-segment-abu-analysis-energy.csv {base_dir}",
+        # # ABU (1): Assisted Takeoff
+        # f"python log_mission_segment_abu_analysis_energy.py {config} {base_dir}",
+        # f"python plt_mission_segment_abu_analysis_energy.py {base_dir}mission-segment-abu-analysis-energy.csv {base_dir}",
 
-        # ABU (2): Extended Flight
-        f"python log_mission_segment_abu_analysis_flight_extension.py {config} {base_dir}",
-        f"python plt_mission_segment_abu_analysis_flight_extension.py {base_dir}mission-segment-abu-analysis-flight-extension.csv {base_dir}",
+        # # ABU (2): Extended Flight (Attached full-segment)
+        # f"python log_mission_segment_abu_analysis_flight_extension.py {config} {base_dir}",
+        # f"python plt_mission_segment_abu_analysis_flight_extension.py {base_dir}mission-segment-abu-analysis-flight-extension.csv {base_dir}",
+
+        # ABU (2): Extended Flight (Detach-on-Depletion or End-of-Cruise)
+        f"python log_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {config} {base_dir}",
+        f"python plt_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {base_dir}mission-segment-abu-analysis-flight-extension-detach-on-depletion-or-end.csv {base_dir}",
     ]
 
     for cmd in commands:

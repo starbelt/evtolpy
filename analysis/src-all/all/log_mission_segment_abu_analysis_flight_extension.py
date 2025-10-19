@@ -48,8 +48,16 @@ stop  = 50
 step  = 5
 E_mission_kwh_per_abu_list = list(range(start, stop + 1, step))
 
+# example ABU spec (user-defined)
+abu_spec = {
+  "n_abus": 1,                     # number of ABUs attached (default 1)
+  "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
+  "struct_frac": 0.20,             # structural fraction of battery mass
+  "integration_frac": 0.05,        # integration hardware fraction of battery mass
+}
+
 # evaluate extended flight results
-results = aircraft._evaluate_extended_flight(E_mission_kwh_per_abu_list)
+results = aircraft._evaluate_extended_flight(E_mission_kwh_per_abu_list, abu_spec=abu_spec)
 
 # define output CSV path
 output_csv = log + 'mission-segment-abu-analysis-flight-extension.csv'
