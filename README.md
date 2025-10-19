@@ -6,6 +6,8 @@ and estimate battery capacity.
 
 ## Directory Contents
 
+* [analysis](analysis/README.md): Analysis scripts
+* [docs](docs/README.md): Documents
 * [evtol](evtol/README.md): The Python package
 * [references](references/README.md): Reference documents
 * [sample-inputs](sample-inputs/README.md): Contains sample inputs for testing,
