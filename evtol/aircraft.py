@@ -1800,9 +1800,9 @@ class Aircraft:
 
     return mtow_guess, history
 
-  # ABU detach evaluator with pre/post energy logging
+  # ABU Evaluator 1 - Assisted Takeoff
   # quantify benefits of ABUs detaching after takeoff 
-  # ABU is treated as a self-contained unit
+  # ABU is treated as a self-contained unit with the same specifications for all evaluation scenarios
   def evaluate_abu_detach_candidates(self, candidates, abu_spec=None):    
     """
     candidates: list of dicts describing detach points.
@@ -1830,7 +1830,7 @@ class Aircraft:
     m_integration_per_abu_kg = float(abu_spec.get("m_integration_kg_per_abu", 0.0))
 
     ## helpers
-    # get per-segment energy (kWh) based on current self state (uses attributes like {seg}_energy_kw_hr)
+    # get per-segment energy (kWh)
     def _get_seg_energy_kwh(seg_name):
       try:
         val = getattr(self, f"{seg_name}_energy_kw_hr")
@@ -1878,8 +1878,8 @@ class Aircraft:
       return [] 
 
     prev_mtow_kg = self.max_takeoff_mass_kg  # baseline MTOW
-    # baseline total mission energy (kWh) computed at baseline MTOW
-    # ensure object uses baseline MTOW:
+
+    # baseline total mission energy (kWh)
     self._max_takeoff_mass_kg = prev_mtow_kg
     ordered_segments = [
       "depart_taxi","hover_climb","trans_climb","depart_proc","accel_climb",
@@ -1995,11 +1995,7 @@ class Aircraft:
       # ----------------------------
       # Stage D: Feasibility and totals
       # ----------------------------
-      # ABU ops feasibility: ABU mission energy is strictly separate from ops energy
-      # check that ABU had enough dedicated ops reserve (E_abu_ops_total_kwh) available
-      # in this model mission energy and ops energy are separate allocations, so feasibility is:
-      #   - E_abu_used_kwh must not exceed E_abu_mission_total_kwh (guaranteed by logic)
-      #   - ops energy is available because it was reserved separately (user-specified)
+      # in this model mission energy and ops energy are separate allocations
       feasible_ops = True
       # infeasible if ABU mission energy supplied exceeded allocated mission reserve 
       if E_abu_used_kwh > E_abu_mission_total_kwh + 1e-12:
@@ -2009,8 +2005,8 @@ class Aircraft:
       total_system_kwh_after = (
         aircraft_energy_pre_detach_kwh
         + remaining_energy_kwh_post
-        + E_abu_used_kwh         # ABU mission energy actually supplied to aircraft
-        + E_abu_ops_total_kwh    # ABU reserved ops energy (spent by ABU after detach)
+        + E_abu_used_kwh                 # ABU mission energy actually supplied to aircraft
+        + E_abu_ops_total_kwh            # ABU reserved ops energy (spent by ABU after detach)
       )
 
       # aircraft-only energy consumed after ABU usage (kWh) 
@@ -2055,7 +2051,7 @@ class Aircraft:
     # return all candidate results
     return results
   
-  # ABU Evaluator - Extended Flight Time with Mid-Flight ABU Attachment (Attached full-segment)
+  # ABU Evaluator 2.1 - Extended Flight Time with Mid-Flight ABU Attachment (Attached full-segment)
   # quantify extended flight endurance when an ABU attaches mid-flight
   # ABU adds mass and provides additional energy during the segment. 
   # saved baseline battery energy is converted into extra flight time and range.
@@ -2175,7 +2171,7 @@ class Aircraft:
     # return results for all ABU cases
     return results
 
-  # ABU Evaluator - Extended Flight Time with Mid-Flight ABU Attachment (Detach-on-Depletion or End-of-Cruise)
+  # ABU Evaluator 2.2 - Extended Flight Time with Mid-Flight ABU Attachment (Detach-on-Depletion or End-of-Cruise)
   # quantify extended flight endurance when ABU detaches upon depletion 
   # or at the end of the baseline segment (whichever comes first)
   # splits segment into two phases: attached (ABU supplies power) and post-detach (aircraft only)
@@ -2331,6 +2327,176 @@ class Aircraft:
 
     # restore MTOW
     self.max_takeoff_mass_kg = baseline_mtow_kg
+
+    return results
+
+  # ABU Evaluator 3: Landing Safety with ABU (loiter + divert + descend to alternate)
+  # quantify how ABUs improve the emergency or low-energy landing situations (safety benefits for landing)
+  # attaches a fresh ABU at landing phase when main battery is assumed depleted.
+  # computes the maximum safe loiter time before diverting to an alternate landing site and performing final descent and landing.
+  #
+  # Assumptions:
+  # - ABU stays attached through loiter, divert cruise, hover, and final descent/landing.
+  # - ABU mission energy is the only usable energy for propulsion.
+  # - ABU ops reserve must remain unused (safety margin for its own post-touchdown ops).
+  # - Powers are computed at MTOW + m_ABU while attached.
+  #
+  # Inputs:
+  #   E_mission_kwh_per_abu_list   : list of ABU mission energies to sweep (kWh)
+  #   divert_distance_mi           : straight-line distance to alternate (miles)
+  #   t_hover_s                    : required hover/loiter time (seconds)
+  #   t_hover_descend_s            : approximate hover descent time (seconds)
+  #   abu_spec                     : ABU parameters
+  def _evaluate_landing_safety_loiter(self,
+                                      E_mission_kwh_per_abu_list,
+                                      divert_distance_mi,
+                                      t_hover_s,
+                                      t_hover_descend_s,
+                                      abu_spec=None):
+    if self.mission is None or self.propulsion is None or self.environ is None or self.power is None:
+      return None
+
+    results = []
+
+    baseline_mtow_kg = self.max_takeoff_mass_kg
+    V_cruise_m_p_s   = self.mission.cruise_h_m_p_s
+
+    # battery parameters
+    spec_energy_Wh_p_kg = self.power.batt_spec_energy_w_h_p_kg
+    batt_int_factor = self.power.batt_int_factor
+    batt_accessible_energy_frac = 1.0 - self.power.batt_inaccessible_energy_frac
+
+    # default ABU specifications
+    if abu_spec is None:
+      abu_spec = {
+        "n_abus": 1,                     # number of ABUs attached (default 1)
+        "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
+        "struct_frac": 0.20,             # structural fraction of battery mass
+        "integration_frac": 0.05,        # integration hardware fraction of battery mass
+      }
+
+    # estimate ABU rotor+hub mass using NDARC Section 19.2 AFDD00 rotor + hub mass model
+    def _calc_single_lift_rotor_hub_mass_kg():
+      """
+      Quick patch: temporarily override lift_rotor_count in propulsion
+      to reuse existing NDARC rotor+hub mass function.
+      """
+      # save original getter
+      orig_getter = type(self.propulsion).lift_rotor_count.fget
+
+      try:
+        # monkey patch to force number of rotors
+        type(self.propulsion).lift_rotor_count = property(lambda _self: n_abus)
+
+        # call original mass function
+        return self._calc_lift_rotor_hub_mass_kg()
+
+      finally:
+        # restore original getter 
+        type(self.propulsion).lift_rotor_count = property(orig_getter)
+
+    # sweep ABU mission energies
+    for E_mission_kwh_per_abu in E_mission_kwh_per_abu_list:
+
+      # ABU energy modeling 
+      n_abus = abu_spec["n_abus"]
+      E_ops_kwh_per_abu = abu_spec["E_ops_kwh_per_abu"]
+
+      # total ABU energy = mission + self-operations
+      E_total_kwh_per_abu = E_mission_kwh_per_abu + E_ops_kwh_per_abu
+
+      # compute ABU battery mass
+      m_abu_batt_kg = (E_total_kwh_per_abu * 1000.0) / (
+        spec_energy_Wh_p_kg * batt_accessible_energy_frac * batt_int_factor
+      )
+
+      # rotor mass per ABU 
+      m_rot_hub_kg = _calc_single_lift_rotor_hub_mass_kg()
+
+      # add structural and integration overhead
+      m_abu_struct_kg = abu_spec["struct_frac"] * m_abu_batt_kg
+      m_abu_integ_kg = abu_spec["integration_frac"] * m_abu_batt_kg
+
+      # total ABU mass (battery + structure + integration + rotor) per unit
+      m_abu_total_per_abu_kg = m_abu_batt_kg + m_abu_struct_kg + m_abu_integ_kg + m_rot_hub_kg
+      m_abu_total_all_kg     = n_abus * m_abu_total_per_abu_kg
+
+      # attach ABU to compute attached powers
+      try:
+        self.max_takeoff_mass_kg = baseline_mtow_kg + m_abu_total_all_kg
+
+        # hover & cruise powers with ABU attached
+        P_hover_attach_kw  = self._calc_hover_electric_power_kw()
+        P_cruise_attach_kw = self._calc_cruise_avg_electric_power_kw()
+
+        # 1. hover energy
+        E_hover_kwh = P_hover_attach_kw * (t_hover_s / 3600.0)
+
+        # 2. divert cruise to alternate 
+        t_divert_s = divert_distance_mi * 1609.34 / V_cruise_m_p_s
+        E_divert_kwh = P_cruise_attach_kw * (t_divert_s / 3600.0)
+
+        # 3. hover descent (landing) energy
+        E_hover_descend_kwh = 0.0
+
+        try:
+          # save original property getter
+          orig_prop = type(self.mission).hover_descend_s
+          orig_getter = getattr(type(self.mission), 'hover_descend_s', None)
+
+          # temporarily override to return custom hover-descent time
+          type(self.mission).hover_descend_s = property(lambda _self: t_hover_descend_s)
+
+          # compute energy with patched mission segment
+          E_hover_descend_kwh = self._calc_hover_descend_energy_kw_hr()
+
+        finally:
+          # Restore the original property definition
+          if orig_getter is not None:
+            type(self.mission).hover_descend_s = orig_prop
+
+        # 4. ABU ops reserve 
+        E_ops_kwh_total = n_abus * E_ops_kwh_per_abu
+
+        # 5. energy available for loiter
+        E_abu_mission_total_kwh = n_abus * E_mission_kwh_per_abu
+        E_required_after_loiter_kwh = E_hover_kwh + E_divert_kwh + E_hover_descend_kwh + E_ops_kwh_total
+        E_available_for_loiter_kwh  = E_abu_mission_total_kwh - E_required_after_loiter_kwh
+
+        # 6. maximum extra safe loiter (hover) time 
+        t_loiter_hover_max_s = max(0.0, E_available_for_loiter_kwh / P_hover_attach_kw * 3600.0)
+
+        feasible = (E_available_for_loiter_kwh >= 0.0)
+        margin_kwh = E_available_for_loiter_kwh  # negative means shortfall
+
+        results.append({
+          "n_abus": n_abus,
+          "E_abu_mission_kwh": E_mission_kwh_per_abu,
+          "E_abu_total_kwh": E_total_kwh_per_abu,
+          "m_abu_batt_kg": m_abu_batt_kg,
+          "m_abu_struct_kg": m_abu_struct_kg,
+          "m_abu_integ_kg": m_abu_integ_kg,
+          "m_rot_hub_kg": m_rot_hub_kg,
+          "m_abu_total_all_kg": m_abu_total_all_kg,
+          "P_hover_attach_kw": P_hover_attach_kw,
+          "P_cruise_attach_kw": P_cruise_attach_kw,
+          "t_divert_s": t_divert_s,
+          "divert_distance_mi": divert_distance_mi,
+          "E_divert_kwh": E_divert_kwh,
+          "t_hover_s": t_hover_s,
+          "E_hover_kwh": E_hover_kwh,
+          "t_hover_descend_s": t_hover_descend_s,
+          "E_hover_descend_kwh": E_hover_descend_kwh,
+          "E_ops_kwh_total": E_ops_kwh_total,
+          "t_loiter_hover_max_s": t_loiter_hover_max_s,
+          "feasible": feasible,
+          "margin_kwh": margin_kwh,
+          "note": "feasible" if feasible else "Insufficient ABU mission energy"
+        })
+
+      finally:
+        # restore MTOW
+        self.max_takeoff_mass_kg = baseline_mtow_kg
 
     return results
 

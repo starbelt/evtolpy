@@ -33,13 +33,17 @@ def run_case(base_dir, config):
         # f"python log_mission_segment_abu_analysis_energy.py {config} {base_dir}",
         # f"python plt_mission_segment_abu_analysis_energy.py {base_dir}mission-segment-abu-analysis-energy.csv {base_dir}",
 
-        # # ABU (2): Extended Flight (Attached full-segment)
+        # # ABU (2.1): Extended Flight (Attached full-segment)
         # f"python log_mission_segment_abu_analysis_flight_extension.py {config} {base_dir}",
         # f"python plt_mission_segment_abu_analysis_flight_extension.py {base_dir}mission-segment-abu-analysis-flight-extension.csv {base_dir}",
 
-        # ABU (2): Extended Flight (Detach-on-Depletion or End-of-Cruise)
-        f"python log_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {config} {base_dir}",
-        f"python plt_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {base_dir}mission-segment-abu-analysis-flight-extension-detach-on-depletion-or-end.csv {base_dir}",
+        # # ABU (2.2): Extended Flight (Detach-on-Depletion or End-of-Cruise)
+        # f"python log_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {config} {base_dir}",
+        # f"python plt_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {base_dir}mission-segment-abu-analysis-flight-extension-detach-on-depletion-or-end.csv {base_dir}",
+
+        # ABU (3): Safety Landing
+        f"python log_mission_segment_abu_analysis_landing_safety_loiter.py {config} {base_dir}",
+        f"python plt_mission_segment_abu_analysis_landing_safety_loiter.py {base_dir}mission-segment-abu-analysis-landing-safety-loiter.csv {base_dir}",
     ]
 
     for cmd in commands:

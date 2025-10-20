@@ -1,13 +1,15 @@
-# log_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py
+# log_mission_segment_abu_analysis_landing_safety_loiter.py
 #
-# Usage: python3 log_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py /path/to/cfg.json /path/to/log/
+# Usage: python3 log_mission_segment_abu_analysis_landing_safety_loiter.py /path/to/cfg.json /path/to/log/
 #  Reads the configuration JSON file and writes the results to the log directory
+#
 # Parameters:
 #  /path/to/cfg.json: path to configuration JSON file
 #  /path/to/log/: destination directory for log files
+#
 # Output:
-#  mission-segment-abu-analysis-flight-extension-detach-on-depletion-or-end.csv
-#  
+#  mission-segment-abu-analysis-landing-safety-loiter.csv
+#
 # Written by 
 # Other contributors:
 #
@@ -34,7 +36,7 @@ if len(sys.argv) == 3:
 else:
   print(
     'Usage: '
-    'python3 log_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py '
+    'python3 log_mission_segment_abu_analysis_landing_safety_loiter.py '
     '/path/to/cfg.json /path/to/log/'
   )
   exit()
@@ -56,15 +58,22 @@ abu_spec = {
   "integration_frac": 0.05,        # integration hardware fraction of battery mass
 }
 
-# evaluate extended flight results
-results = aircraft._evaluate_extended_flight_detach_on_depletion_or_end(E_mission_kwh_per_abu_list, abu_spec=abu_spec)
+# alternate divert scenario (user-defined)
+divert_distance_mi = 6.0           # example alternate site distance [mi]
+t_hover_s = 60.0                   # required hover time [s]
+t_hover_descend_s = 40.0           # approximate hover descent time [s]
 
-if results is None or len(results) == 0:
-  print("No results returned — check configuration or mission definition.")
-  exit()
+# evaluate ABU-assisted landing safety loiter
+results = aircraft._evaluate_landing_safety_loiter(
+  E_mission_kwh_per_abu_list = E_mission_kwh_per_abu_list,
+  divert_distance_mi         = divert_distance_mi,
+  t_hover_s                  = t_hover_s,
+  t_hover_descend_s          = t_hover_descend_s,
+  abu_spec                   = abu_spec
+)
 
 # define output CSV path
-output_csv = log + 'mission-segment-abu-analysis-flight-extension-detach-on-depletion-or-end.csv'
+output_csv = log + 'mission-segment-abu-analysis-landing-safety-loiter.csv'
 
 # define CSV fieldnames
 fieldnames = [
@@ -76,21 +85,20 @@ fieldnames = [
   "m_abu_integ_kg",
   "m_rot_hub_kg",
   "m_abu_total_all_kg",
+  "P_hover_attach_kw",
   "P_cruise_attach_kw",
-  "P_cruise_post_kw",
-  "baseline_cruise_energy_kwh",
-  "E_cruise_attach_kwh",
-  "E_abu_used_kwh",
-  "E_saved_kwh",
-  "t_attached_until_depletion_s",
-  "t_attached_effective_s",
-  "extra_time_s",
-  "total_extended_time_s",
-  "range_attached_mi",
-  "extra_range_mi",
-  "total_extended_range_mi",
-  "overcapacity",
-  "full_coverage_flag"
+  "t_divert_s",
+  "divert_distance_mi",
+  "E_divert_kwh",
+  "t_hover_s",
+  "E_hover_kwh",
+  "t_hover_descend_s",
+  "E_hover_descend_kwh",
+  "E_ops_kwh_total",
+  "t_loiter_hover_max_s",
+  "feasible",
+  "margin_kwh",
+  "note"
 ]
 
 # write results to CSV file
@@ -108,5 +116,5 @@ with open(output_csv, mode='w', newline='') as csv_file:
         try:
           clean_row[key] = f"{float(val):.6f}"
         except (TypeError, ValueError):
-          clean_row[key] = val 
+          clean_row[key] = val
     writer.writerow(clean_row)

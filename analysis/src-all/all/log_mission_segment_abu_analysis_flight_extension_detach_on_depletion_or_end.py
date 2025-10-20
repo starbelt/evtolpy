@@ -6,7 +6,7 @@
 #  /path/to/cfg.json: path to configuration JSON file
 #  /path/to/log/: destination directory for log files
 # Output:
-#  mission-segment-abu-analysis-flight-extension_detach_on_depletion_or_end.csv
+#  mission-segment-abu-analysis-flight-extension-detach-on-depletion-or-end.csv
 #  
 # Written by 
 # Other contributors:
