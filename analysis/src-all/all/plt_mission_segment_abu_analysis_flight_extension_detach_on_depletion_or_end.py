@@ -98,7 +98,7 @@ def make_line_plot(x, y, xlabel, ylabel, title, filename, y_scale=1.0, value_for
   plt.savefig(os.path.join(out, filename), format='pdf')
   plt.close()
 
-# combined plot: Extended Range and Flight Time vs. ABU Energy 
+# combined plot: Extended Range and Flight Time vs. ABU Energy (time/distance powered by ABU)
 valid_combined = [(a, b, c) for a, b, c in zip(E_abu_mission_kwh, extra_range_mi, extra_time_s)
                   if a is not None and b is not None and c is not None]
 
@@ -111,9 +111,9 @@ if len(valid_combined) > 0:
   color1 = 'tab:blue'
   color2 = 'tab:red'
 
-  ax1.plot(x_vals, range_vals, '-o', color=color1, linewidth=1.5, markersize=5, label='Extended Range')
+  ax1.plot(x_vals, range_vals, '-o', color=color1, linewidth=1.5, markersize=5, label='Distance Powered By ABU')
   ax1.set_xlabel('ABU Mission Energy (kWh)')
-  ax1.set_ylabel('Extended Range (miles)')
+  ax1.set_ylabel('Distance Powered By ABU (miles)')
   ax1.tick_params(axis='y')
   ax1.grid(True, linestyle='--', alpha=0.6)
 
@@ -123,8 +123,8 @@ if len(valid_combined) > 0:
 
   # second axis for extended flight time
   ax2 = ax1.twinx()
-  ax2.plot(x_vals, time_vals_min, '--s', color=color2, linewidth=1.5, markersize=5, label='Extra Flight Time')
-  ax2.set_ylabel('Extended Flight Time (minutes)')
+  ax2.plot(x_vals, time_vals_min, '--s', color=color2, linewidth=1.5, markersize=5, label='Flight Time Powered By ABU')
+  ax2.set_ylabel('Flight Time Powered By ABU (minutes)')
   ax2.tick_params(axis='y')
 
   # add point labels for time
@@ -136,7 +136,7 @@ if len(valid_combined) > 0:
   lines2, labels2 = ax2.get_legend_handles_labels()
   ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=9, frameon=True)
 
-  plt.title('Extended Flight Range & Time vs. ABU Mission Energy \n Detach On Depletion Or End Of Mission Segment')
+  plt.title('Flight Time And Distance Powered By ABU vs. ABU Mission Energy \n Detach On Depletion Or End Of Mission Segment')
   fig.tight_layout()
   plt.savefig(os.path.join(out, 'flight_extension_detach_on_depletion_or_end_range_time_combined.pdf'), format='pdf')
   plt.close()
