@@ -2052,7 +2052,7 @@ class Aircraft:
     return results
   
   # ABU Evaluator 2.1 - Extended Flight Time with Mid-Flight ABU Attachment (Attached full-segment)
-  # quantify extended flight endurance when an ABU attaches mid-flight
+  # quantify extended flight endurance when an ABU attaches mid-flight (time/distance powered by ABU)
   # ABU adds mass and provides additional energy during the segment. 
   # saved baseline battery energy is converted into extra flight time and range.
   # structural + integration overheads are modeled per ABU specs.
@@ -2143,7 +2143,7 @@ class Aircraft:
       if E_saved_kwh < 0.0:
         E_saved_kwh = 0.0
 
-      # compute extended flight time and distance
+      # compute extended flight time and distance (time/distance powered by ABU)
       extra_time_s = E_saved_kwh / baseline_cruise_power_kw * 3600
       extra_range_mi = extra_time_s * cruise_speed_m_p_s * 0.000621371
 
@@ -2172,8 +2172,8 @@ class Aircraft:
     return results
 
   # ABU Evaluator 2.2 - Extended Flight Time with Mid-Flight ABU Attachment (Detach-on-Depletion or End-of-Cruise)
-  # quantify extended flight endurance when ABU detaches upon depletion 
-  # or at the end of the baseline segment (whichever comes first)
+  # quantify extended flight endurance when ABU detaches upon depletion (time/distance powered by ABU)
+  # or at the end of the baseline segment (whichever comes first) 
   # splits segment into two phases: attached (ABU supplies power) and post-detach (aircraft only)
   # structural + integration overheads are modeled per ABU specs.
   def _evaluate_extended_flight_detach_on_depletion_or_end(self, E_mission_kwh_per_abu_list, abu_spec=None):
@@ -2284,7 +2284,7 @@ class Aircraft:
         baseline_cruise_energy_kwh
       )
 
-      # convert saved energy into additional cruise endurance (lighter MTOW)
+      # convert saved energy into additional cruise endurance (lighter MTOW) (time/distance powered by ABU)
       extra_time_s = E_saved_kwh / P_cruise_post_kw * 3600
       extra_range_mi = extra_time_s * cruise_speed_m_p_s * 0.000621371
 
@@ -2499,6 +2499,32 @@ class Aircraft:
         self.max_takeoff_mass_kg = baseline_mtow_kg
 
     return results
+
+  # a simple CC–CV charger model
+  # approximate charge time (hours) for an energy refill E_kwh with a P_max_kw charger starting from low SOC
+  # charging is constant-current (CC) until SOC hits theta (~0.8)
+  # then constant-voltage (CV) taper with average power factor r_taper (r_taper*P_max)
+  # includes charger efficiency eta.
+  def _cc_cv_charge_time_hr(self, E_kwh, P_max_kw, theta=0.8, r_taper=0.35, eta=0.97):
+    if E_kwh is None or P_max_kw is None or E_kwh <= 0.0 or P_max_kw <= 0.0:
+      return 0.0
+    
+    theta = 0.8
+    r_taper = 0.35
+    eta = 0.97
+
+    # energy charged in CC region
+    E_CC = theta * E_kwh
+
+    # energy charged in CV region
+    E_CV = (1.0 - theta) * E_kwh
+
+    # charging time
+    t_CC_hr = E_CC / P_max_kw
+    t_CV_hr = E_CV / (r_taper * P_max_kw)
+    
+    return (t_CC_hr + t_CV_hr) / max(1e-9, eta)
+
 
   @property
   def max_takeoff_mass_kg(self):
