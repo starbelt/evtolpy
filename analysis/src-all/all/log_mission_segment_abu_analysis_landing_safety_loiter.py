@@ -36,7 +36,7 @@ if len(sys.argv) == 3:
 else:
   print(
     'Usage: '
-    'python3 log_mission_segment_abu_analysis_landing_safety_loiter.py '
+    'python3 log_mission_segment_abu_analysis_landing_safety_loiter.py'
     '/path/to/cfg.json /path/to/log/'
   )
   exit()
