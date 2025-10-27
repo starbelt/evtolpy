@@ -2500,31 +2500,228 @@ class Aircraft:
 
     return results
 
-  # a simple CC–CV charger model
-  # approximate charge time (hours) for an energy refill E_kwh with a P_max_kw charger starting from low SOC
-  # charging is constant-current (CC) until SOC hits theta (~0.8)
-  # then constant-voltage (CV) taper with average power factor r_taper (r_taper*P_max)
-  # includes charger efficiency eta.
-  def _cc_cv_charge_time_hr(self, E_kwh, P_max_kw, theta=0.8, r_taper=0.35, eta=0.97):
-    if E_kwh is None or P_max_kw is None or E_kwh <= 0.0 or P_max_kw <= 0.0:
-      return 0.0
+  # battery charging time estimator (based on CC–CV Model)
+  # estimates total charge time [hr] from SOC_start to SOC_target
+  # using the analytical expressions from Donateo et al., "Fuel economy of hybrid electric flight", (2017) 
+  # where:
+  #   t_CC = (SOC_CC - SOC_start) * (C / I_cc)
+  #   t_CV = (SOC_target - SOC_CC) * (C / I_cc) * ln(1/k) / (1 - k)
+  #
+  # Inputs:
+  #   E_pack_kwh        : pack energy capacity [kWh]
+  #   P_charger_ac_kw   : charger AC power [kW]
+  #   eta_charger_dc    : charger AC->DC efficiency (0–1)
+  #   c_rate_max        : max allowed charge C-rate (e.g., 1.0C)
+  #   v_pack_nom_v      : nominal pack voltage [V]
+  #   i_term_c          : CV termination current ratio (e.g., 0.05C) - CV phase stops when current tapers to this level
+  #   soc_start         : initial SOC (0–1)
+  #   soc_target        : target SOC (0–1)
+  #   soc_cc_end        : SOC where CC ends & CV begins (0.80–0.90 typical)
+  #   dod               : optional depth of discharge (0–1) if soc_start not given
+  #   Q_Ah              : optional pack capacity [Ah]; if None, inferred via E_pack_kwh and voltage
+  def _estimate_cccv_charge_time_hr(self,
+                                    E_pack_kwh,
+                                    P_charger_ac_kw,
+                                    eta_charger_dc=0.95,
+                                    c_rate_max=1.0,
+                                    v_pack_nom_v=800.0,
+                                    i_term_c=0.05,
+                                    soc_start=None,
+                                    soc_target=1.0,
+                                    soc_cc_end=0.80,
+                                    dod=None,
+                                    Q_Ah=None):
     
-    theta = 0.8
-    r_taper = 0.35
-    eta = 0.97
+    if E_pack_kwh is None or E_pack_kwh <= 0.0:
+      return None
+    if P_charger_ac_kw is None or P_charger_ac_kw <= 0.0:
+      return None
+    if not (0.0 < eta_charger_dc <= 1.0):
+      return None
+    soc_target = max(0.0, min(1.0, soc_target))
+    soc_cc_end = max(0.0, min(1.0, soc_cc_end))
 
-    # energy charged in CC region
-    E_CC = theta * E_kwh
+    # infer SOC_start from DoD if not provided
+    if soc_start is None:
+      if dod is None:
+        # if nothing provided, assume full recharge: start at 0
+        soc_start = 0.0
+      else:
+        soc_start = max(0.0, soc_target - float(dod))
+    soc_start = max(0.0, min(1.0, soc_start))
 
-    # energy charged in CV region
-    E_CV = (1.0 - theta) * E_kwh
+    if soc_start >= soc_target:
+      return {"t_cc_hr": 0.0, "t_cv_hr": 0.0, "t_charge_hr": 0.0}
 
-    # charging time
-    t_CC_hr = E_CC / P_max_kw
-    t_CV_hr = E_CV / (r_taper * P_max_kw)
+    # convert pack energy to 1C equivalent power (at 1C, charging power ≈ E_pack_kwh kW if voltage were constant)
+    P_1C_kw = E_pack_kwh
+
+    # power limited by charger
+    P_dc_kw = eta_charger_dc * P_charger_ac_kw
+
+    # power limited by C-rate
+    P_c_rate_cap_kw = c_rate_max * P_1C_kw
+
+    # actual CC power (limited by charger or C-rate)
+    P_cc_kw = min(P_dc_kw, P_c_rate_cap_kw)
+
+    # compute pack capacity if not given
+    if Q_Ah is None:
+      Q_Ah = (E_pack_kwh * 1000.0) / max(v_pack_nom_v, 1e-6)
+
+    # CC current [A]
+    I_cc_A = (P_cc_kw * 1000.0) / max(v_pack_nom_v, 1e-6)
+
+    # termination current [A]
+    I_term_A = max(i_term_c, 1e-6) * Q_Ah
+    k = max(I_term_A / max(I_cc_A, 1e-9), 1e-6)
     
-    return (t_CC_hr + t_CV_hr) / max(1e-9, eta)
+    # split the SOC interval into CC and CV portions
+    # CC portion spans [soc_start, min(soc_target, soc_cc_end)]
+    soc_cc_stop = min(soc_target, soc_cc_end)
+    dSOC_cc = max(0.0, soc_cc_stop - soc_start)
+    dSOC_cv = max(0.0, soc_target - max(soc_start, soc_cc_end))
 
+    # CC time (energy-based)
+    E_cc_kwh = E_pack_kwh * dSOC_cc
+    t_cc_hr = (E_cc_kwh / max(P_cc_kw, 1e-9)) if dSOC_cc > 0 else 0.0
+
+    # CC-CV charging time 
+    t_cc_hr = (dSOC_cc * Q_Ah / max(I_cc_A, 1e-9))
+    if dSOC_cv <= 0.0 or k >= 1.0:
+      t_cv_hr = 0.0
+    else:
+      t_cv_hr = (dSOC_cv * Q_Ah / max(I_cc_A, 1e-9)) * \
+                (math.log(1.0 / k) / (1.0 - k))
+
+    return {
+      "t_cc_hr": t_cc_hr,
+      "t_cv_hr": t_cv_hr,
+      "t_charge_hr": t_cc_hr + t_cv_hr,
+      "P_dc_kw": P_dc_kw,
+      "P_cc_cap_kw": P_c_rate_cap_kw,
+      "P_cc_kw": P_cc_kw,
+      "I_cc_A": I_cc_A,
+      "I_term_A": I_term_A,
+      "k_ratio": k,
+      "soc_start": soc_start,
+      "soc_target": soc_target,
+      "soc_cc_end": soc_cc_end,
+      "dSOC_cc": dSOC_cc,
+      "dSOC_cv": dSOC_cv,
+    }
+
+  # ABU Evaluator 4.1: Common Case Economics (Baseline, no ABU)
+  # estimates daily utilization (flights/day, flight hours/day)
+  # for a baseline eVTOL that must recharge its main pack between flights using the analytical CC-CV charging model
+  #
+  # Inputs:
+  #   E_pack_kwh       : main battery pack energy capacity [kWh]
+  #   P_charger_ac_kw  : charger AC power [kW]
+  #   eta_charger_dc   : AC->DC efficiency (0–1)
+  #   c_rate_max       : max allowed charge C-rate (e.g., 1.0)
+  #   v_pack_nom_v     : nominal pack voltage [V]
+  #   i_term_c         : CV termination current ratio (e.g., 0.05C)
+  #   soc_target       : target SOC after charge (default 1.0)
+  #   soc_cc_end       : SOC where CC ends (default 0.80)
+  #   t_ground_ops_hr  : turnaround (boarding/unloading/inspection) [hr]
+  #   mission_time_s   : optional mission duration [s]; if None, sum segments
+  #
+  def _evaluate_common_case_baseline(self,
+                                     E_pack_kwh=None,
+                                     P_charger_ac_kw=350.0,
+                                     eta_charger_dc=0.95,
+                                     c_rate_max=1.0,
+                                     v_pack_nom_v=800.0,
+                                     i_term_c=0.05,
+                                     soc_target=1.0,
+                                     soc_cc_end=0.80,
+                                     t_ground_ops_hr=0.25,
+                                     mission_time_s=None):
+
+    # 1. Per-mission energy (from aircraft model)
+    E_mission_kwh = self._calc_total_mission_energy_kw_hr()
+    if E_mission_kwh is None:
+      return None
+
+    # 2. Determine pack size 
+    if E_pack_kwh is None:
+      E_pack_kwh = E_mission_kwh  # simple baseline
+
+    # 3. Compute mission flight time if not given (sum segment times)
+    if mission_time_s is None:
+      seg_time_names = [
+        "depart_taxi_s","hover_climb_s","trans_climb_s","depart_proc_s","accel_climb_s",
+        "cruise_s","decel_descend_s","arrive_proc_s","trans_descend_s","hover_descend_s","arrive_taxi_s",
+        "reserve_hover_climb_s","reserve_trans_climb_s","reserve_accel_climb_s","reserve_cruise_s",
+        "reserve_decel_descend_s","reserve_trans_descend_s","reserve_hover_descend_s",
+      ]
+      mission_time_s = 0.0
+      if getattr(self, "mission", None) is not None:
+        for nm in seg_time_names:
+          mission_time_s += float(getattr(self.mission, nm, 0.0) or 0.0)
+
+    t_flight_hr = (mission_time_s or 0.0) / 3600.0
+
+    # 4. Infer DoD of the mission relative to the pack
+    dod = min(1.0, max(0.0, E_mission_kwh / max(E_pack_kwh, 1e-9)))
+    soc_start = max(0.0, soc_target - dod)
+
+    # 5. Detailed CC–CV charge time
+    chg = self._estimate_cccv_charge_time_hr(
+      E_pack_kwh=E_pack_kwh,
+      P_charger_ac_kw=P_charger_ac_kw,
+      eta_charger_dc=eta_charger_dc,
+      c_rate_max=c_rate_max,
+      v_pack_nom_v=v_pack_nom_v,
+      i_term_c=i_term_c,
+      soc_start=soc_start,
+      soc_target=soc_target,
+      soc_cc_end=soc_cc_end
+    )
+    if chg is None:
+      return None
+
+    t_charge_hr = chg["t_charge_hr"]
+    t_cc_hr = chg.get("t_cc_hr", 0.0)
+    t_cv_hr = chg.get("t_cv_hr", 0.0)
+
+    # 6. Per-mission cycle time and daily throughput
+    t_cycle_hr = t_flight_hr + t_charge_hr + t_ground_ops_hr
+    if t_cycle_hr <= 0.0:
+      return None
+
+    n_feasible = int(24.0 // t_cycle_hr)
+    t_flight_day_hr = n_feasible * t_flight_hr
+    t_downtime_day_hr = 24.0 - t_flight_day_hr
+
+    return {
+      "E_mission_kwh": E_mission_kwh,
+      "E_pack_kwh": E_pack_kwh,
+      "dod": dod,
+      "soc_start": soc_start,
+      "soc_target": soc_target,
+      "soc_cc_end": soc_cc_end,
+      "t_flight_hr": t_flight_hr,
+      "t_charge_hr": t_charge_hr,
+      "t_cc_hr": t_cc_hr,
+      "t_cv_hr": t_cv_hr,
+      "t_ground_ops_hr": t_ground_ops_hr,
+      "t_cycle_hr": t_cycle_hr,
+      "n_feasible_flights": n_feasible,
+      "t_flight_day_hr": t_flight_day_hr,
+      "t_downtime_day_hr": t_downtime_day_hr,
+      "charger_ac_kw": P_charger_ac_kw,
+      "eta_charger_dc": eta_charger_dc,
+      "c_rate_max": c_rate_max,
+      "v_pack_nom_v": v_pack_nom_v,
+      "i_term_c": i_term_c,
+      "P_dc_kw": chg.get("P_dc_kw", 0.0),
+      "P_cc_cap_kw": chg.get("P_cc_cap_kw", 0.0),
+      "P_cc_kw": chg.get("P_cc_kw", 0.0),
+      "I_cc_A": chg.get("I_cc_A", 0.0),
+      "I_term_A": chg.get("I_term_A", 0.0),
+    }
 
   @property
   def max_takeoff_mass_kg(self):
