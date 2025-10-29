@@ -1524,7 +1524,24 @@ class Aircraft:
       return total_energy_kw_hr  
     else:
       return None
-  
+
+  # calculates total energy required for the mission
+  def _calc_total_reserve_mission_energy_kw_hr(self):
+    segments = [
+      self.reserve_hover_climb_energy_kw_hr,
+      self.reserve_trans_climb_energy_kw_hr,
+      self.reserve_accel_climb_energy_kw_hr,
+      self.reserve_cruise_energy_kw_hr,
+      self.reserve_decel_descend_energy_kw_hr,
+      self.reserve_trans_descend_energy_kw_hr,
+      self.reserve_hover_descend_energy_kw_hr,
+    ]
+    total_reserve_energy_kw_hr = sum(e for e in segments if e is not None)
+    if total_reserve_energy_kw_hr > 0:
+      return total_reserve_energy_kw_hr  
+    else:
+      return None
+
   # calculates battery mass [kg] from total mission energy, 
   # requires battery specific energy, inaccessible energy fraction, and integration factor.
   def _calc_battery_mass_kg(self):
@@ -2565,6 +2582,9 @@ class Aircraft:
     # actual CC power (limited by charger or C-rate)
     P_cc_kw = min(P_dc_kw, P_c_rate_cap_kw)
 
+    # a simple indicator to clarify whether charging is charger-limited or C-rate-limited
+    charger_limit_indicator_flag = "charger_limited" if P_dc_kw <= P_c_rate_cap_kw else "crate_limited"
+
     # compute pack capacity if not given
     if Q_Ah is None:
       Q_Ah = (E_pack_kwh * 1000.0) / max(v_pack_nom_v, 1e-6)
@@ -2609,6 +2629,7 @@ class Aircraft:
       "soc_cc_end": soc_cc_end,
       "dSOC_cc": dSOC_cc,
       "dSOC_cv": dSOC_cv,
+      "charger_limit_indicator_flag": charger_limit_indicator_flag,
     }
 
   # ABU Evaluator 4.1: Common Case Economics (Baseline, no ABU)
@@ -2634,6 +2655,7 @@ class Aircraft:
                                      c_rate_max=1.0,
                                      v_pack_nom_v=800.0,
                                      i_term_c=0.05,
+                                     soc_start=None,
                                      soc_target=1.0,
                                      soc_cc_end=0.80,
                                      t_ground_ops_hr=0.25,
@@ -2664,8 +2686,13 @@ class Aircraft:
     t_flight_hr = (mission_time_s or 0.0) / 3600.0
 
     # 4. Infer DoD of the mission relative to the pack
-    dod = min(1.0, max(0.0, E_mission_kwh / max(E_pack_kwh, 1e-9)))
-    soc_start = max(0.0, soc_target - dod)
+    if soc_start is None:
+      dod = min(1.0, max(0.0, E_mission_kwh / max(E_pack_kwh, 1e-9)))
+      soc_start = max(0.0, soc_target - dod)
+    else:
+      # if SOC_start provided, derive corresponding DoD for reference
+      dod = soc_target - soc_start
+      dod = min(1.0, max(0.0, dod))
 
     # 5. Detailed CC–CV charge time
     chg = self._estimate_cccv_charge_time_hr(
@@ -2721,6 +2748,7 @@ class Aircraft:
       "P_cc_kw": chg.get("P_cc_kw", 0.0),
       "I_cc_A": chg.get("I_cc_A", 0.0),
       "I_term_A": chg.get("I_term_A", 0.0),
+      "charger_limit_indicator_flag": chg.get("charger_limit_indicator_flag"),
     }
 
   @property
@@ -3170,6 +3198,10 @@ class Aircraft:
   @property
   def total_mission_energy_kw_hr(self):
     return self._calc_total_mission_energy_kw_hr()
+
+  @property
+  def total_reserve_mission_energy_kw_hr(self):
+    return self._calc_total_reserve_mission_energy_kw_hr()
 
   @property
   def battery_mass_kg(self):

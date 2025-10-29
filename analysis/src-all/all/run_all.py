@@ -41,9 +41,12 @@ def run_case(base_dir, config):
         # f"python log_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {config} {base_dir}",
         # f"python plt_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {base_dir}mission-segment-abu-analysis-flight-extension-detach-on-depletion-or-end.csv {base_dir}",
 
-        # ABU (3): Safety Landing
-        f"python log_mission_segment_abu_analysis_landing_safety_loiter.py {config} {base_dir}",
-        f"python plt_mission_segment_abu_analysis_landing_safety_loiter.py {base_dir}mission-segment-abu-analysis-landing-safety-loiter.csv {base_dir}",
+        # # ABU (3): Safety Landing
+        # f"python log_mission_segment_abu_analysis_landing_safety_loiter.py {config} {base_dir}",
+        # f"python plt_mission_segment_abu_analysis_landing_safety_loiter.py {base_dir}mission-segment-abu-analysis-landing-safety-loiter.csv {base_dir}",
+
+        # ABU (4.1): Common Case Economics (Baseline, non-ABU)
+        f"python log_mission_segment_abu_analysis_common_case_economics.py {config} {base_dir}",
     ]
 
     for cmd in commands:
