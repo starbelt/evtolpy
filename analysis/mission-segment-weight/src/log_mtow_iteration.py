@@ -1,5 +1,19 @@
 # log_mtow_iteration.py
+#
+# Usage: python3 log_mtow_iteration.py /path/to/cfg.json /path/to/log/
+#  Reads the configuration JSON file and writes the results to the log directory
+# Parameters:
+#  /path/to/cfg.json: path to configuration JSON file
+#  /path/to/log/: destination directory for log files
+# Output:
+#  Maximum Takeoff Weight (MTOW) iteration results
+#
+# Written by First Last
+# Other contributors: Khoa Nguyen
+#
+# See the LICENSE file for the license
 
+# import Python modules
 import csv
 import sys
 import os

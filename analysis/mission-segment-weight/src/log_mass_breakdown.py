@@ -1,5 +1,19 @@
 # log_mass_breakdown.py
+#
+# Usage: python3 log_mass_breakdown.py /path/to/cfg.json /path/to/log/
+#  Reads the configuration JSON file and writes the results to the log directory
+# Parameters:
+#  /path/to/cfg.json: path to configuration JSON file
+#  /path/to/log/: destination directory for log files
+# Output:
+#  Component mass breakdown
+#
+# Written by First Last
+# Other contributors: Khoa Nguyen
+#
+# See the LICENSE file for the license
 
+# import Python modules
 import csv
 import sys
 

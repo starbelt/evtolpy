@@ -11,7 +11,7 @@
 #  Plot for average electric power needed for each mission segment
 #
 # Written by First Last
-# Other contributors: 
+# Other contributors: Khoa Nguyen
 #
 # See the LICENSE file for the license
 

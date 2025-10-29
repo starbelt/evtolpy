@@ -1,5 +1,21 @@
 # plt_mass_breakdown.py
+#
+# Usage: python3 plt_mass_breakdown.py /path/to/log.csv /path/to/plt/
+#  Reads the log CSV file and saves the plot to the plt directory
+#  Ensure that the Python virtual environment (venv) is enabled after running
+#  setup_dependencies.sh: source p3-env/bin/activate
+# Parameters:
+#  /path/to/log.csv: path to log CSV file
+#  /path/to/plt/: destination directory for plot files
+# Output:
+#  Plot for component mass breakdown
+#
+# Written by First Last
+# Other contributors: Khoa Nguyen
+#
+# See the LICENSE file for the license
 
+# import Python modules
 import csv
 import matplotlib.pyplot as plt
 import sys
