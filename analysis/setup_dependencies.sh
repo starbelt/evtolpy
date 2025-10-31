@@ -14,7 +14,7 @@
 #  - Python 3 virtual environment
 #
 # Written by First Last
-# Other contributors: Bradley Denby, Darshan Sarojini, Dylan Hogge, John Riris
+# Other contributors: Bradley Denby, Darshan Sarojini, Dylan Hogge, John Riris, Khoa Nguyen
 #
 # See the LICENSE file for the license
 
