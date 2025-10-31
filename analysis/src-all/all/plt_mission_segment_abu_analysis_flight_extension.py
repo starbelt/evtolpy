@@ -11,7 +11,7 @@
 #  Plots for ABU mission benefits: range, time, and baseline energy saved
 #
 # Written by First Last
-# Other contributors:
+# Other contributors: Khoa Nguyen
 #
 # See the LICENSE file for the license
 

@@ -3,7 +3,7 @@
 # A Python class containing aircraft power characteristics
 #
 # Written by First Last
-# Other contributors: Bradley Denby, Darshan Sarojini, Dylan Hogge, John Riris
+# Other contributors: Bradley Denby, Darshan Sarojini, Dylan Hogge, John Riris, Khoa Nguyen
 #
 # See the LICENSE file for the license
 

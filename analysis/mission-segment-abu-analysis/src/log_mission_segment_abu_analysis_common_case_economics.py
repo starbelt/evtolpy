@@ -11,7 +11,7 @@
 #  mission-segment-abu-analysis-common-case-economics.csv
 #
 # Written by 
-# Other contributors:
+# Other contributors: Khoa Nguyen
 #
 # See the LICENSE file for the license
 

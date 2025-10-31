@@ -1,3 +1,6 @@
+**Written by First Last**  
+Other contributors: Khoa Nguyen
+
 # Mission Segment Energy Consumption
 
 This document explains the equations used to calculate energy consumption across different mission segments in the aircraft model.

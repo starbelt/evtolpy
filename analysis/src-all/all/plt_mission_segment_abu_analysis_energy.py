@@ -12,7 +12,7 @@
 #  Plot comparing segment energy for each detach candidate
 #
 # Written by First Last
-# Other contributors: 
+# Other contributors: Khoa Nguyen
 #
 # See the LICENSE file for the license
 

@@ -9,7 +9,7 @@
 #  mission-segment-abu-analysis-flight-extension-detach-on-depletion-or-end.csv
 #  
 # Written by 
-# Other contributors:
+# Other contributors: Khoa Nguyen
 #
 # See the LICENSE file for the license
 

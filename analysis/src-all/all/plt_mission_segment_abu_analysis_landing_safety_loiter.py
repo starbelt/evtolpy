@@ -12,7 +12,7 @@
 #  Plot of ABU Mission Energy vs. Maximum Extra Loiter Time (Landing Safety Benefit)
 #
 # Written by First Last
-# Other contributors:
+# Other contributors: Khoa Nguyen
 #
 # See the LICENSE file for the license
 
