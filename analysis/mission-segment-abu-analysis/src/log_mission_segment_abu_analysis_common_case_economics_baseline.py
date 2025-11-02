@@ -1,6 +1,6 @@
-# log_mission_segment_abu_analysis_common_case_economics.py
+# log_mission_segment_abu_analysis_common_case_economics_baseline.py
 #
-# Usage: python3 log_mission_segment_abu_analysis_common_case_economics.py /path/to/cfg.json /path/to/log/
+# Usage: python3 log_mission_segment_abu_analysis_common_case_economics_baseline.py /path/to/cfg.json /path/to/log/
 #  Reads the configuration JSON file and writes the results to the log directory
 #
 # Parameters:
@@ -8,7 +8,7 @@
 #  /path/to/log/: destination directory for log files
 #
 # Output:
-#  mission-segment-abu-analysis-common-case-economics.csv
+#  mission-segment-abu-analysis-common-case-economics-baseline.csv
 #
 # Written by 
 # Other contributors: Khoa Nguyen
@@ -37,7 +37,7 @@ if len(sys.argv) == 3:
 else:
   print(
     'Usage: '
-    'python3 log_mission_segment_abu_analysis_common_case_economics.py '
+    'python3 log_mission_segment_abu_analysis_common_case_economics_baseline.py '
     '/path/to/cfg.json /path/to/log/'
   )
   exit()
@@ -87,7 +87,7 @@ if results is None:
   exit()
 
 # define output CSV path
-output_csv = os.path.join(log, 'mission-segment-abu-analysis-common-case-economics.csv')
+output_csv = os.path.join(log, 'mission-segment-abu-analysis-common-case-economics-baseline.csv')
 
 # define CSV fieldnames
 fieldnames = [

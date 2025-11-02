@@ -46,7 +46,7 @@ def run_case(base_dir, config):
         # f"python plt_mission_segment_abu_analysis_landing_safety_loiter.py {base_dir}mission-segment-abu-analysis-landing-safety-loiter.csv {base_dir}",
 
         # ABU (4.1): Common Case Economics (Baseline, non-ABU)
-        f"python log_mission_segment_abu_analysis_common_case_economics.py {config} {base_dir}",
+        f"python log_mission_segment_abu_analysis_common_case_economics_baseline.py {config} {base_dir}",
     ]
 
     for cmd in commands:

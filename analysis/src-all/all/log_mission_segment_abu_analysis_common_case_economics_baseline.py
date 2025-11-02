@@ -1,6 +1,6 @@
-# log_mission_segment_abu_analysis_common_case_economics.py
+# log_mission_segment_abu_analysis_common_case_economics_baseline.py
 #
-# Usage: python3 log_mission_segment_abu_analysis_common_case_economics.py /path/to/cfg.json /path/to/log/
+# Usage: python3 log_mission_segment_abu_analysis_common_case_economics_baseline.py /path/to/cfg.json /path/to/log/
 #  Reads the configuration JSON file and writes the results to the log directory
 #
 # Parameters:
@@ -8,7 +8,7 @@
 #  /path/to/log/: destination directory for log files
 #
 # Output:
-#  mission-segment-abu-analysis-common-case-economics.csv
+#  mission-segment-abu-analysis-common-case-economics-baseline.csv
 #
 # Written by 
 # Other contributors: Khoa Nguyen
@@ -37,7 +37,7 @@ if len(sys.argv) == 3:
 else:
   print(
     'Usage: '
-    'python3 log_mission_segment_abu_analysis_common_case_economics.py '
+    'python3 log_mission_segment_abu_analysis_common_case_economics_baseline.py '
     '/path/to/cfg.json /path/to/log/'
   )
   exit()
@@ -57,15 +57,15 @@ t_ground_ops_hr = 0.2833      # ground turnaround time [hr]
 E_pack_kwh      = None        # use mission-based sizing if None
 mission_time_s  = None        # auto-sum mission segments if None
 
-## initial SOC from energy ratio (reserve vs total)
-E_total_kwh = aircraft._calc_total_mission_energy_kw_hr()
-E_reserve_kwh = aircraft._calc_total_reserve_mission_energy_kw_hr()
-soc_start = E_reserve_kwh / E_total_kwh if E_total_kwh > 0 else 0.0
-
 # ## initial SOC from energy ratio (reserve vs total)
 # E_total_kwh = aircraft._calc_total_mission_energy_kw_hr()
-# E_reserve_kwh = 0.0
+# E_reserve_kwh = aircraft._calc_total_reserve_mission_energy_kw_hr()
 # soc_start = E_reserve_kwh / E_total_kwh if E_total_kwh > 0 else 0.0
+
+## initial SOC from energy ratio (reserve vs total)
+E_total_kwh = aircraft._calc_total_mission_energy_kw_hr()
+E_reserve_kwh = 0.0
+soc_start = E_reserve_kwh / E_total_kwh if E_total_kwh > 0 else 0.0
 
 # run baseline evaluation (no ABU)
 results = aircraft._evaluate_common_case_baseline(
@@ -87,7 +87,7 @@ if results is None:
   exit()
 
 # define output CSV path
-output_csv = os.path.join(log, 'mission-segment-abu-analysis-common-case-economics.csv')
+output_csv = os.path.join(log, 'mission-segment-abu-analysis-common-case-economics-baseline.csv')
 
 # define CSV fieldnames
 fieldnames = [
