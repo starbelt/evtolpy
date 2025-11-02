@@ -2719,8 +2719,11 @@ class Aircraft:
       return None
 
     n_feasible = int(24.0 // t_cycle_hr)
+    t_used_hr = n_feasible * t_cycle_hr
+    t_slack_hr = max(0.0, 24.0 - t_used_hr)
+
     t_flight_day_hr = n_feasible * t_flight_hr
-    t_downtime_day_hr = 24.0 - t_flight_day_hr
+    t_downtime_day_hr = n_feasible * (t_charge_hr + t_ground_ops_hr) + t_slack_hr
 
     return {
       "E_mission_kwh": E_mission_kwh,
@@ -2738,6 +2741,7 @@ class Aircraft:
       "n_feasible_flights": n_feasible,
       "t_flight_day_hr": t_flight_day_hr,
       "t_downtime_day_hr": t_downtime_day_hr,
+      "t_slack_hr": t_slack_hr,
       "charger_ac_kw": P_charger_ac_kw,
       "eta_charger_dc": eta_charger_dc,
       "c_rate_max": c_rate_max,

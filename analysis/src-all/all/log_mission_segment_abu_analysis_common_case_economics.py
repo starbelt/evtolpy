@@ -53,19 +53,19 @@ v_pack_nom_v    = 800.0       # nominal pack voltage [V]
 i_term_c        = 0.05        # termination current (fraction of C)
 soc_target      = 1.0         # target full charge
 soc_cc_end      = 0.80        # SOC at CC to CV transition
-t_ground_ops_hr = 0.25        # ground turnaround time [hr]
+t_ground_ops_hr = 0.2833      # ground turnaround time [hr]
 E_pack_kwh      = None        # use mission-based sizing if None
 mission_time_s  = None        # auto-sum mission segments if None
 
-# ## initial SOC from energy ratio (reserve vs total)
-# E_total_kwh = aircraft._calc_total_mission_energy_kw_hr()
-# E_reserve_kwh = aircraft._calc_total_reserve_mission_energy_kw_hr()
-# soc_start = E_reserve_kwh / E_total_kwh if E_total_kwh > 0 else 0.0
-
 ## initial SOC from energy ratio (reserve vs total)
 E_total_kwh = aircraft._calc_total_mission_energy_kw_hr()
-E_reserve_kwh = 0.0
+E_reserve_kwh = aircraft._calc_total_reserve_mission_energy_kw_hr()
 soc_start = E_reserve_kwh / E_total_kwh if E_total_kwh > 0 else 0.0
+
+# ## initial SOC from energy ratio (reserve vs total)
+# E_total_kwh = aircraft._calc_total_mission_energy_kw_hr()
+# E_reserve_kwh = 0.0
+# soc_start = E_reserve_kwh / E_total_kwh if E_total_kwh > 0 else 0.0
 
 # run baseline evaluation (no ABU)
 results = aircraft._evaluate_common_case_baseline(
@@ -106,6 +106,7 @@ fieldnames = [
   "n_feasible_flights",
   "t_flight_day_hr",
   "t_downtime_day_hr",
+  "t_slack_hr",
   "charger_ac_kw",
   "eta_charger_dc",
   "c_rate_max",
