@@ -2645,12 +2645,11 @@ class Aircraft:
   #   i_term_c         : CV termination current ratio (e.g., 0.05C)
   #   soc_target       : target SOC after charge (default 1.0)
   #   soc_cc_end       : SOC where CC ends (default 0.80)
-  #   t_ground_ops_hr  : turnaround (boarding/unloading/inspection) [hr]
+  #   t_ground_ops_hr  : turnaround ops [hr]
   #   mission_time_s   : optional mission duration [s]; if None, sum segments
-  #
   def _evaluate_common_case_baseline(self,
                                      E_pack_kwh=None,
-                                     P_charger_ac_kw=350.0,
+                                     P_charger_ac_kw=115.0,
                                      eta_charger_dc=0.95,
                                      c_rate_max=1.0,
                                      v_pack_nom_v=800.0,
@@ -2658,7 +2657,7 @@ class Aircraft:
                                      soc_start=None,
                                      soc_target=1.0,
                                      soc_cc_end=0.80,
-                                     t_ground_ops_hr=0.25,
+                                     t_ground_ops_hr=0.2833,
                                      mission_time_s=None):
 
     # 1. Per-mission energy (from aircraft model)
@@ -2672,12 +2671,20 @@ class Aircraft:
 
     # 3. Compute mission flight time if not given (sum segment times)
     if mission_time_s is None:
+      # # Main mission & Reserve mission
+      # seg_time_names = [
+      #   "depart_taxi_s","hover_climb_s","trans_climb_s","depart_proc_s","accel_climb_s",
+      #   "cruise_s","decel_descend_s","arrive_proc_s","trans_descend_s","hover_descend_s","arrive_taxi_s",
+      #   "reserve_hover_climb_s","reserve_trans_climb_s","reserve_accel_climb_s","reserve_cruise_s",
+      #   "reserve_decel_descend_s","reserve_trans_descend_s","reserve_hover_descend_s",
+      # ]
+
+      # Main mission only
       seg_time_names = [
         "depart_taxi_s","hover_climb_s","trans_climb_s","depart_proc_s","accel_climb_s",
         "cruise_s","decel_descend_s","arrive_proc_s","trans_descend_s","hover_descend_s","arrive_taxi_s",
-        "reserve_hover_climb_s","reserve_trans_climb_s","reserve_accel_climb_s","reserve_cruise_s",
-        "reserve_decel_descend_s","reserve_trans_descend_s","reserve_hover_descend_s",
       ]
+
       mission_time_s = 0.0
       if getattr(self, "mission", None) is not None:
         for nm in seg_time_names:
@@ -2719,10 +2726,10 @@ class Aircraft:
       return None
 
     n_feasible = int(24.0 // t_cycle_hr)
-    t_used_hr = n_feasible * t_cycle_hr
+    t_used_hr  = n_feasible * t_cycle_hr
     t_slack_hr = max(0.0, 24.0 - t_used_hr)
 
-    t_flight_day_hr = n_feasible * t_flight_hr
+    t_flight_day_hr   = n_feasible * t_flight_hr
     t_downtime_day_hr = n_feasible * (t_charge_hr + t_ground_ops_hr) + t_slack_hr
 
     return {
@@ -2757,126 +2764,197 @@ class Aircraft:
 
   # ABU Evaluator 4.2: Common Case Economics (ABU - Assisted Takeoff)
   # estimates daily utilization (flights/day, flight hours/day)
-  # for an eVTOL with the support of ABU for assisted takeof
-  # ABU and eVTOL recharge their main pack between flights using the analytical CC-CV charging model
+  # when ABUs are routinely used to assist takeoff and detach afterward.
+  # both the eVTOL main battery and ABU batteries require recharging between flights.
   #
   # Inputs:
-  #   abu_spec         : ABU specifications
-  #   E_pack_kwh       : main battery pack energy capacity [kWh]
-  #   P_charger_ac_kw  : charger AC power [kW]
-  #   eta_charger_dc   : AC->DC efficiency (0–1)
-  #   c_rate_max       : max allowed charge C-rate (e.g., 1.0)
-  #   v_pack_nom_v     : nominal pack voltage [V]
-  #   i_term_c         : CV termination current ratio (e.g., 0.05C)
-  #   soc_target       : target SOC after charge (default 1.0)
-  #   soc_cc_end       : SOC where CC ends (default 0.80)
-  #   t_ground_ops_hr  : turnaround (boarding/unloading/inspection) [hr]
-  #   mission_time_s   : optional mission duration [s]; if None, sum segments
-  #
+  #   candidates         : list of ABU detach cases 
+  #   abu_spec           : ABU specifications
+  #   P_charger_ac_kw    : charger AC power [kW] (for both eVTOL and ABU)
+  #   eta_charger_dc     : AC->DC efficiency (0–1)
+  #   c_rate_max         : max allowed charge C-rate (e.g., 1.0)
+  #   v_pack_nom_v_main  : nominal voltage of eVTOL main pack [V]
+  #   v_pack_nom_v_abu   : nominal voltage of ABU pack [V]
+  #   i_term_c           : CV termination current (fraction of C)
+  #   soc_target         : target SOC after charging (default 1.0)
+  #   soc_cc_end         : SOC where CC ends (default 0.80)
+  #   t_ground_ops_hr    : turnaround ops [hr]
+  #   mission_time_s     : optional mission time [s] (defaults to *after-detach* portion)
   def _evaluate_common_case_abu_assisted_takeoff(self,
-                                     abu_spec = None,
-                                     E_pack_kwh=None,
-                                     P_charger_ac_kw=350.0,
-                                     eta_charger_dc=0.95,
-                                     c_rate_max=1.0,
-                                     v_pack_nom_v=800.0,
-                                     i_term_c=0.05,
-                                     soc_start=None,
-                                     soc_target=1.0,
-                                     soc_cc_end=0.80,
-                                     t_ground_ops_hr=0.25,
-                                     mission_time_s=None):
-
-    # 1. Per-mission energy (from aircraft model)
-    E_mission_kwh = self._calc_total_mission_energy_kw_hr()
-    if E_mission_kwh is None:
+                                                candidates,
+                                                abu_spec=None,
+                                                P_charger_ac_kw=115.0,
+                                                eta_charger_dc=0.95,
+                                                c_rate_max=1.0,
+                                                v_pack_nom_v_main=800.0,
+                                                v_pack_nom_v_abu=400.0,
+                                                i_term_c=0.05,
+                                                soc_target=1.0,
+                                                soc_cc_end=0.80,
+                                                t_ground_ops_hr=0.2833,
+                                                mission_time_s=None):
+    
+    if self.mission is None or self.propulsion is None or self.environ is None or self.power is None:
       return None
 
-    # 2. Determine pack size 
-    if E_pack_kwh is None:
-      E_pack_kwh = E_mission_kwh  
+    results = []
 
-    # 3. Compute mission flight time if not given (sum segment times)
-    if mission_time_s is None:
-      seg_time_names = [
-        "depart_taxi_s","hover_climb_s","trans_climb_s","depart_proc_s","accel_climb_s",
-        "cruise_s","decel_descend_s","arrive_proc_s","trans_descend_s","hover_descend_s","arrive_taxi_s",
-        "reserve_hover_climb_s","reserve_trans_climb_s","reserve_accel_climb_s","reserve_cruise_s",
-        "reserve_decel_descend_s","reserve_trans_descend_s","reserve_hover_descend_s",
-      ]
-      mission_time_s = 0.0
-      if getattr(self, "mission", None) is not None:
-        for nm in seg_time_names:
-          mission_time_s += float(getattr(self.mission, nm, 0.0) or 0.0)
+    # default ABU specs if not provided
+    if abu_spec is None:
+      abu_spec = {
+        "n_abus": 1,
+        "E_mission_kwh_per_abu": 10.0,
+        "E_ops_kwh_per_abu": 0.5,
+        "m_struct_kg_per_abu": 20.0,
+        "m_integration_kg_per_abu": 2.0,
+      }
 
-    t_flight_hr = (mission_time_s or 0.0) / 3600.0
-
-    # 4. Infer DoD of the mission relative to the pack
-    if soc_start is None:
-      dod = min(1.0, max(0.0, E_mission_kwh / max(E_pack_kwh, 1e-9)))
-      soc_start = max(0.0, soc_target - dod)
-    else:
-      # if SOC_start provided, derive corresponding DoD for reference
-      dod = soc_target - soc_start
-      dod = min(1.0, max(0.0, dod))
-
-    # 5. Detailed CC–CV charge time
-    chg = self._estimate_cccv_charge_time_hr(
-      E_pack_kwh=E_pack_kwh,
-      P_charger_ac_kw=P_charger_ac_kw,
-      eta_charger_dc=eta_charger_dc,
-      c_rate_max=c_rate_max,
-      v_pack_nom_v=v_pack_nom_v,
-      i_term_c=i_term_c,
-      soc_start=soc_start,
-      soc_target=soc_target,
-      soc_cc_end=soc_cc_end
-    )
-    if chg is None:
+    # run assisted-takeoff analysis to get post-detach energy/time context
+    detach_results = self.evaluate_abu_detach_candidates(candidates, abu_spec)
+    if not detach_results:
       return None
 
-    t_charge_hr = chg["t_charge_hr"]
-    t_cc_hr = chg.get("t_cc_hr", 0.0)
-    t_cv_hr = chg.get("t_cv_hr", 0.0)
+    # helper: sum seconds for a list of segment keys (e.g., ["cruise","decel_descend",...])
+    def _sum_segment_times_s(seg_keys):
+      total_s = 0.0
+      if getattr(self, "mission", None) is None:
+        return total_s
+      for key in seg_keys:
+        nm = f"{key}_s"
+        total_s += float(getattr(self.mission, nm, 0.0) or 0.0)
+      return total_s
 
-    # 6. Per-mission cycle time and daily throughput
-    t_cycle_hr = t_flight_hr + t_charge_hr + t_ground_ops_hr
-    if t_cycle_hr <= 0.0:
-      return None
+    for cand in detach_results:
+      name = cand.get("name", "unknown")
 
-    n_feasible = int(24.0 // t_cycle_hr)
-    t_flight_day_hr = n_feasible * t_flight_hr
-    t_downtime_day_hr = 24.0 - t_flight_day_hr
+      # main aircraft energy (post-detach mission energy requirement)
+      E_aircraft_after_kwh = cand.get("aircraft_total_kwh_after", None)
+      if E_aircraft_after_kwh is None:
+        continue
 
-    return {
-      "E_mission_kwh": E_mission_kwh,
-      "E_pack_kwh": E_pack_kwh,
-      "dod": dod,
-      "soc_start": soc_start,
-      "soc_target": soc_target,
-      "soc_cc_end": soc_cc_end,
-      "t_flight_hr": t_flight_hr,
-      "t_charge_hr": t_charge_hr,
-      "t_cc_hr": t_cc_hr,
-      "t_cv_hr": t_cv_hr,
-      "t_ground_ops_hr": t_ground_ops_hr,
-      "t_cycle_hr": t_cycle_hr,
-      "n_feasible_flights": n_feasible,
-      "t_flight_day_hr": t_flight_day_hr,
-      "t_downtime_day_hr": t_downtime_day_hr,
-      "charger_ac_kw": P_charger_ac_kw,
-      "eta_charger_dc": eta_charger_dc,
-      "c_rate_max": c_rate_max,
-      "v_pack_nom_v": v_pack_nom_v,
-      "i_term_c": i_term_c,
-      "P_dc_kw": chg.get("P_dc_kw", 0.0),
-      "P_cc_cap_kw": chg.get("P_cc_cap_kw", 0.0),
-      "P_cc_kw": chg.get("P_cc_kw", 0.0),
-      "I_cc_A": chg.get("I_cc_A", 0.0),
-      "I_term_A": chg.get("I_term_A", 0.0),
-      "charger_limit_indicator_flag": chg.get("charger_limit_indicator_flag"),
-    }
+      # ABU usage (from assisted-takeoff result)
+      n_abus                   = int(abu_spec.get("n_abus", 1))
+      E_abu_mission_per_abu    = float(abu_spec.get("E_mission_kwh_per_abu", 0.0))
+      E_abu_ops_per_abu        = float(abu_spec.get("E_ops_kwh_per_abu", 0.0))
+      E_abu_used_total_kwh     = float(cand.get("E_abu_used_kwh", 0.0))  # total across all ABUs
+      E_abu_used_per_abu_kwh   = E_abu_used_total_kwh / max(n_abus, 1)
 
+      # 1. Pack sizing for charging
+      ## main: size to post-detach mission energy 
+      E_pack_kwh_main    = E_aircraft_after_kwh
+
+      # ABU: per-ABU pack energy = mission per-ABU + ops per-ABU
+      E_pack_kwh_abu     = E_abu_mission_per_abu + E_abu_ops_per_abu
+
+      # 2. SOC at start-of-charge (per battery)
+      ## main SOC_start: assume reserve remains in main pack
+      E_reserve_kwh   = self._calc_total_reserve_mission_energy_kw_hr()
+      soc_start_main  = (E_reserve_kwh / E_pack_kwh_main) if E_pack_kwh_main > 1e-9 else 0.0
+      soc_start_main  = max(0.0, min(1.0, soc_start_main))
+      dod_main        = max(0.0, min(1.0, soc_target - soc_start_main))
+
+      ## ABU SOC_start: ABU used mission energy + must recover ops reserve (per ABU)
+      recharge_per_abu_kwh = E_abu_used_per_abu_kwh + E_abu_ops_per_abu
+      dod_abu              = max(0.0, min(1.0, recharge_per_abu_kwh / max(E_pack_kwh_abu, 1e-9)))
+      soc_start_abu        = max(0.0, min(1.0, soc_target - dod_abu))
+
+      # 3. Mission time (post-detach portion only)
+      if mission_time_s is None:
+        post_detach_seg_keys = list(cand.get("post_detach_segment_log", {}).keys())
+        mission_time_s_eff   = _sum_segment_times_s(post_detach_seg_keys)
+      else:
+        mission_time_s_eff   = float(mission_time_s or 0.0)
+
+      t_flight_hr = mission_time_s_eff / 3600.0
+
+      # 4. Charging time (main and per-ABU, CC–CV charging method)
+      chg_main = self._estimate_cccv_charge_time_hr(
+        E_pack_kwh=E_pack_kwh_main,
+        P_charger_ac_kw=P_charger_ac_kw,
+        eta_charger_dc=eta_charger_dc,
+        c_rate_max=c_rate_max,
+        v_pack_nom_v=v_pack_nom_v_main,
+        i_term_c=i_term_c,
+        soc_start=soc_start_main,
+        soc_target=soc_target,
+        soc_cc_end=soc_cc_end
+      )
+
+      chg_abu = self._estimate_cccv_charge_time_hr(
+        E_pack_kwh=E_pack_kwh_abu,
+        P_charger_ac_kw=P_charger_ac_kw,
+        eta_charger_dc=eta_charger_dc,
+        c_rate_max=c_rate_max,
+        v_pack_nom_v=v_pack_nom_v_abu,
+        i_term_c=i_term_c,
+        soc_start=soc_start_abu,
+        soc_target=soc_target,
+        soc_cc_end=soc_cc_end
+      )
+
+      if chg_main is None or chg_abu is None:
+        continue
+
+      # 5. Turn time assumption (parallel charging)
+      # Total charge time per cycle is the slower of the two.
+      t_charge_hr_main = float(chg_main.get("t_charge_hr", 0.0))
+      t_charge_hr_abu  = float(chg_abu.get("t_charge_hr", 0.0))
+      t_charge_hr_total = max(t_charge_hr_main, t_charge_hr_abu)
+
+      # 6. Per-mission total cycle time & throughput
+      t_cycle_hr = t_flight_hr + t_charge_hr_total + t_ground_ops_hr
+      if t_cycle_hr <= 0.0:
+        continue
+
+      n_feasible   = int(24.0 // t_cycle_hr)
+      t_used_hr    = n_feasible * t_cycle_hr
+      t_slack_hr   = max(0.0, 24.0 - t_used_hr)
+
+      t_flight_day_hr   = n_feasible * t_flight_hr
+      t_downtime_day_hr = n_feasible * (t_charge_hr_total + t_ground_ops_hr) + t_slack_hr
+
+      # 7. Store results
+      results.append({
+        "candidate_name": name,
+        "E_pack_kwh_main": E_pack_kwh_main,
+        "E_pack_kwh_abu": E_pack_kwh_abu,                  # per-ABU pack
+        "n_abus": n_abus,
+        "dod_main": dod_main,
+        "dod_abu": dod_abu,                                # per-ABU DoD
+        "soc_start_main": soc_start_main,
+        "soc_start_abu": soc_start_abu,                    # per-ABU SOC start
+        "soc_target": soc_target,
+        "t_flight_hr": t_flight_hr,
+        "t_charge_hr_main": t_charge_hr_main,
+        "t_charge_hr_abu": t_charge_hr_abu,                # per-ABU charge time
+        "t_charge_hr_total": t_charge_hr_total,
+        "t_ground_ops_hr": t_ground_ops_hr,
+        "t_cycle_hr": t_cycle_hr,
+        "n_feasible_flights": n_feasible,
+        "t_flight_day_hr": t_flight_day_hr,
+        "t_downtime_day_hr": t_downtime_day_hr,
+        "t_slack_hr": t_slack_hr,
+        "charger_ac_kw": P_charger_ac_kw,
+        "eta_charger_dc": eta_charger_dc,
+        "c_rate_max": c_rate_max,
+        "v_pack_nom_v_main": v_pack_nom_v_main,
+        "v_pack_nom_v_abu": v_pack_nom_v_abu,
+        "i_term_c": i_term_c,
+        "P_dc_kw_main": chg_main.get("P_dc_kw", 0.0),
+        "P_dc_kw_abu": chg_abu.get("P_dc_kw", 0.0),
+        "P_cc_cap_kw_main": chg_main.get("P_cc_cap_kw", 0.0),
+        "P_cc_cap_kw_abu": chg_abu.get("P_cc_cap_kw", 0.0),
+        "P_cc_kw_main": chg_main.get("P_cc_kw", 0.0),
+        "P_cc_kw_abu": chg_abu.get("P_cc_kw", 0.0),
+        "I_cc_A_main": chg_main.get("I_cc_A", 0.0),
+        "I_cc_A_abu": chg_abu.get("I_cc_A", 0.0),
+        "I_term_A_main": chg_main.get("I_term_A", 0.0),
+        "I_term_A_abu": chg_abu.get("I_term_A", 0.0),
+        "charger_limit_indicator_flag_main": chg_main.get("charger_limit_indicator_flag"),
+        "charger_limit_indicator_flag_abu": chg_abu.get("charger_limit_indicator_flag"),
+      })
+
+    return results
 
   @property
   def max_takeoff_mass_kg(self):
