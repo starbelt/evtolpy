@@ -2814,7 +2814,7 @@ class Aircraft:
     if not detach_results:
       return None
 
-    # helper: sum seconds for a list of segment keys (e.g., ["cruise","decel_descend",...])
+    # helper: sum flight time (seconds) for a list of segment keys (e.g., ["cruise","decel_descend",...])
     def _sum_segment_times_s(seg_keys):
       total_s = 0.0
       if getattr(self, "mission", None) is None:
@@ -2846,7 +2846,7 @@ class Aircraft:
       # ABU: per-ABU pack energy = mission per-ABU + ops per-ABU
       E_pack_kwh_abu     = E_abu_mission_per_abu + E_abu_ops_per_abu
 
-      # 2. SOC at start-of-charge (per battery)
+      # 2. State of charge (per battery)
       ## main SOC_start: assume reserve remains in main pack
       E_reserve_kwh   = self._calc_total_reserve_mission_energy_kw_hr()
       soc_start_main  = (E_reserve_kwh / E_pack_kwh_main) if E_pack_kwh_main > 1e-9 else 0.0
@@ -2895,7 +2895,7 @@ class Aircraft:
       if chg_main is None or chg_abu is None:
         continue
 
-      # 5. Turn time assumption (parallel charging)
+      # 5. Parallel charging
       # Total charge time per cycle is the slower of the two.
       t_charge_hr_main = float(chg_main.get("t_charge_hr", 0.0))
       t_charge_hr_abu  = float(chg_abu.get("t_charge_hr", 0.0))
@@ -2906,9 +2906,9 @@ class Aircraft:
       if t_cycle_hr <= 0.0:
         continue
 
-      n_feasible   = int(24.0 // t_cycle_hr)
-      t_used_hr    = n_feasible * t_cycle_hr
-      t_slack_hr   = max(0.0, 24.0 - t_used_hr)
+      n_feasible  = int(24.0 // t_cycle_hr)
+      t_used_hr   = n_feasible * t_cycle_hr
+      t_slack_hr  = max(0.0, 24.0 - t_used_hr)
 
       t_flight_day_hr   = n_feasible * t_flight_hr
       t_downtime_day_hr = n_feasible * (t_charge_hr_total + t_ground_ops_hr) + t_slack_hr
