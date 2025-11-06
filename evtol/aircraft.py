@@ -107,7 +107,7 @@ class Aircraft:
 
   # requires environ g_m_p_s2, air_density_sea_lvl_kg_p_m3
   # requires propulsion disk_area_m2, rotor_effic
-  # prop thrust momentum theory:
+  # prop thrust momentum theory:_calc_hover_shaft_power_kw
   #   F = change in pressure * disk area
   #   change in pressure = 0.5 * air density * (v_e^2 - v_0^2); hover means v_0=0
   #   so F = 0.5 * air density * v_e^2 * disk area
@@ -453,20 +453,31 @@ class Aircraft:
 # ----- Hover Climb (Segment B) -----
   # requires mission hover_climb_avg_v_m_p_s, hover_climb_s
   # vertical power component only, assumes drag effects are negligible
-  # initial vertical velocity = 0, accelerates to final velocity
+  # initial vertical velocity = 0, accelerates to final velocity based on average climb rate
   # average velocity provided → used to find displacement, acceleration, and final velocity
-  # then use MTOM, gravity, acceleration, and average vertical velocity to find average shaft power
+  # includes both the induced hover power (to balance weight) and the additional power 
+  # required for vertical acceleration during climb
   # return None if mission or propulsion object not populated
   def _calc_hover_climb_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None:
-      d_v_m = self.mission.hover_climb_avg_v_m_p_s*self.mission.hover_climb_s
-      vf_v_m_p_s = (2.0*d_v_m)/self.mission.hover_climb_s
-      a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
-      return \
-       (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)*\
-        self.mission.hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+        
+        # vertical kinematics (upward positive)
+        d_v_m = self.mission.hover_climb_avg_v_m_p_s*self.mission.hover_climb_s
+        vf_v_m_p_s = (2.0*d_v_m)/self.mission.hover_climb_s
+        a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
+    
+        # induced velocity in hover (prop thrust momentum theory)
+        v_i_hover = math.sqrt((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
+                              (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+
+        # induced power (hover)
+        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover/self.propulsion.rotor_effic
+
+        return \
+          (P_hover_W+(self.max_takeoff_mass_kg*a_v_m_p_s2)*\
+            self.mission.hover_climb_avg_v_m_p_s/self.propulsion.rotor_effic)/W_P_KW
     else:
-      return None
+        return None
 
   # requires aircraft hover_climb_avg_shaft_power_kw
   # requires power epu_effic
@@ -492,7 +503,7 @@ class Aircraft:
 
 # ----- Transition Climb (Segment C) -----
   # requires mission trans_climb_avg_h_m_p_s, trans_climb_v_m_p_s, trans_climb_s
-  # includes aerodynamic lift, induced drag, parasite drag, weight, and climb forces
+  # includes aerodynamic lift, induced drag, parasite drag, weight, hover-induced power, and climb forces
   # horizontal velocity: initial = 0, accelerates to final velocity
   # average horizontal velocity provided → used to find displacement, acceleration, and final velocity
   # vertical velocity: constant throughout (no vertical acceleration)
@@ -527,12 +538,24 @@ class Aircraft:
 
       # force components 
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-      force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+      force_v_n = self.max_takeoff_mass_kg*a_v_m_p_s2
 
-      return (force_h_n*self.mission.trans_climb_avg_h_m_p_s+force_v_n*self.mission.trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      # induced velocity & power based on thrust deficit
+      T_req_n = max(0.0, (weight_n - lift_n) + self.max_takeoff_mass_kg*a_v_m_p_s2)
+      if T_req_n > 0.0:
+        v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+      else:
+        v_i_hover = 0.0
+
+      # hover-induced power for unsupported weight only (no efficiency here yet)
+      P_hover_W = T_req_n*v_i_hover
+
+      # total shaft power (apply rotor efficiency once)
+      return (P_hover_W+force_h_n*self.mission.trans_climb_avg_h_m_p_s+\
+              force_v_n*self.mission.trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
-
+    
   # requires aircraft trans_climb_avg_shaft_power_kw
   # requires power epu_effic
   # scale trans_climb_avg_shaft_power_kw by epu_effic
@@ -870,10 +893,10 @@ class Aircraft:
 
 # ----- Transition Descend (Segment I) -----  
   # requires mission trans_descend_avg_h_m_p_s, trans_descend_v_m_p_s, trans_descend_s
-  # includes aerodynamic lift, induced drag, parasite drag, weight, descent forces, vertical thrust assist if gravity is insufficient, and spoiler drag if power is negative
+  # includes aerodynamic lift, induced drag, parasite drag, weight, descent forces,
+  # hover-induced thrust assist if gravity is insufficient, and spoiler drag if power is negative
   # horizontal velocity: initial estimated from average, final = 0 (vehicle decelerates to stop)
   # vertical velocity: initial = decel_descend_v_m_p_s, final = trans_descend_v_m_p_s
-  # provide vertical thrust assist and spoiler drag (if needed)
   # return None if mission, propulsion, or environment object not populated
   def _calc_trans_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
@@ -894,49 +917,49 @@ class Aircraft:
       # total drag
       total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # horizontal accelerations
+      # horizontal acceleration (vehicle decelerates to stop)
       v0_h_m_p_s = 2.0*self.mission.trans_descend_avg_h_m_p_s
-      vf_h_m_p_s = 0
+      vf_h_m_p_s = 0.0
       d_h_m = self.mission.trans_descend_avg_h_m_p_s*self.mission.trans_descend_s
-      a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
+      a_h_m_p_s2 = (vf_h_m_p_s**2.0 - v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
-      # vertical accelerations
-      v0_v_m_p_s = self.mission.decel_descend_v_m_p_s 
-      vf_v_m_p_s = self.mission.trans_descend_v_m_p_s 
+      # vertical acceleration
+      v0_v_m_p_s = self.mission.decel_descend_v_m_p_s
+      vf_v_m_p_s = self.mission.trans_descend_v_m_p_s
       d_v_m = 0.5*(abs(v0_v_m_p_s)+abs(vf_v_m_p_s))*self.mission.trans_descend_s
-      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+      a_v_m_p_s2 = (vf_v_m_p_s**2.0 - v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
       # force components
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-      force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+      force_v_n = self.max_takeoff_mass_kg*a_v_m_p_s2
 
-      # compute shaft power baseline
-      shaft_power_kw = (force_h_n*self.mission.trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+      # compute thrust deficit if gravity + lift are insufficient
+      T_req_n = max(0.0, (weight_n - lift_n) + self.max_takeoff_mass_kg*a_v_m_p_s2)
+      if T_req_n > 0.0:
+        v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+      else:
+        v_i_hover = 0.0
 
-      # check vertical deficit: if gravity cannot provide enough, add vertical thrust assist shaft power
-      vertical_deficit_n = self.max_takeoff_mass_kg*a_v_m_p_s2-(weight_n-lift_n)
-      shaft_power_deficit_kw = 0.0
-      if vertical_deficit_n > 0.0:
-        shaft_power_deficit_kw = (vertical_deficit_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+      # hover-induced (assist) power for unsupported weight only
+      P_hover_W = T_req_n*v_i_hover
 
-      # total shaft power (baseline + vertical assist)
-      shaft_power_kw += shaft_power_deficit_kw
+      # baseline shaft power (sum of aerodynamic and vertical terms)
+      shaft_power_kw = (P_hover_W+force_h_n*self.mission.trans_descend_avg_h_m_p_s+\
+                        force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
 
-      # check for negative power to add spoiler drag
+      # check for negative power → apply spoiler drag to dissipate excess
       if shaft_power_kw < 0.0:
-        # required additional horizontal force to neutralize negative power
         required_extra_force_n = -force_h_n
-        # compute equivalent delta Cd
         delta_cd_spoiler = required_extra_force_n/(q*self.wing_area_m2)
         if delta_cd_spoiler < 0.0:
           delta_cd_spoiler = 0.0
-        # recompute with spoilers
         dp_spoiler_n = q*self.wing_area_m2*delta_cd_spoiler
         total_drag_n = (di_n+dp_n+dp_spoiler_n)*self.trim_drag_factor*self.excres_protub_factor
         force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
 
-        # total shaft power (with spoiler drag and vertical assist)
-        shaft_power_kw = (force_h_n*self.mission.trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+        # recompute total shaft power with spoiler drag
+        shaft_power_kw = (P_hover_W+force_h_n*self.mission.trans_descend_avg_h_m_p_s+\
+                          force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
 
       return shaft_power_kw
     else:
@@ -966,23 +989,36 @@ class Aircraft:
 
 # ----- Hover Descend (Segment J) -----
   # requires mission hover_descend_avg_v_m_p_s, hover_descend_s
-  # vertical motion only: initial vertical velocity = 2*avg, final = 0.0
-  # includes weight and vertical acceleration effects (drag neglected)
+  # vertical power component only, assumes drag effects are negligible
+  # initial vertical velocity = 2*avg (downward), final = 0.0
+  # upward positive convention → acceleration is negative
+  # compute induced power from actual thrust
   # return None if mission, propulsion, or environment object not populated
   def _calc_hover_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:
-      # vertical accelerations
-      v0_v_m_p_s = 2.0*self.mission.hover_descend_avg_v_m_p_s
-      vf_v_m_p_s = 0.0
-      d_v_m = self.mission.hover_descend_avg_v_m_p_s*self.mission.hover_descend_s
-      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+        
+        # vertical kinematics (upward positive)
+        v0_v_m_p_s = 2.0*self.mission.hover_descend_avg_v_m_p_s
+        vf_v_m_p_s = 0.0
+        d_v_m = self.mission.hover_descend_avg_v_m_p_s*self.mission.hover_descend_s
+        a_v_m_p_s2 = (vf_v_m_p_s**2.0 - v0_v_m_p_s**2.0) / (2.0*d_v_m)
 
-      # force component
-      force_v_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2+self.max_takeoff_mass_kg*a_v_m_p_s2
+        # vertical thrust required (upward positive)
+        force_v_n =  (self.max_takeoff_mass_kg*a_v_m_p_s2)
 
-      return (force_v_n*self.mission.hover_descend_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+        # induced velocity in hover (prop thrust momentum theory)
+        v_i_hover = math.sqrt((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
+                              (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+
+        # induced hover power
+        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover/self.propulsion.rotor_effic
+
+        # total shaft power (hover & vertical component)
+        return \
+          (P_hover_W + (force_v_n * self.mission.hover_descend_avg_v_m_p_s) / \
+            self.propulsion.rotor_effic) / W_P_KW
     else:
-      return None
+        return None
 
   # requires aircraft hover_descend_avg_shaft_power_kw
   # requires power epu_effic
@@ -1047,23 +1083,35 @@ class Aircraft:
        S_P_HR
     else:
       return None
-
-# ----- Reserve Hover Climb (Segment B') -----
+    
+  # ----- Reserve Hover Climb (Segment B') -----
   # requires mission reserve_hover_climb_avg_v_m_p_s, reserve_hover_climb_s
   # vertical power component only, assumes drag effects are negligible
-  # initial vertical velocity = 0, average vertical velocity provided → used to find displacement and final velocity
-  # then use MTOM, gravity, acceleration, and average vertical velocity to find average shaft power
+  # initial vertical velocity = 0, accelerates to final velocity based on average climb rate
+  # average velocity provided → used to find displacement, acceleration, and final velocity
+  # includes both the induced hover power (to balance weight) and the additional power 
+  # required for vertical acceleration during reserve hover climb
   # return None if mission or propulsion object not populated
   def _calc_reserve_hover_climb_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None:
-      d_v_m = self.mission.reserve_hover_climb_avg_v_m_p_s*self.mission.reserve_hover_climb_s
-      vf_v_m_p_s = 2.0*self.mission.reserve_hover_climb_avg_v_m_p_s
-      a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
-      return \
-       (self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)*\
-        self.mission.reserve_hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+        
+        # vertical kinematics (upward positive)
+        d_v_m = self.mission.reserve_hover_climb_avg_v_m_p_s*self.mission.reserve_hover_climb_s
+        vf_v_m_p_s = (2.0*d_v_m)/self.mission.reserve_hover_climb_s
+        a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
+        
+        # induced velocity in hover (prop thrust momentum theory)
+        v_i_hover = math.sqrt((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
+                              (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+        
+        # induced power (hover)
+        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover/self.propulsion.rotor_effic
+        
+        return \
+          (P_hover_W+(self.max_takeoff_mass_kg*a_v_m_p_s2)*\
+            self.mission.reserve_hover_climb_avg_v_m_p_s/self.propulsion.rotor_effic)/W_P_KW
     else:
-      return None
+        return None
 
   # requires aircraft reserve_hover_climb_avg_shaft_power_kw
   # requires power epu_effic
@@ -1089,7 +1137,7 @@ class Aircraft:
 
 # ----- Reserve Transition Climb (Segment C') -----
   # requires mission reserve_trans_climb_avg_h_m_p_s, reserve_trans_climb_v_m_p_s, reserve_trans_climb_s
-  # includes aerodynamic lift, induced drag, parasite drag, weight, and climb forces
+  # includes aerodynamic lift, induced drag, parasite drag, weight, hover-induced power, and climb forces
   # horizontal velocity: initial = 0, average horizontal velocity provided → used to find displacement and final velocity
   # vertical velocity: constant throughout the segment (no vertical acceleration)
   # return None if mission, propulsion, or environment object not populated
@@ -1112,7 +1160,7 @@ class Aircraft:
       # total drag
       total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
 
-      # horizontal accelerations
+      # horizontal acceleration
       v0_h_m_p_s = 0.0
       vf_h_m_p_s = 2.0*self.mission.reserve_trans_climb_avg_h_m_p_s
       d_h_m = self.mission.reserve_trans_climb_avg_h_m_p_s*self.mission.reserve_trans_climb_s
@@ -1123,9 +1171,21 @@ class Aircraft:
 
       # force components
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-      force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+      force_v_n = self.max_takeoff_mass_kg*a_v_m_p_s2
 
-      return (force_h_n*self.mission.reserve_trans_climb_avg_h_m_p_s+force_v_n*self.mission.reserve_trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      # induced velocity & power based on thrust deficit
+      T_req_n = max(0.0, (weight_n - lift_n) + self.max_takeoff_mass_kg*a_v_m_p_s2)
+      if T_req_n > 0.0:
+        v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+      else:
+        v_i_hover = 0.0
+
+      # hover-induced power for unsupported weight only (no efficiency here yet)
+      P_hover_W = T_req_n*v_i_hover
+
+      # total shaft power (apply rotor efficiency once)
+      return (P_hover_W+force_h_n*self.mission.reserve_trans_climb_avg_h_m_p_s+\
+              force_v_n*self.mission.reserve_trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
       return None
 
@@ -1362,9 +1422,9 @@ class Aircraft:
 
 # ----- Reserve Transition Descend (Segment I') -----
   # requires mission reserve_trans_descend_avg_h_m_p_s, reserve_trans_descend_v_m_p_s, reserve_trans_descend_s
-  # includes aerodynamic lift, induced drag, parasite drag, weight, descend forces, vertical thrust assist if gravity is insufficient, and spoiler drag if power is negative
+  # includes aerodynamic lift, induced drag, parasite drag, weight, descend forces,
+  # hover-induced thrust assist if gravity is insufficient, and spoiler drag if power is negative
   # horizontal velocity: initial from reserve decel segment to 0; vertical velocity changes from previous segment to final
-  # provide vertical thrust assist and spoiler drag (if needed)
   # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_trans_descend_avg_shaft_power_kw(self):
     if self.mission != None and self.propulsion != None and self.environ != None:    
@@ -1387,7 +1447,7 @@ class Aircraft:
 
       # horizontal accelerations
       v0_h_m_p_s = 2.0*self.mission.reserve_decel_descend_avg_h_m_p_s-self.mission.reserve_cruise_h_m_p_s
-      vf_h_m_p_s = 0
+      vf_h_m_p_s = 0.0
       d_h_m = self.mission.reserve_trans_descend_avg_h_m_p_s*self.mission.reserve_trans_descend_s
       a_h_m_p_s2 = (vf_h_m_p_s**2.0-v0_h_m_p_s**2.0)/(2.0*d_h_m)
 
@@ -1399,21 +1459,23 @@ class Aircraft:
 
       # force components
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-      force_v_n = (weight_n-lift_n)+self.max_takeoff_mass_kg*a_v_m_p_s2
+      # exclude (weight - lift) here; handled via thrust-deficit induced power
+      force_v_n = self.max_takeoff_mass_kg*a_v_m_p_s2
 
-      # compute shaft power baseline
-      shaft_power_kw = (force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
-      
-      # check vertical deficit: if gravity cannot provide enough, add vertical thrust assist shaft power
-      vertical_deficit_n = self.max_takeoff_mass_kg*a_v_m_p_s2-(weight_n-lift_n)
-      shaft_power_deficit_kw = 0.0
-      if vertical_deficit_n > 0.0:
-        # convert deficit to power explicitly
-        shaft_power_deficit_kw = (vertical_deficit_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
-      
-      # total shaft power (baseline + vertical assist)
-      shaft_power_kw += shaft_power_deficit_kw
+      # compute thrust deficit if gravity + lift are insufficient
+      T_req_n = max(0.0, (weight_n - lift_n) + self.max_takeoff_mass_kg*a_v_m_p_s2)
+      if T_req_n > 0.0:
+        v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+      else:
+        v_i_hover = 0.0
 
+      # hover-induced (assist) power for unsupported weight only (no efficiency here yet)
+      P_hover_W = T_req_n*v_i_hover
+
+      # baseline shaft power (sum of aerodynamic and vertical terms)
+      shaft_power_kw = (P_hover_W+force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+\
+                        force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+      
       # check for negative power to add spoiler drag
       if shaft_power_kw < 0.0:
         # required additional horizontal force to neutralize negative power
@@ -1428,7 +1490,8 @@ class Aircraft:
         force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
       
         # total shaft power
-        shaft_power_kw = (force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+        shaft_power_kw = (P_hover_W+force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+\
+                          force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
 
       return shaft_power_kw
     else:
@@ -1458,22 +1521,36 @@ class Aircraft:
 
 # ----- Reserve Hover Descend (Segment J') -----
   # requires mission reserve_hover_descend_avg_v_m_p_s, reserve_hover_descend_s
-  # vertical power component only, includes weight - acceleration effects
-  # assuming drag effects are negligible
-  # vertical velocity decreases from average to zero at the end
-  # return None if mission or propulsion object not populated
+  # vertical power component only, assumes drag effects are negligible
+  # initial vertical velocity = 2*avg (downward), final = 0.0
+  # upward positive convention → acceleration is negative
+  # compute induced power from actual thrust
+  # return None if mission, propulsion, or environment object not populated
   def _calc_reserve_hover_descend_avg_shaft_power_kw(self):
-    if self.mission != None and self.propulsion != None:
-      # vertical accelerations
-      v0_v_m_p_s = 2.0*self.mission.reserve_hover_descend_avg_v_m_p_s
-      vf_v_m_p_s = 0.0
-      d_v_m = self.mission.reserve_hover_descend_avg_v_m_p_s*self.mission.reserve_hover_descend_s
-      a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
+    if self.mission != None and self.propulsion != None and self.environ != None:
+        
+        # vertical kinematics (upward positive)
+        v0_v_m_p_s = 2.0*self.mission.reserve_hover_descend_avg_v_m_p_s
+        vf_v_m_p_s = 0.0
+        d_v_m = self.mission.reserve_hover_descend_avg_v_m_p_s*self.mission.reserve_hover_descend_s
+        a_v_m_p_s2 = (vf_v_m_p_s**2.0 - v0_v_m_p_s**2.0) / (2.0*d_v_m)
 
-      # force component
-      force_v_n = self.max_takeoff_mass_kg*self.environ.g_m_p_s2+self.max_takeoff_mass_kg*a_v_m_p_s2
+        # additional power due to acceleration
+        force_v_n =  (self.max_takeoff_mass_kg*a_v_m_p_s2)
 
-      return (force_v_n*self.mission.reserve_hover_descend_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+        # induced velocity in hover (prop thrust momentum theory)
+        v_i_hover = math.sqrt((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
+                              (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+
+        # induced hover power
+        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover/self.propulsion.rotor_effic
+
+        # total shaft power (hover & vertical component)
+        return \
+          (P_hover_W + (force_v_n * self.mission.reserve_hover_descend_avg_v_m_p_s) / \
+            self.propulsion.rotor_effic) / W_P_KW
+    else:
+        return None
 
   # requires aircraft reserve_hover_descend_avg_shaft_power_kw
   # requires power epu_effic
