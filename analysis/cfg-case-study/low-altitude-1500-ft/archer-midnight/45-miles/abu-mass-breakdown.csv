@@ -1,2 +1,2 @@
 name,n_abus,m_struct_total_kg,m_integration_total_kg,m_rotor_total_kg,m_batt_mission_total_kg,m_batt_ops_total_kg,m_abu_total_per_abu_kg,m_abu_total_all_kg
-after_accel_climb,1,20.000000,2.000000,8.060826,60.966316,3.048316,94.075458,94.075458
+after_accel_climb,1,50.000000,10.000000,8.060826,91.449474,36.579790,196.090089,196.090089

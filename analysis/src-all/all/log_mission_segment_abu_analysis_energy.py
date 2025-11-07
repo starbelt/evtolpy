@@ -61,10 +61,10 @@ ordered_segments = [
 # example ABU spec (user-defined)
 abu_spec = {
     "n_abus": 1,
-    "E_mission_kwh_per_abu": 10.0,
-    "E_ops_kwh_per_abu": 0.5,
-    "m_struct_kg_per_abu": 20.0,
-    "m_integration_kg_per_abu": 2.0,
+    "E_mission_kwh_per_abu": 15.0,
+    "E_ops_kwh_per_abu": 6.0,
+    "m_struct_kg_per_abu": 50.0,
+    "m_integration_kg_per_abu": 10.0,
 }
 
 # run ABU detach analysis

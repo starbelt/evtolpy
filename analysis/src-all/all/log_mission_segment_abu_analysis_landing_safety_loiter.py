@@ -53,7 +53,7 @@ E_mission_kwh_per_abu_list = list(range(start, stop + 1, step))
 # example ABU spec (user-defined)
 abu_spec = {
   "n_abus": 1,                     # number of ABUs attached (default 1)
-  "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
+  "E_ops_kwh_per_abu": 6.0,        # energy reserved for ABU's own safe ops [kWh]
   "struct_frac": 0.20,             # structural fraction of battery mass
   "integration_frac": 0.05,        # integration hardware fraction of battery mass
 }

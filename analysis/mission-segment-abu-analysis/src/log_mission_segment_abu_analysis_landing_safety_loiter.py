@@ -53,7 +53,7 @@ E_mission_kwh_per_abu_list = list(range(start, stop + 1, step))
 # example ABU spec (user-defined)
 abu_spec = {
   "n_abus": 1,                     # number of ABUs attached (default 1)
-  "E_ops_kwh_per_abu": 1.0,        # energy reserved for ABU's own safe ops [kWh]
+  "E_ops_kwh_per_abu": 6.0,        # energy reserved for ABU's own safe ops [kWh]
   "struct_frac": 0.20,             # structural fraction of battery mass
   "integration_frac": 0.05,        # integration hardware fraction of battery mass
 }
@@ -61,7 +61,7 @@ abu_spec = {
 # alternate divert scenario (user-defined)
 divert_distance_mi = 6.0           # example alternate site distance [mi]
 t_hover_s = 60.0                   # required hover time [s]
-t_hover_descend_s = 40.0           # approximate hover descent time [s]
+t_hover_descend_s = 20.0           # approximate hover descent time [s]
 
 # evaluate ABU-assisted landing safety loiter
 results = aircraft._evaluate_landing_safety_loiter(

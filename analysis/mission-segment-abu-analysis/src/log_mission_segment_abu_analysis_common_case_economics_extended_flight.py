@@ -66,7 +66,7 @@ mission_time_s    = None       # auto-sum mission segments if None
 # ABU specifications
 abu_spec = {
   "n_abus": 1,
-  "E_ops_kwh_per_abu": 1.0,   # energy reserved for ABU safe ops [kWh]
+  "E_ops_kwh_per_abu": 12.0,   # energy reserved for ABU safe ops [kWh]
   "struct_frac": 0.20,        # structural fraction of battery mass
   "integration_frac": 0.05,   # integration hardware fraction
 }

@@ -74,15 +74,15 @@ mission_time_s    = None       # auto-sum mission segments if None
 # ABU specs
 abu_spec_takeoff = {
   "n_abus": 1,
-  "E_mission_kwh_per_abu": 10.0,
-  "E_ops_kwh_per_abu": 0.5,
-  "m_struct_kg_per_abu": 20.0,
-  "m_integration_kg_per_abu": 2.0,
+  "E_mission_kwh_per_abu": 15.0,
+  "E_ops_kwh_per_abu": 6.0,
+  "m_struct_kg_per_abu": 50.0,
+  "m_integration_kg_per_abu": 10.0,
 }
 
 abu_spec_cruise = {
   "n_abus": 1,
-  "E_ops_kwh_per_abu": 1.0,
+  "E_ops_kwh_per_abu": 12.0,
   "struct_frac": 0.20,
   "integration_frac": 0.05,
 }

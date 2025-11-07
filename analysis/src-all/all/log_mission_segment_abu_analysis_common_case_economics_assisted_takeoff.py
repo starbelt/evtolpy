@@ -59,11 +59,11 @@ mission_time_s    = None        # auto-sum post-detach mission segments if None
  
 # ABU specification (example)
 abu_spec = {
-  "n_abus": 1,                    # number of ABUs per aircraft
-  "E_mission_kwh_per_abu": 10.0,  # mission (assist) energy per ABU [kWh]
-  "E_ops_kwh_per_abu": 0.5,       # ops/safety reserve per ABU [kWh]
-  "m_struct_kg_per_abu": 20.0,    # structure [kg]
-  "m_integration_kg_per_abu": 2.0 # integration hardware [kg]
+  "n_abus": 1,                        # number of ABUs per aircraft
+  "E_mission_kwh_per_abu": 15.0,      # mission (assist) energy per ABU [kWh]
+  "E_ops_kwh_per_abu": 6.0,           # ops/safety reserve per ABU [kWh]
+  "m_struct_kg_per_abu": 50.0,        # structure [kg]
+  "m_integration_kg_per_abu": 10.0    # integration hardware [kg]
 }
 
 # ABU detach candidates (example structure)
