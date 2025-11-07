@@ -1,6 +1,6 @@
 {
   "aircraft": {
-    "max_takeoff_mass_kg": 3200.0,
+    "max_takeoff_mass_kg": 3350.0,
     "payload_kg": 454.0,
     "vehicle_cl_max": 1.54,
     "wing_taper_ratio": 0.61,
@@ -50,7 +50,7 @@
     "accel_climb_v_m_p_s": 5.1,
     "accel_climb_s": 72.0,
     "cruise_h_m_p_s": 67.1,
-    "cruise_s": 1531.0,
+    "cruise_s": 1446.0,
     "decel_descend_avg_h_m_p_s": 57.9,
     "decel_descend_v_m_p_s": 5.1,
     "decel_descend_s": 72.0,
@@ -95,8 +95,9 @@
     "rotor_count": 8,
     "lift_rotor_count": 0,
     "tilt_rotor_count": 8,
-    "rotor_diameter_m": 3.0,
+    "rotor_diameter_m": 3.6,
     "tip_mach": 0.4,
     "rotor_avg_cl": 0.75
   }
 }
+
