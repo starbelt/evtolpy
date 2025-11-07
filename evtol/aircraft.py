@@ -471,11 +471,11 @@ class Aircraft:
                               (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
 
         # induced power (hover)
-        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover/self.propulsion.rotor_effic
+        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover
 
         return \
-          (P_hover_W+(self.max_takeoff_mass_kg*a_v_m_p_s2)*\
-            self.mission.hover_climb_avg_v_m_p_s/self.propulsion.rotor_effic)/W_P_KW
+          (P_hover_W+self.max_takeoff_mass_kg*a_v_m_p_s2*\
+            self.mission.hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
         return None
 
@@ -1011,12 +1011,12 @@ class Aircraft:
                               (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
 
         # induced hover power
-        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover/self.propulsion.rotor_effic
+        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover
 
         # total shaft power (hover & vertical component)
         return \
-          (P_hover_W + (force_v_n * self.mission.hover_descend_avg_v_m_p_s) / \
-            self.propulsion.rotor_effic) / W_P_KW
+          (P_hover_W + force_v_n * self.mission.hover_descend_avg_v_m_p_s) / \
+            (self.propulsion.rotor_effic * W_P_KW)
     else:
         return None
 
@@ -1105,11 +1105,11 @@ class Aircraft:
                               (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
         
         # induced power (hover)
-        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover/self.propulsion.rotor_effic
+        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover
         
         return \
-          (P_hover_W+(self.max_takeoff_mass_kg*a_v_m_p_s2)*\
-            self.mission.reserve_hover_climb_avg_v_m_p_s/self.propulsion.rotor_effic)/W_P_KW
+          (P_hover_W+self.max_takeoff_mass_kg*a_v_m_p_s2*\
+            self.mission.reserve_hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
         return None
 
@@ -1543,12 +1543,12 @@ class Aircraft:
                               (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
 
         # induced hover power
-        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover/self.propulsion.rotor_effic
+        P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover
 
         # total shaft power (hover & vertical component)
         return \
-          (P_hover_W + (force_v_n * self.mission.reserve_hover_descend_avg_v_m_p_s) / \
-            self.propulsion.rotor_effic) / W_P_KW
+          (P_hover_W + force_v_n * self.mission.reserve_hover_descend_avg_v_m_p_s) / \
+            (self.propulsion.rotor_effic * W_P_KW)
     else:
         return None
 
