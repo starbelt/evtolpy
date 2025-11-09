@@ -1,9 +1,9 @@
 Component,Mass_kg
-Wing,209.551
-Horizontal Tail,18.538
-Vertical Tail,11.988
+Wing,214.926
+Horizontal Tail,14.696
+Vertical Tail,10.665
 Fuselage,123.719
-Boom,153.164
+Boom,152.416
 Landing Gear,96.194
 EPU,392.089
 Lift Rotor + Hub,0.000
@@ -14,4 +14,4 @@ ECS,40.000
 Avionics,60.000
 High-Volt Power Dist.,80.000
 Low-Volt Power & Comms,60.000
-Total Empty Mass,1598.598
+Total Empty Mass,1598.032
