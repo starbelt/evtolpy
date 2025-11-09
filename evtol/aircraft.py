@@ -145,7 +145,7 @@ class Aircraft:
     if self.environ != None:
       return \
        (2.0*self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
-       (self.environ.air_density_max_alt_kg_p_m3*(self.stall_speed_m_p_s**2.0)*\
+       (self.environ.air_density_sea_lvl_kg_p_m3*(self.stall_speed_m_p_s**2.0)*\
         self.vehicle_cl_max)
     else:
       return None
@@ -719,6 +719,14 @@ class Aircraft:
       dp_n = q*self.wing_area_m2*cd0_cruise
       # total drag
       total_drag_n = (di_n+dp_n)*self.trim_drag_factor*self.excres_protub_factor
+
+      print("q", q)
+      print("self.wing_area_m2", self.wing_area_m2)
+      print("self.wing_aspect_ratio", self.wing_aspect_ratio)
+
+      print("induced", di_n)
+      print("dp_n", dp_n)
+      print("total_drag_n", total_drag_n)
 
       return (total_drag_n*self.mission.cruise_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     else:
