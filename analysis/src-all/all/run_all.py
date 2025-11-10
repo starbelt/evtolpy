@@ -41,9 +41,9 @@ def run_case(base_dir, config):
         # f"python log_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {config} {base_dir}",
         # f"python plt_mission_segment_abu_analysis_flight_extension_detach_on_depletion_or_end.py {base_dir}mission-segment-abu-analysis-flight-extension-detach-on-depletion-or-end.csv {base_dir}",
 
-        # ABU (3): Safety Landing
-        f"python log_mission_segment_abu_analysis_landing_safety_loiter.py {config} {base_dir}",
-        f"python plt_mission_segment_abu_analysis_landing_safety_loiter.py {base_dir}mission-segment-abu-analysis-landing-safety-loiter.csv {base_dir}",
+        # # ABU (3): Safety Landing
+        # f"python log_mission_segment_abu_analysis_landing_safety_loiter.py {config} {base_dir}",
+        # f"python plt_mission_segment_abu_analysis_landing_safety_loiter.py {base_dir}mission-segment-abu-analysis-landing-safety-loiter.csv {base_dir}",
 
         # # ABU (4.1): Common Case Economics (Baseline, non-ABU)
         # f"python log_mission_segment_abu_analysis_common_case_economics_baseline.py {config} {base_dir}",
@@ -51,11 +51,18 @@ def run_case(base_dir, config):
         # # ABU (4.2): Common Case Economics (ABU, Assisted Takeoff)
         # f"python log_mission_segment_abu_analysis_common_case_economics_assisted_takeoff.py {config} {base_dir}",
 
-        # # ABU (4.3): Common Case Economics (ABU, Extended Flight Powered by ABU)
+        # # ABU (4.3.1): Common Case Economics (ABU, Extended Flight Powered by ABU)
         # f"python log_mission_segment_abu_analysis_common_case_economics_extended_flight.py {config} {base_dir}",
 
-        # # ABU (4.4): Common Case Economics (ABU, Combined - Assisted Takeoff & Extended Flight Powered by ABU)
+        # # ABU (4.3.2): Common Case Economics (ABU, Extended Flight Powered by ABU, Overlap Charging)
+        # f"python log_mission_segment_abu_analysis_common_case_economics_extended_flight_overlap_charging.py {config} {base_dir}",
+
+        # # ABU (4.4.1): Common Case Economics (ABU, Combined - Assisted Takeoff & Extended Flight Powered by ABU)
         # f"python log_mission_segment_abu_analysis_common_case_economics_combined.py {config} {base_dir}",
+
+        # ABU (4.4.2): Common Case Economics (ABU, Combined - Assisted Takeoff & Extended Flight Powered by ABU, Overlap Charging)
+        f"python log_mission_segment_abu_analysis_common_case_economics_combined_overlap_charging.py {config} {base_dir}",
+
     ]
 
     for cmd in commands:
