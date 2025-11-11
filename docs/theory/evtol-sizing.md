@@ -221,11 +221,8 @@ def _calc_depart_taxi_avg_shaft_power_kw(self):
 ### Segment B: Hover Climb  
 **Description:**   
 * Calculations for the **Hover Climb** segment consider **vertical motion only**.  
-* Drag effects are neglected, and the aircraft starts from rest, accelerating upward to a final vertical velocity.  
-* The total shaft power consists of two components:  
-  1. Hover Power: the induced power required to support the aircraft’s weight when aerodynamic lift from the wings is negligible.  
-  2. Climb Power: the additional power required to accelerate the aircraft vertically.  
-* Physically, the hover power represents the induced power required to support partial or full aircraft weight during hover or transition, when the wings do not yet generate sufficient lift. 
+* Drag effects are neglected, and the aircraft starts from rest, accelerating upward to a final vertical velocity based on the given average climb rate.  
+* The total shaft power is determined from the required thrust and induced velocity using Newton’s 2nd law and momentum theory.  
 
 **Displacement, Acceleration, and Final Velocity**   
 * Let:  
@@ -247,11 +244,17 @@ $$
 a_v = \frac{v_f^2}{2 d_v}
 $$   
 
-**Hover Power (W)**  
-* The induced velocity in hover, based on propeller momentum theory, is:  
+**Thrust and Induced Velocity in Hover**  
+* The total thrust required (from Newton’s 2nd law) is:  
 
 $$
-v_{i,hover} = \sqrt{\frac{m \cdot g}{2 \cdot \rho \cdot A}}
+T_{req} = m \cdot (g + a_v)
+$$  
+
+* The induced velocity in hover, from momentum theory, is:  
+
+$$
+v_{i,hover} = \sqrt{\frac{T_{req}}{2 \cdot \rho \cdot A}}
 $$  
 
 where:  
@@ -260,17 +263,17 @@ where:
   * $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*)  
   * $A$ = total rotor disk area (*propulsion.disk_area_m2*)  
 
-The induced hover power is then:  
+**Hover Power and Average Shaft Power (kW)**  
+* Induced hover power (in watts) is calculated as:  
 
 $$
-P_{hover} = m \cdot g \cdot v_{i,hover}
+P_{hover} = T_{req} \cdot v_{i,hover}
 $$  
 
-**Average Shaft Power (kW)**   
-* The total shaft power is the sum of hover power and climb power, divided by rotor efficiency:  
+* The corresponding average shaft power is then:  
 
 $$
-P_{shaft,avg} = \frac{P_{hover} + m \cdot a_v \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
+P_{shaft,avg} = \frac{P_{hover}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
 where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
@@ -283,17 +286,18 @@ def _calc_hover_climb_avg_shaft_power_kw(self):
       d_v_m = self.mission.hover_climb_avg_v_m_p_s*self.mission.hover_climb_s
       vf_v_m_p_s = (2.0*d_v_m)/self.mission.hover_climb_s
       a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
-  
+
+      # required vertical thurst (from Newton's 2nd law)
+      T_required_N = self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)
+
       # induced velocity in hover (prop thrust momentum theory)
-      v_i_hover = math.sqrt((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
+      v_i_hover = math.sqrt(T_required_N/\
                             (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
 
       # induced power (hover)
-      P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover
+      P_hover_W = T_required_N*v_i_hover
 
-      return \
-        (P_hover_W+self.max_takeoff_mass_kg*a_v_m_p_s2*\
-          self.mission.hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      return P_hover_W/(self.propulsion.rotor_effic*W_P_KW)
   else:
       return None
 ```
@@ -306,8 +310,9 @@ def _calc_hover_climb_avg_shaft_power_kw(self):
 * Aerodynamic lift, induced drag, parasite drag, weight, hover-induced power, and climb forces are all considered.  
 * Horizontal velocity starts from rest and accelerates to a final velocity based on the average horizontal velocity.  
 * Vertical velocity is assumed **constant** throughout the segment (no vertical acceleration).  
-* The total shaft power includes both **aerodynamic power** and **hover-induced power**, representing the thrust required to support any portion of aircraft weight not yet carried by aerodynamic lift.  
-* Physically, the hover-induced power term represents the induced power required to supplement lift when wings are not yet producing full aerodynamic support during the transition from hover to forward flight.  
+* The total shaft power combines:
+  * Aerodynamic power: to overcome drag and provide horizontal acceleration, and  
+  * Hover-induced power: to supply any remaining vertical thrust required when aerodynamic lift does not fully support the aircraft weight during transition. 
    
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -334,41 +339,44 @@ $$
 * Vertical acceleration $a_v$ = 0 (constant vertical velocity)  
 
 **Hover-Induced Power (W)**  
-* When aerodynamic lift does not fully balance the aircraft’s weight, additional thrust is required.  
-  The thrust deficit is defined as:  
+* Lift $L$ is computed aerodynamically; if it does not fully balance the aircraft weight, the rotors must provide the remaining vertical thrust.  
+* The required rotor thrust is modeled as:
 
 $$
-T_{req} = (Weight - Lift) + m \cdot a_v
-$$  
+T_{req} = Weight - Lift + m \cdot a_v 
+$$
 
-* If $T_{req} > 0$, the induced velocity and induced hover power are calculated using propeller momentum theory:  
+* The induced velocity from rotor momentum theory is:
 
 $$
 v_{i,hover} = \sqrt{\frac{T_{req}}{2 \cdot \rho \cdot A}}
 $$  
+
+* The corresponding hover-induced power is:
 
 $$
 P_{hover} = T_{req} \cdot v_{i,hover}
 $$  
 
 **Average Shaft Power (kW)**  
-* Horizontal and vertical forces:  
+* Horizontal force:
 
 $$
 F_h = D_{total} + m \cdot a_h
-$$
-
-$$
-F_v = m \cdot a_v
-$$
-
-* Shaft power:  
-
-$$
-P_{shaft, avg} = \frac{P_{hover} + F_h \cdot v_{avg,h} + F_v \cdot v_v}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*), $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*), and $A$ = rotor disk area (*propulsion.disk_area_m2*).  
+* The total shaft power combines hover-induced power and horizontal power:
+
+$$
+P_{shaft, avg} = \frac{P_{hover} + F_h \cdot v_{avg,h}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where:  
+* $W_{KW}$ is the unit conversion factor to kW  
+* $m$ = aircraft mass (*aircraft.max_takeoff_mass_kg*)  
+* $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*)  
+* $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*)  
+* $A$ = rotor disk area (*propulsion.disk_area_m2*)  
 
 ```python
 def _calc_trans_climb_avg_shaft_power_kw(self):
@@ -399,23 +407,21 @@ def _calc_trans_climb_avg_shaft_power_kw(self):
     # vertical component (constant velocity, no acceleration)
     a_v_m_p_s2 = 0.0
 
-    # force components 
+    # required vertical thrust from rotors (Newton's 2nd law with lift)
+    T_required_N = max(0.0, weight_n - lift_n + self.max_takeoff_mass_kg*a_v_m_p_s2)
+
+    # induced velocity in transition (momentum theory)
+    v_i_hover = math.sqrt(T_required_N/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+
+    # induced power (hover assist)
+    P_hover_W = T_required_N*v_i_hover
+
+    # horizontal force component
     force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-    force_v_n = self.max_takeoff_mass_kg*a_v_m_p_s2
 
-    # induced velocity & power based on thrust deficit
-    T_req_n = max(0.0, (weight_n - lift_n) + self.max_takeoff_mass_kg*a_v_m_p_s2)
-    if T_req_n > 0.0:
-      v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
-    else:
-      v_i_hover = 0.0
-
-    # hover-induced power for unsupported weight only (no efficiency here yet)
-    P_hover_W = T_req_n*v_i_hover
-
-    # total shaft power (apply rotor efficiency once)
-    return (P_hover_W+force_h_n*self.mission.trans_climb_avg_h_m_p_s+\
-            force_v_n*self.mission.trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+    # total shaft power
+    return (P_hover_W + force_h_n*self.mission.trans_climb_avg_h_m_p_s) / \
+          (self.propulsion.rotor_effic*W_P_KW)
   else:
     return None
 ```
@@ -846,12 +852,14 @@ def _calc_arrive_proc_avg_shaft_power_kw(self):
 
 **Description:**  
 * Calculations for the **Transition Descend** segment include **horizontal and vertical motion**.  
-* Aerodynamic lift, induced drag, parasite drag, weight, descent forces, and hover-induced power are included.  
-* Additional automatic corrections include **spoiler drag** if power becomes negative.  
-* Horizontal velocity starts from an estimated initial value and decelerates to zero.  
-* Vertical velocity transitions from the previous descend rate (*mission.decel_descend_v_m_p_s*) to the final descent velocity (*mission.trans_descend_v_m_p_s*).  
-* The total shaft power includes **aerodynamic power**, **hover-induced assist power**, and automatic spoiler drag compensation.  
-* Physically, the hover-induced term represents induced power required to provide thrust when aerodynamic lift and gravity are insufficient to balance vertical forces during the transition phase.  
+* Aerodynamic lift, induced drag, parasite drag, weight, descent forces, and hover-induced thrust assist are included.  
+* Additional automatic corrections include **spoiler drag** when total shaft power becomes negative.  
+* Horizontal velocity starts from an estimated value and decelerates to zero.  
+* Vertical velocity transitions from the previous descent rate (*mission.decel_descend_v_m_p_s*) to the final descent velocity (*mission.trans_descend_v_m_p_s*).  
+* The total shaft power combines:
+  * Aerodynamic power: to overcome drag and deceleration forces,  
+  * Hover-induced assist power: to supplement lift when gravity alone is insufficient, and  
+  * Spoiler drag power correction: to dissipate excess energy during overpowered descent.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -879,22 +887,22 @@ $$
 * Vertical displacement $d_v$ and acceleration $a_v$:
 
 $$
-d_v = \frac{|v_{i,v}| + |v_{f,v}|}{2} \cdot t
+d_v = \frac{v_{i,v} + v_{f,v}}{2} \cdot t
 $$
 
 $$
 a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
 $$  
 
-**Hover-Induced Power (W)**  
-* When aerodynamic lift and gravity together are insufficient to balance vertical forces, additional thrust is required.  
-  The thrust deficit is defined as:  
+**Hover-Induced Assist Power (W)**  
+* When aerodynamic lift and gravity together are insufficient to balance vertical forces, additional rotor thrust is required.  
+  The required thrust is defined as:  
 
 $$
 T_{req} = (Weight - Lift) + m \cdot a_v
 $$  
 
-* If $T_{req} > 0$, the induced velocity and corresponding induced power are calculated using propeller momentum theory:  
+* The induced velocity and corresponding hover-induced power are determined by rotor momentum theory:  
 
 $$
 v_{i,hover} = \sqrt{\frac{T_{req}}{2 \cdot \rho \cdot A}}
@@ -905,31 +913,36 @@ P_{hover} = T_{req} \cdot v_{i,hover}
 $$  
 
 **Average Shaft Power (kW)**  
-* Horizontal and vertical forces:  
+* Horizontal force:
 
 $$
 F_h = D_{total} + m \cdot a_h
-$$
-
-$$
-F_v = m \cdot a_v
-$$
-
-* Shaft power (baseline):  
-
-$$
-P_{shaft, avg} = \frac{P_{hover} + F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-**Special Automatic Adjustments - Spoiler drag**  
-
-* If total shaft power is negative, spoiler drag is applied to dissipate excess energy and bring power back to nonnegative levels:  
+* The total shaft power combines hover-induced assist and aerodynamic components:
 
 $$
-F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{P_{hover} + F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+P_{shaft, avg} = \frac{P_{hover} + F_h \cdot v_{avg,h}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*), $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*), and $A$ = rotor disk area (*propulsion.disk_area_m2*).   
+**Automatic Power Adjustment – Spoiler Drag**  
+* If total shaft power is negative, spoiler drag is applied to increase horizontal drag and dissipate excess energy.  
+* The modified shaft power becomes:  
+
+$$
+F_{h,new} = F_h + F_{spoiler}
+$$  
+
+$$
+P_{shaft,new} = \frac{P_{hover} + F_{h,new} \cdot v_{avg,h}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where:  
+* $W_{KW}$ = unit conversion factor to kW  
+* $m$ = aircraft mass (*aircraft.max_takeoff_mass_kg*)  
+* $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*)  
+* $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*)  
+* $A$ = rotor disk area (*propulsion.disk_area_m2*)  
 
 ```python
 def _calc_trans_descend_avg_shaft_power_kw(self):
@@ -963,24 +976,21 @@ def _calc_trans_descend_avg_shaft_power_kw(self):
     d_v_m = 0.5*(abs(v0_v_m_p_s)+abs(vf_v_m_p_s))*self.mission.trans_descend_s
     a_v_m_p_s2 = (vf_v_m_p_s**2.0 - v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
-    # force components
+    # horizontal force component
     force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-    force_v_n = self.max_takeoff_mass_kg*a_v_m_p_s2
 
-    # compute thrust deficit if gravity + lift are insufficient
+    # required vertical thrust from rotors (Newton's 2nd law with lift)
     T_req_n = max(0.0, (weight_n - lift_n) + self.max_takeoff_mass_kg*a_v_m_p_s2)
-    if T_req_n > 0.0:
-      v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
-    else:
-      v_i_hover = 0.0
 
-    # hover-induced (assist) power for unsupported weight only
+    # induced velocity (momentum theory)
+    v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+
+    # hover-induced (assist) power
     P_hover_W = T_req_n*v_i_hover
 
-    # baseline shaft power (sum of aerodynamic and vertical terms)
-    shaft_power_kw = (P_hover_W+force_h_n*self.mission.trans_descend_avg_h_m_p_s+\
-                      force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
-
+    # baseline shaft power (vertical assist + horizontal forces)
+    shaft_power_kw = (P_hover_W+force_h_n*self.mission.trans_descend_avg_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+    
     # check for negative power → apply spoiler drag to dissipate excess
     if shaft_power_kw < 0.0:
       required_extra_force_n = -force_h_n
@@ -992,8 +1002,7 @@ def _calc_trans_descend_avg_shaft_power_kw(self):
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
 
       # recompute total shaft power with spoiler drag
-      shaft_power_kw = (P_hover_W+force_h_n*self.mission.trans_descend_avg_h_m_p_s+\
-                        force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+      shaft_power_kw = (P_hover_W+force_h_n*self.mission.trans_descend_avg_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
 
     return shaft_power_kw
   else:
@@ -1007,10 +1016,7 @@ def _calc_trans_descend_avg_shaft_power_kw(self):
 * Calculations for the **Hover Descend** segment consider **vertical motion only**.  
 * Drag effects are neglected.  
 * The aircraft starts with an initial downward velocity and decelerates to a stop at the end of the segment.  
-* The total shaft power consists of two components:  
-  1. Hover Power: the induced power required to balance the aircraft’s weight during descent.  
-  2. Vertical Power: the additional (or reduced) power due to vertical acceleration.  
-* Physically, the hover power represents the induced power required to maintain lift and support weight during vertical descent, while the acceleration term accounts for deceleration as the vehicle approaches landing zone. 
+* The total shaft power is determined from the required thrust and induced velocity using Newton’s 2nd law and momentum theory.  
   
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -1033,11 +1039,17 @@ $$
 a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
 $$  
 
-**Hover Power (W)**  
-* The induced velocity in hover, from propeller momentum theory, is:  
+**Thrust and Induced Velocity in Hover**  
+* The total thrust required (from Newton’s 2nd law) is:  
 
 $$
-v_{i,hover} = \sqrt{\frac{m \cdot g}{2 \cdot \rho \cdot A}}
+T_{req} = m \cdot (g + a_v)
+$$  
+
+* The induced velocity in hover, from momentum theory, is:  
+
+$$
+v_{i,hover} = \sqrt{\frac{T_{req}}{2 \cdot \rho \cdot A}}
 $$  
 
 where:  
@@ -1046,17 +1058,17 @@ where:
   * $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*)  
   * $A$ = total rotor disk area (*propulsion.disk_area_m2*)  
 
-The induced hover power is then:  
+**Hover Power and Average Shaft Power (kW)**  
+* Induced hover power (in watts) is calculated as:  
 
 $$
-P_{hover} = m \cdot g \cdot v_{i,hover}
+P_{hover} = T_{req} \cdot v_{i,hover}
 $$  
 
-**Average Shaft Power (kW)**  
-* The total shaft power (hover and vertical components) is:  
+* The corresponding average shaft power is then:  
 
 $$
-P_{shaft,avg} = \frac{P_{hover} + (m \cdot a_v) \cdot v_{avg,v}}{\eta_{rotor} \cdot W_{KW}}
+P_{shaft,avg} = \frac{P_{hover}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
 where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
@@ -1071,20 +1083,18 @@ def _calc_hover_descend_avg_shaft_power_kw(self):
       d_v_m = self.mission.hover_descend_avg_v_m_p_s*self.mission.hover_descend_s
       a_v_m_p_s2 = (vf_v_m_p_s**2.0 - v0_v_m_p_s**2.0) / (2.0*d_v_m)
 
-      # vertical thrust required (upward positive)
-      force_v_n =  (self.max_takeoff_mass_kg*a_v_m_p_s2)
+      # required thrust (Newton's 2nd law, upward positive)
+      T_required_N = max(0.0, self.max_takeoff_mass_kg * (self.environ.g_m_p_s2 + a_v_m_p_s2))
 
-      # induced velocity in hover (prop thrust momentum theory)
-      v_i_hover = math.sqrt((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
-                            (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+      # induced velocity in hover (momentum theory)
+      v_i_hover = math.sqrt(T_required_N / \
+                            (2.0*self.environ.air_density_sea_lvl_kg_p_m3 * self.propulsion.disk_area_m2))
 
-      # induced hover power
-      P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover
+      # induced power from actual thrust
+      P_hover_W = T_required_N * v_i_hover
 
-      # total shaft power (hover & vertical component)
-      return \
-        (P_hover_W + force_v_n * self.mission.hover_descend_avg_v_m_p_s) / \
-          (self.propulsion.rotor_effic * W_P_KW)
+      # total shaft power (apply rotor efficiency once)
+      return P_hover_W / (self.propulsion.rotor_effic * W_P_KW)
   else:
       return None
 ```
@@ -1156,10 +1166,7 @@ def _calc_arrive_taxi_avg_shaft_power_kw(self):
 **Description:**  
 * Calculations for the **Reserve Hover Climb** segment consider **vertical motion only**.  
 * Drag effects are neglected, and the aircraft starts from rest, accelerating upward to a final vertical velocity.  
-* The total shaft power consists of two components:  
-  1. Hover Power: the induced power required to support the aircraft’s weight when aerodynamic lift from the wings is negligible.  
-  2. Climb Power: the additional power required to accelerate the aircraft vertically during the reserve hover climb phase.  
-* Physically, the hover power represents the induced power required to support partial or full aircraft weight during hover or transition, when the wings do not yet generate sufficient lift. 
+* The total shaft power is determined from the required thrust and induced velocity using Newton’s 2nd law and momentum theory.  
 
 **Displacement, Acceleration, and Final Velocity**  
 * Let:  
@@ -1181,11 +1188,17 @@ $$
 a_v = \frac{v_f^2}{2 \cdot d_v}
 $$  
 
-**Hover Power (W)**  
-* The induced velocity in hover, based on propeller momentum theory, is:  
+**Thrust and Induced Velocity in Hover**  
+* The total thrust required (from Newton’s 2nd law) is:  
 
 $$
-v_{i,hover} = \sqrt{\frac{m \cdot g}{2 \cdot \rho \cdot A}}
+T_{req} = m \cdot (g + a_v)
+$$  
+
+* The induced velocity in hover, from momentum theory, is:  
+
+$$
+v_{i,hover} = \sqrt{\frac{T_{req}}{2 \cdot \rho \cdot A}}
 $$  
 
 where:  
@@ -1194,17 +1207,17 @@ where:
   * $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*)  
   * $A$ = total rotor disk area (*propulsion.disk_area_m2*)  
 
-The induced hover power is then:  
+**Hover Power and Average Shaft Power (kW)**  
+* Induced hover power (in watts) is calculated as:  
 
 $$
-P_{hover} = m \cdot g \cdot v_{i,hover}
+P_{hover} = T_{req} \cdot v_{i,hover}
 $$  
 
-**Average Shaft Power (kW)**  
-* The total shaft power is the sum of hover power and climb power, divided by rotor efficiency:  
+* The corresponding average shaft power is then:  
 
 $$
-P_{shaft,avg} = \frac{P_{hover} + m \cdot a_v \cdot v_{avg}}{\eta_{rotor} \cdot W_{KW}}
+P_{shaft,avg} = \frac{P_{hover}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
 where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
@@ -1218,16 +1231,17 @@ def _calc_reserve_hover_climb_avg_shaft_power_kw(self):
       vf_v_m_p_s = (2.0*d_v_m)/self.mission.reserve_hover_climb_s
       a_v_m_p_s2 = vf_v_m_p_s**2.0/(2.0*d_v_m)
       
+      # required vertical thurst (from Newton's 2nd law)
+      T_required_N = self.max_takeoff_mass_kg*(self.environ.g_m_p_s2+a_v_m_p_s2)
+
       # induced velocity in hover (prop thrust momentum theory)
-      v_i_hover = math.sqrt((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
+      v_i_hover = math.sqrt(T_required_N/\
                             (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
-      
+
       # induced power (hover)
-      P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover
-      
-      return \
-        (P_hover_W+self.max_takeoff_mass_kg*a_v_m_p_s2*\
-          self.mission.reserve_hover_climb_avg_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+      P_hover_W = T_required_N*v_i_hover
+
+      return P_hover_W/(self.propulsion.rotor_effic*W_P_KW)
   else:
       return None
 ```
@@ -1240,8 +1254,9 @@ def _calc_reserve_hover_climb_avg_shaft_power_kw(self):
 * Aerodynamic lift, induced drag, parasite drag, weight, hover-induced power, and climb forces are all considered.  
 * Horizontal velocity starts from rest and accelerates to a final velocity based on the average horizontal velocity.  
 * Vertical velocity is assumed **constant** throughout the segment (no vertical acceleration).  
-* The total shaft power includes both **aerodynamic power** and **hover-induced power**, representing the thrust required to support any portion of aircraft weight not yet carried by aerodynamic lift.  
-* Physically, the hover-induced power term represents the induced power required to supplement lift when wings are not yet producing full aerodynamic support during the transition from hover to forward flight in reserve operations.  
+* The total shaft power combines:
+  * Aerodynamic power: to overcome drag and provide horizontal acceleration, and  
+  * Hover-induced power: to supply any remaining vertical thrust required when aerodynamic lift does not fully support the aircraft weight during transition. 
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -1268,41 +1283,44 @@ $$
 * Vertical acceleration $a_v$ = 0 (constant vertical velocity)  
 
 **Hover-Induced Power (W)**  
-* When aerodynamic lift does not fully balance the aircraft’s weight, additional thrust is required.  
-  The thrust deficit is defined as:  
+* Lift $L$ is computed aerodynamically; if it does not fully balance the aircraft weight, the rotors must provide the remaining vertical thrust.  
+* The required rotor thrust is modeled as:
 
 $$
-T_{req} = (Weight - Lift) + m \cdot a_v
-$$  
+T_{req} = Weight - Lift + m \cdot a_v 
+$$
 
-* If $T_{req} > 0$, the induced velocity and induced hover power are calculated using propeller momentum theory:  
+* The induced velocity from rotor momentum theory is:
 
 $$
 v_{i,hover} = \sqrt{\frac{T_{req}}{2 \cdot \rho \cdot A}}
 $$  
+
+* The corresponding hover-induced power is:
 
 $$
 P_{hover} = T_{req} \cdot v_{i,hover}
 $$  
 
 **Average Shaft Power (kW)**  
-* Horizontal and vertical forces:  
+* Horizontal force:
 
 $$
 F_h = D_{total} + m \cdot a_h
-$$
-
-$$
-F_v = m \cdot a_v
 $$  
 
-* Shaft power:  
+* The total shaft power combines hover-induced power and horizontal power:
 
 $$
-P_{shaft, avg} = \frac{P_{hover} + F_h \cdot v_{avg,h} + F_v \cdot v_v}{\eta_{rotor} \cdot W_{KW}}
+P_{shaft, avg} = \frac{P_{hover} + F_h \cdot v_{avg,h}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*), $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*), and $A$ = rotor disk area (*propulsion.disk_area_m2*). 
+where:  
+* $W_{KW}$ is the unit conversion factor to kW  
+* $m$ = aircraft mass (*aircraft.max_takeoff_mass_kg*)  
+* $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*)  
+* $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*)  
+* $A$ = rotor disk area (*propulsion.disk_area_m2*)  
 
 ```python
 def _calc_reserve_trans_climb_avg_shaft_power_kw(self):
@@ -1333,23 +1351,21 @@ def _calc_reserve_trans_climb_avg_shaft_power_kw(self):
     # vertical component (constant velocity, no acceleration)
     a_v_m_p_s2 = 0.0
 
-    # force components
+    # required vertical thrust from rotors (Newton's 2nd law with lift)
+    T_required_N = max(0.0, weight_n - lift_n + self.max_takeoff_mass_kg*a_v_m_p_s2)
+
+    # induced velocity in transition (momentum theory)
+    v_i_hover = math.sqrt(T_required_N/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+
+    # induced power (hover assist)
+    P_hover_W = T_required_N*v_i_hover
+
+    # horizontal force component
     force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-    force_v_n = self.max_takeoff_mass_kg*a_v_m_p_s2
 
-    # induced velocity & power based on thrust deficit
-    T_req_n = max(0.0, (weight_n - lift_n) + self.max_takeoff_mass_kg*a_v_m_p_s2)
-    if T_req_n > 0.0:
-      v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
-    else:
-      v_i_hover = 0.0
-
-    # hover-induced power for unsupported weight only (no efficiency here yet)
-    P_hover_W = T_req_n*v_i_hover
-
-    # total shaft power (apply rotor efficiency once)
-    return (P_hover_W+force_h_n*self.mission.reserve_trans_climb_avg_h_m_p_s+\
-            force_v_n*self.mission.reserve_trans_climb_v_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
+    # total shaft power
+    return (P_hover_W + force_h_n*self.mission.reserve_trans_climb_avg_h_m_p_s) / \
+          (self.propulsion.rotor_effic*W_P_KW)
   else:
     return None
 ```
@@ -1660,11 +1676,13 @@ def _calc_reserve_decel_descend_avg_shaft_power_kw(self):
 **Description:**  
 * Calculations for the **Reserve Transition Descend** segment include **horizontal and vertical motion**.  
 * Aerodynamic lift, induced drag, parasite drag, weight, descent forces, and hover-induced power are included.  
-* Additional automatic corrections include **spoiler drag** if power becomes negative.  
+* Additional automatic corrections include **spoiler drag** when total shaft power becomes negative. 
 * Horizontal velocity starts from an estimated initial value and decelerates to zero.  
 * Vertical velocity transitions from the previous descend velocity (*mission.reserve_decel_descend_v_m_p_s*) to the final vertical descent rate (*mission.reserve_trans_descend_v_m_p_s*).  
-* The total shaft power includes **aerodynamic power**, **hover-induced assist power**, and automatic spoiler drag compensation.  
-* Physically, the hover-induced term represents induced power required to provide thrust when aerodynamic lift and gravity are insufficient to balance vertical forces during the transition phase.  
+* The total shaft power combines:
+  * Aerodynamic power: to overcome drag and deceleration forces,  
+  * Hover-induced assist power: to supplement lift when gravity alone is insufficient, and  
+  * Spoiler drag power correction: to dissipate excess energy during overpowered descent.  
 
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -1701,15 +1719,15 @@ $$
 a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
 $$  
 
-**Hover-Induced Power (W)**  
-* When aerodynamic lift and gravity together are insufficient to balance vertical forces, additional thrust is required.  
-  The thrust deficit is defined as:  
+**Hover-Induced Assist Power (W)**  
+* When aerodynamic lift and gravity together are insufficient to balance vertical forces, additional rotor thrust is required.  
+  The required thrust is defined as:  
 
 $$
 T_{req} = (Weight - Lift) + m \cdot a_v
 $$  
 
-* If $T_{req} > 0$, the induced velocity and corresponding induced power are calculated using propeller momentum theory:  
+* The induced velocity and corresponding hover-induced power are determined by rotor momentum theory:  
 
 $$
 v_{i,hover} = \sqrt{\frac{T_{req}}{2 \cdot \rho \cdot A}}
@@ -1720,30 +1738,36 @@ P_{hover} = T_{req} \cdot v_{i,hover}
 $$  
 
 **Average Shaft Power (kW)**  
-* Horizontal and vertical forces:  
+* Horizontal force:
 
 $$
 F_h = D_{total} + m \cdot a_h
-$$
-
-$$
-F_v = m \cdot a_v
-$$
-
-* Shaft power (baseline):  
-
-$$
-P_{shaft, avg} = \frac{P_{hover} + F_h \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-**Special Automatic Adjustment — Spoiler Drag:**  
-* If total shaft power is negative, spoiler drag is applied to increase horizontal drag and dissipate excess energy:  
+* The total shaft power combines hover-induced assist and aerodynamic components:
 
 $$
-F_{h,new} = F_h + F_{spoiler}, \quad P_{shaft,new} = \frac{P_{hover} + F_{h,new} \cdot v_{avg,h} + F_v \cdot \frac{v_{i,v} + v_{f,v}}{2}}{\eta_{rotor} \cdot W_{KW}}
+P_{shaft, avg} = \frac{P_{hover} + F_h \cdot v_{avg,h}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
-where $W_{KW}$ is the unit conversion factor to kW, aircraft mass $m$ (*aircraft.max_takeoff_mass_kg*), $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*), $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*), and $A$ = rotor disk area (*propulsion.disk_area_m2*). 
+**Automatic Power Adjustment – Spoiler Drag**  
+* If total shaft power is negative, spoiler drag is applied to increase horizontal drag and dissipate excess energy.  
+* The modified shaft power becomes:  
+
+$$
+F_{h,new} = F_h + F_{spoiler}
+$$  
+
+$$
+P_{shaft,new} = \frac{P_{hover} + F_{h,new} \cdot v_{avg,h}}{\eta_{rotor} \cdot W_{KW}}
+$$  
+
+where:  
+* $W_{KW}$ = unit conversion factor to kW  
+* $m$ = aircraft mass (*aircraft.max_takeoff_mass_kg*)  
+* $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*)  
+* $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*)  
+* $A$ = rotor disk area (*propulsion.disk_area_m2*)  
 
 ```python
 def _calc_reserve_trans_descend_avg_shaft_power_kw(self):
@@ -1777,41 +1801,33 @@ def _calc_reserve_trans_descend_avg_shaft_power_kw(self):
     d_v_m = 0.5*(v0_v_m_p_s+vf_v_m_p_s)*self.mission.reserve_trans_descend_s
     a_v_m_p_s2 = (vf_v_m_p_s**2.0-v0_v_m_p_s**2.0)/(2.0*d_v_m)
 
-    # force components
+    # horizontal force component
     force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-    # exclude (weight - lift) here; handled via thrust-deficit induced power
-    force_v_n = self.max_takeoff_mass_kg*a_v_m_p_s2
 
-    # compute thrust deficit if gravity + lift are insufficient
+    # required vertical thrust from rotors (Newton's 2nd law with lift)
     T_req_n = max(0.0, (weight_n - lift_n) + self.max_takeoff_mass_kg*a_v_m_p_s2)
-    if T_req_n > 0.0:
-      v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
-    else:
-      v_i_hover = 0.0
 
-    # hover-induced (assist) power for unsupported weight only (no efficiency here yet)
+    # induced velocity (momentum theory)
+    v_i_hover = math.sqrt(T_req_n/(2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+
+    # hover-induced (assist) power
     P_hover_W = T_req_n*v_i_hover
 
-    # baseline shaft power (sum of aerodynamic and vertical terms)
-    shaft_power_kw = (P_hover_W+force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+\
-                      force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+    # baseline shaft power (vertical assist + horizontal forces)
+    shaft_power_kw = (P_hover_W+force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
     
-    # check for negative power to add spoiler drag
+    # check for negative power → apply spoiler drag to dissipate excess
     if shaft_power_kw < 0.0:
-      # required additional horizontal force to neutralize negative power
       required_extra_force_n = -force_h_n
-      # compute equivalent delta Cd
       delta_cd_spoiler = required_extra_force_n/(q*self.wing_area_m2)
       if delta_cd_spoiler < 0.0:
         delta_cd_spoiler = 0.0
-      # recompute with spoilers
       dp_spoiler_n = q*self.wing_area_m2*delta_cd_spoiler
       total_drag_n = (di_n+dp_n+dp_spoiler_n)*self.trim_drag_factor*self.excres_protub_factor
       force_h_n = total_drag_n+self.max_takeoff_mass_kg*a_h_m_p_s2
-    
-      # total shaft power
-      shaft_power_kw = (P_hover_W+force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s+\
-                        force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(self.propulsion.rotor_effic*W_P_KW)
+
+      # recompute total shaft power with spoiler drag
+      shaft_power_kw = (P_hover_W+force_h_n*self.mission.reserve_trans_descend_avg_h_m_p_s)/(self.propulsion.rotor_effic*W_P_KW)
 
     return shaft_power_kw
   else:
@@ -1825,10 +1841,7 @@ def _calc_reserve_trans_descend_avg_shaft_power_kw(self):
 * Calculations for the **Reserve Hover Descend** segment consider **vertical motion only**.  
 * Drag effects are neglected.  
 * The aircraft begins with a downward velocity and decelerates to rest at the end of the descent.  
-* The total shaft power consists of two components:  
-  1. Hover Power: the induced power required to balance the aircraft’s weight during reserve descent.  
-  2. Vertical Power: the additional (or reduced) power due to vertical acceleration.  
-* Physically, the hover power represents the induced power required to maintain lift and support the aircraft’s weight during vertical reserve descent, while the acceleration term accounts for the reduction in descent rate as the aircraft slows to a hover.  
+* The total shaft power is determined from the required thrust and induced velocity using Newton’s 2nd law and momentum theory.  
   
 **Displacement, Acceleration, and Velocity Components**  
 * Let:  
@@ -1851,11 +1864,17 @@ $$
 a_v = \frac{v_{f,v}^2 - v_{i,v}^2}{2 \cdot d_v}
 $$  
 
-**Hover Power (W)**  
-* The induced velocity in hover, from propeller momentum theory, is:  
+**Thrust and Induced Velocity in Hover**  
+* The total thrust required (from Newton’s 2nd law) is:  
 
 $$
-v_{i,hover} = \sqrt{\frac{m \cdot g}{2 \cdot \rho \cdot A}}
+T_{req} = m \cdot (g + a_v)
+$$  
+
+* The induced velocity in hover, from momentum theory, is:  
+
+$$
+v_{i,hover} = \sqrt{\frac{T_{req}}{2 \cdot \rho \cdot A}}
 $$  
 
 where:  
@@ -1864,17 +1883,17 @@ where:
   * $\rho$ = air density (*environ.air_density_sea_lvl_kg_p_m3*)  
   * $A$ = total rotor disk area (*propulsion.disk_area_m2*)  
 
-The induced hover power is then:  
+**Hover Power and Average Shaft Power (kW)**  
+* Induced hover power (in watts) is calculated as:  
 
 $$
-P_{hover} = m \cdot g \cdot v_{i,hover}
+P_{hover} = T_{req} \cdot v_{i,hover}
 $$  
 
-**Average Shaft Power (kW)**  
-* The total shaft power (hover and vertical components) is:  
+* The corresponding average shaft power is then:  
 
 $$
-P_{shaft,avg} = \frac{P_{hover} + (m \cdot a_v) \cdot v_{avg,v}}{\eta_{rotor} \cdot W_{KW}}
+P_{shaft,avg} = \frac{P_{hover}}{\eta_{rotor} \cdot W_{KW}}
 $$  
 
 where $W_{KW}$ is the unit conversion factor to kW, and $\eta_{rotor}$ = rotor efficiency (*propulsion.rotor_effic*).  
@@ -1889,20 +1908,18 @@ def _calc_reserve_hover_descend_avg_shaft_power_kw(self):
       d_v_m = self.mission.reserve_hover_descend_avg_v_m_p_s*self.mission.reserve_hover_descend_s
       a_v_m_p_s2 = (vf_v_m_p_s**2.0 - v0_v_m_p_s**2.0) / (2.0*d_v_m)
 
-      # additional power due to acceleration
-      force_v_n =  (self.max_takeoff_mass_kg*a_v_m_p_s2)
+      # required thrust (Newton's 2nd law, upward positive)
+      T_required_N = max(0.0, self.max_takeoff_mass_kg * (self.environ.g_m_p_s2 + a_v_m_p_s2))
 
-      # induced velocity in hover (prop thrust momentum theory)
-      v_i_hover = math.sqrt((self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
-                            (2.0*self.environ.air_density_sea_lvl_kg_p_m3*self.propulsion.disk_area_m2))
+      # induced velocity in hover (momentum theory)
+      v_i_hover = math.sqrt(T_required_N / \
+                            (2.0*self.environ.air_density_sea_lvl_kg_p_m3 * self.propulsion.disk_area_m2))
 
-      # induced hover power
-      P_hover_W = (self.max_takeoff_mass_kg*self.environ.g_m_p_s2)*v_i_hover
+      # induced power from actual thrust
+      P_hover_W = T_required_N * v_i_hover
 
-      # total shaft power (hover & vertical component)
-      return \
-        (P_hover_W + force_v_n * self.mission.reserve_hover_descend_avg_v_m_p_s) / \
-          (self.propulsion.rotor_effic * W_P_KW)
+      # total shaft power (apply rotor efficiency once)
+      return P_hover_W / (self.propulsion.rotor_effic * W_P_KW)
   else:
       return None
 ```
