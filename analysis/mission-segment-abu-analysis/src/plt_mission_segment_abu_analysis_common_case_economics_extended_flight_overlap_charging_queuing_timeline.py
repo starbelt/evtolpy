@@ -186,11 +186,31 @@ for (n_abu_pool, E_abu) in sorted(groups.keys(), key=lambda k: (k[0], k[1])):
   # build list of flight start (depart) times for markers
   flight_markers = []
   for e in aircraft_events:
-      if e.get("event", "") == "aircraft_depart":
-          t_dep = float(e.get("t_hr", 0.0) or 0.0)
-          idx   = e.get("flight_index", None)
-          if idx is not None:
-              flight_markers.append((t_dep, idx))
+    if e.get("event", "") == "aircraft_depart":
+      t_dep = float(e.get("t_hr", 0.0) or 0.0)
+      idx   = e.get("flight_index", None)
+      if idx is not None:
+        flight_markers.append((t_dep, idx))
+
+  # choose only first, middle, and last flights for labeling
+  n_flights = len(flight_markers)
+
+  if n_flights == 0:
+    labeled_markers = []
+  elif n_flights == 1:
+    labeled_markers = [flight_markers[0]]
+  elif n_flights == 2:
+    labeled_markers = [flight_markers[0], flight_markers[-1]]
+  else:
+    mid_idx = n_flights // 2
+    labeled_markers = [
+      flight_markers[0],
+      flight_markers[mid_idx],
+      flight_markers[-1],
+    ]
+
+  # ensure sorted
+  labeled_markers = sorted(labeled_markers, key=lambda x: x[0])
 
   abu_by_index = {}
   for e in abu_events:
@@ -256,16 +276,17 @@ for (n_abu_pool, E_abu) in sorted(groups.keys(), key=lambda k: (k[0], k[1])):
 
   # add vertical dashed lines + flight number labels
   for (t_dep, fidx) in flight_markers:
-      # vertical dashed line spanning both panels
-      ax1.axvline(t_dep, color='gray', linestyle='--', linewidth=0.8, alpha=0.7)
-      ax2.axvline(t_dep, color='gray', linestyle='--', linewidth=0.8, alpha=0.7)
+    # vertical dashed line spanning both panels
+    ax1.axvline(t_dep, color='gray', linestyle='--', linewidth=0.8, alpha=0.7)
+    ax2.axvline(t_dep, color='gray', linestyle='--', linewidth=0.8, alpha=0.7)
 
-      # flight number label positioned above the aircraft plot
+    # flight number label above aircraft plot
+    for (t_dep, fidx) in labeled_markers:
       ax1.text(
-          t_dep, 1.05,  # slightly above the top
-          f"F{fidx}",   # compact label: F1, F2, F3...
-          ha='center', va='bottom',
-          fontsize=8, rotation=0, color='black'
+        t_dep, 1.05,
+        f"F{fidx}",
+        ha='center', va='bottom',
+        fontsize=8, color='black'
       )
 
   plt.tight_layout()
@@ -277,8 +298,7 @@ for (n_abu_pool, E_abu) in sorted(groups.keys(), key=lambda k: (k[0], k[1])):
     E_abu_str = f"{E_abu:.1f}".replace('.', 'p')
 
   out_file = full_out + (
-    "mission-segment-abu-analysis-common-case-economics-extended-flight-"
-    f"overlap-charging-queuing-timeline-nABU{n_abu_pool}-EABU{E_abu_str}.pdf"
+    f"nABU{n_abu_pool}-EABU{E_abu_str}.pdf"
   )
 
   fig.savefig(out_file, format="pdf")

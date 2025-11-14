@@ -3551,12 +3551,12 @@ class Aircraft:
             ready_indices.append(j)
 
         if len(ready_indices) > 0:
-          # at least one ABU is already ready → pick the lowest index; no additional ABU wait
+          # at least one ABU is already ready; then pick the lowest index; no additional ABU wait
           j_min = min(ready_indices)
           t_abu_min_hr = abu_available_times_hr[j_min]
           t_depart_hr = t_aircraft_earliest_depart_hr
         else:
-          # no ABU ready yet → aircraft must wait for earliest ABU to become available
+          # no ABU ready yet; then aircraft must wait for earliest ABU to become available
           j_min = 0
           t_abu_min_hr = abu_available_times_hr[0]
           for j in range(1, len(abu_available_times_hr)):
@@ -3679,10 +3679,8 @@ class Aircraft:
         "t_slack_hr": t_slack_hr_local,
         "t_wait_abu_day_hr": t_wait_abu_day_hr,
         "abu_utilization_avg": abu_utilization_avg,
-
-        # new timeline outputs
-        "aircraft_timeline": aircraft_timeline,
-        "abu_timelines": abu_timelines,
+        "aircraft_timeline": aircraft_timeline, #timeline outputs
+        "abu_timelines": abu_timelines, #timeline outputs
       }
 
     # precompute post-cruise segment horizontal distances (aircraft mission geometry)
@@ -3867,7 +3865,6 @@ class Aircraft:
       })
 
     return results
-
 
   # # ABU Evaluator 4.4.1: Common Case Economics (Combined: Assisted Takeoff + Extended Flight)
   # # estimates daily utilization (flights/day, flight hours/day)
@@ -4192,46 +4189,429 @@ class Aircraft:
   #   self.max_takeoff_mass_kg = orig_mtow
   #   return results
 
-  # ABU Evaluator 4.4.2: Common Case Economics (Combined: Assisted Takeoff + Extended Flight, Overlap Charging)
-  # estimates daily utilization (flights/day, flight hours/day)
-  # when ABUs are used BOTH to assist takeoff and to power cruise,
-  # and each ABU type can begin recharging after detachment (in-flight overlap charging).
-  # both the eVTOL main battery and all ABU batteries recharge in parallel on the ground.
+  # # ABU Evaluator 4.4.2: Common Case Economics (Combined: Assisted Takeoff + Extended Flight, Overlap Charging)
+  # # estimates daily utilization (flights/day, flight hours/day)
+  # # when ABUs are used BOTH to assist takeoff and to power cruise,
+  # # and each ABU type can begin recharging after detachment (in-flight overlap charging).
+  # # both the eVTOL main battery and all ABU batteries recharge in parallel on the ground.
+  # #
+  # # Inputs:
+  # #   candidates                   : list of ABU assisted-takeoff detach cases 
+  # #   E_mission_kwh_per_abu_list   : list of ABU mission energy values [kWh per ABU]
+  # #   abu_spec_takeoff             : ABU spec for assisted takeoff
+  # #   abu_spec_cruise              : ABU spec for extended flight
+  # #   P_charger_ac_kw              : charger AC power [kW]
+  # #   eta_charger_dc               : charger AC->DC efficiency (0–1)
+  # #   c_rate_max                   : max allowed charge C-rate (e.g., 1.0)
+  # #   v_pack_nom_v_main            : nominal voltage of eVTOL main pack [V]
+  # #   v_pack_nom_v_abu             : nominal voltage of ABU pack [V]
+  # #   i_term_c                     : CV termination current ratio (e.g., 0.05C)
+  # #   soc_target                   : target SOC after charge (default 1.0)
+  # #   soc_cc_end                   : SOC where CC ends (default 0.80)
+  # #   t_ground_ops_hr              : turnaround ops [hr]
+  # #   t_takeoff_abu_return_hr      : ABU (takeoff) return-to-base delay [hr]
+  # #   t_cruise_abu_return_hr       : ABU (cruise) return-to-base delay [hr]
+  # #   mission_time_s               : optional mission duration [s]; if None, sum main mission segments
+  # def _evaluate_common_case_abu_combined_overlap_charging(self,
+  #                                                         candidates,
+  #                                                         E_mission_kwh_per_abu_list,
+  #                                                         abu_spec_takeoff=None,
+  #                                                         abu_spec_cruise=None,
+  #                                                         P_charger_ac_kw=115.0,
+  #                                                         eta_charger_dc=0.95,
+  #                                                         c_rate_max=1.0,
+  #                                                         v_pack_nom_v_main=800.0,
+  #                                                         v_pack_nom_v_abu=400.0,
+  #                                                         i_term_c=0.05,
+  #                                                         soc_target=1.0,
+  #                                                         soc_cc_end=0.80,
+  #                                                         t_ground_ops_hr=0.2833,
+  #                                                         t_takeoff_abu_return_hr=0.025,
+  #                                                         t_cruise_abu_return_hr=0.025,
+  #                                                         mission_time_s=None):
+
+  #   if self.mission is None or self.propulsion is None or self.environ is None or self.power is None:
+  #     return None
+
+  #   results = []
+  #   orig_mtow = self.max_takeoff_mass_kg
+
+  #   # default ABU specifications 
+  #   if abu_spec_takeoff is None:
+  #     abu_spec_takeoff = {
+  #       "n_abus": 1,
+  #       "E_mission_kwh_per_abu": 15.0,
+  #       "E_ops_kwh_per_abu": 6.0,
+  #       "m_struct_kg_per_abu": 50.0,
+  #       "m_integration_kg_per_abu": 10.0,
+  #     }
+
+  #   if abu_spec_cruise is None:
+  #     abu_spec_cruise = {
+  #       "n_abus": 1,
+  #       "E_ops_kwh_per_abu": 12.0,
+  #       "struct_frac": 0.20,
+  #       "integration_frac": 0.05,
+  #     }
+
+  #   # assisted takeoff outcomes
+  #   takeoff_out = self.evaluate_abu_detach_candidates(candidates, abu_spec=abu_spec_takeoff)
+  #   if takeoff_out is None or len(takeoff_out) == 0:
+  #     return None
+
+  #   # compute full main-mission flight time
+  #   if mission_time_s is None:
+  #     seg_time_names = [
+  #       "depart_taxi_s","hover_climb_s","trans_climb_s","depart_proc_s","accel_climb_s",
+  #       "cruise_s","decel_descend_s","arrive_proc_s","trans_descend_s","hover_descend_s","arrive_taxi_s",
+  #     ]
+  #     mission_time_s = 0.0
+  #     if getattr(self, "mission", None) is not None:
+  #       for nm in seg_time_names:
+  #         mission_time_s += float(getattr(self.mission, nm, 0.0) or 0.0)
+  #   t_flight_hr = (mission_time_s or 0.0) / 3600.0
+
+  #   # helper: rotor+hub mass per ABU using NDARC-based function
+  #   def _calc_rotor_hub_mass_for_n_abus(n_abus):
+  #     orig_getter = type(self.propulsion).lift_rotor_count.fget
+  #     try:
+  #       type(self.propulsion).lift_rotor_count = property(lambda _self: n_abus)
+  #       return self._calc_lift_rotor_hub_mass_kg()
+  #     finally:
+  #       type(self.propulsion).lift_rotor_count = property(orig_getter)
+
+  #   # battery parameters (for ABU mass inference)
+  #   spec_energy_Wh_p_kg = self.power.batt_spec_energy_w_h_p_kg
+  #   batt_int_factor = self.power.batt_int_factor
+  #   batt_accessible_frac = 1.0 - self.power.batt_inaccessible_energy_frac
+
+  #   # main pack nominal capacity (baseline mission)
+  #   E_pack_kwh_main_nameplate = self._calc_total_mission_energy_kw_hr()
+  #   if E_pack_kwh_main_nameplate is None:
+  #     return None
+
+  #   # reserve mission energy
+  #   E_reserve_kwh = float(self._calc_total_reserve_mission_energy_kw_hr() or 0.0)
+
+  #   # mission time after cruise (for overlap computation)
+  #   seg_after_cruise_mission_time_names = [
+  #     "decel_descend_s","arrive_proc_s","trans_descend_s","hover_descend_s","arrive_taxi_s",
+  #   ]
+  #   after_cruise_mission_time_s = 0.0
+  #   if getattr(self, "mission", None) is not None:
+  #     for nm in seg_after_cruise_mission_time_names:
+  #       after_cruise_mission_time_s += float(getattr(self.mission, nm, 0.0) or 0.0)
+
+  #   # iterate combined scenarios
+  #   for cand in takeoff_out:
+  #     cand_name = cand.get("name", "unknown")
+
+  #     # assisted-takeoff
+  #     E_aircraft_after_takeoff_kwh = float(cand.get("aircraft_total_kwh_after", 0.0))
+  #     MTOW_detached = float(cand.get("MTOW_detached_kg", orig_mtow))
+  #     E_abu_used_takeoff_kwh = float(cand.get("E_abu_used_kwh", 0.0))
+
+  #     # takeoff ABU properties
+  #     n_abus_takeoff = int(abu_spec_takeoff.get("n_abus", 1))
+  #     E_ops_takeoff_per_abu_kwh = float(abu_spec_takeoff.get("E_ops_kwh_per_abu", 0.5))
+  #     E_pack_takeoff_abu_per_abu_kwh = float(abu_spec_takeoff.get("E_mission_kwh_per_abu", 0.0)) + E_ops_takeoff_per_abu_kwh
+  #     E_used_mission_takeoff_per_abu_kwh = E_abu_used_takeoff_kwh / max(n_abus_takeoff, 1)
+  #     dod_abu_takeoff = (E_used_mission_takeoff_per_abu_kwh + E_ops_takeoff_per_abu_kwh) / max(E_pack_takeoff_abu_per_abu_kwh, 1e-9)
+  #     dod_abu_takeoff = max(0.0, min(1.0, dod_abu_takeoff))
+  #     soc_start_abu_takeoff = max(0.0, soc_target - dod_abu_takeoff)
+
+  #     # sweep cruise ABU energies (recomputed at post-detach MTOW)
+  #     for E_abu_mission_cruise_per_abu_kwh in E_mission_kwh_per_abu_list:
+  #       n_abus_cruise = int(abu_spec_cruise.get("n_abus", 1))
+  #       E_ops_cruise_per_abu_kwh = float(abu_spec_cruise.get("E_ops_kwh_per_abu", 1.0))
+  #       struct_frac = float(abu_spec_cruise.get("struct_frac", 0.20))
+  #       integ_frac  = float(abu_spec_cruise.get("integration_frac", 0.05))
+  #       E_pack_cruise_abu_per_abu_kwh = float(E_abu_mission_cruise_per_abu_kwh) + E_ops_cruise_per_abu_kwh
+
+  #       # infer ABU cruise mass
+  #       m_abu_batt_per_abu_kg = (E_pack_cruise_abu_per_abu_kwh * 1000.0) / max(
+  #         spec_energy_Wh_p_kg * batt_accessible_frac * batt_int_factor, 1e-9
+  #       )
+  #       m_struct_per_abu_kg = struct_frac * m_abu_batt_per_abu_kg
+  #       m_integ_per_abu_kg  = integ_frac * m_abu_batt_per_abu_kg
+  #       m_rotor_per_abu_kg  = _calc_rotor_hub_mass_for_n_abus(n_abus_cruise) / max(n_abus_cruise, 1)
+  #       m_abu_total_all_kg  = n_abus_cruise * (
+  #         m_abu_batt_per_abu_kg + m_struct_per_abu_kg + m_integ_per_abu_kg + m_rotor_per_abu_kg
+  #       )
+
+  #       # recompute cruise powers
+  #       prev_mtow = self.max_takeoff_mass_kg
+  #       try:
+  #         # baseline cruise
+  #         self.max_takeoff_mass_kg = MTOW_detached
+  #         baseline_cruise_power_kw = float(self._calc_cruise_avg_electric_power_kw() or 0.0)
+  #         baseline_cruise_energy_kwh = float(self._calc_cruise_energy_kw_hr() or 0.0)
+
+  #         # attached cruise with ABUs
+  #         self.max_takeoff_mass_kg = MTOW_detached + m_abu_total_all_kg
+  #         P_cruise_attach_kw = float(self._calc_cruise_avg_electric_power_kw() or 0.0)
+  #       finally:
+  #         self.max_takeoff_mass_kg = prev_mtow
+
+  #       if P_cruise_attach_kw <= 0.0 or baseline_cruise_power_kw <= 0.0:
+  #         continue
+
+  #       # cruise ABU depletion
+  #       E_abu_total_cruise_kwh = float(E_abu_mission_cruise_per_abu_kwh) * n_abus_cruise
+  #       t_attached_until_depletion_s = (E_abu_total_cruise_kwh / P_cruise_attach_kw) * 3600.0
+  #       t_baseline_cruise_s = (baseline_cruise_energy_kwh / baseline_cruise_power_kw) * 3600.0
+  #       t_attached_effective_s = min(t_attached_until_depletion_s, t_baseline_cruise_s)
+
+  #       E_cruise_attach_kwh = P_cruise_attach_kw * (t_attached_effective_s / 3600.0)
+  #       E_abu_used_cruise_total_kwh = min(E_abu_total_cruise_kwh, E_cruise_attach_kwh)
+  #       E_saved_kwh_cruise = min(
+  #         baseline_cruise_power_kw * (t_attached_effective_s / 3600.0),
+  #         baseline_cruise_energy_kwh
+  #       )
+
+  #       # main pack recharge demand
+  #       E_pack_kwh_main = E_aircraft_after_takeoff_kwh
+  #       E_mission_kwh_main = max(0.0, E_pack_kwh_main - E_saved_kwh_cruise - E_reserve_kwh)
+  #       dod_main = E_mission_kwh_main / max(E_pack_kwh_main, 1e-9)
+  #       dod_main = max(0.0, min(1.0, dod_main))
+  #       soc_start_main = max(0.0, soc_target - dod_main)
+
+  #       # cruise ABU SoC
+  #       E_used_mission_cruise_per_abu_kwh = E_abu_used_cruise_total_kwh / max(n_abus_cruise, 1)
+  #       dod_abu_cruise = (E_used_mission_cruise_per_abu_kwh + E_ops_cruise_per_abu_kwh) / max(
+  #         E_pack_cruise_abu_per_abu_kwh, 1e-9
+  #       )
+  #       dod_abu_cruise = max(0.0, min(1.0, dod_abu_cruise))
+  #       soc_start_abu_cruise = max(0.0, soc_target - dod_abu_cruise)
+
+  #       # overlap charging windows
+  #       if t_attached_effective_s <= self.mission.cruise_s:
+  #         t_remaining_s = self.mission.cruise_s - t_attached_effective_s
+  #         t_overlap_hr_cruise_abu = (t_remaining_s + after_cruise_mission_time_s) / 3600.0
+  #       else:
+  #         t_overlap_hr_cruise_abu = after_cruise_mission_time_s / 3600.0
+
+  #       t_overlap_hr_takeoff_abu = max(0.0, (after_cruise_mission_time_s + self.mission.cruise_s)/3600)
+
+  #       # charging times (parallel charging assumed)
+  #       chg_main = self._estimate_cccv_charge_time_hr(
+  #         E_pack_kwh=E_pack_kwh_main,
+  #         P_charger_ac_kw=P_charger_ac_kw,
+  #         eta_charger_dc=eta_charger_dc,
+  #         c_rate_max=c_rate_max,
+  #         v_pack_nom_v=v_pack_nom_v_main,
+  #         i_term_c=i_term_c,
+  #         soc_start=soc_start_main,
+  #         soc_target=soc_target,
+  #         soc_cc_end=soc_cc_end
+  #       )
+
+  #       chg_takeoff_abu = self._estimate_cccv_charge_time_hr(
+  #         E_pack_kwh=E_pack_takeoff_abu_per_abu_kwh,
+  #         P_charger_ac_kw=P_charger_ac_kw,
+  #         eta_charger_dc=eta_charger_dc,
+  #         c_rate_max=c_rate_max,
+  #         v_pack_nom_v=v_pack_nom_v_abu,
+  #         i_term_c=i_term_c,
+  #         soc_start=soc_start_abu_takeoff,
+  #         soc_target=soc_target,
+  #         soc_cc_end=soc_cc_end
+  #       )
+
+  #       chg_cruise_abu = self._estimate_cccv_charge_time_hr(
+  #         E_pack_kwh=E_pack_cruise_abu_per_abu_kwh,
+  #         P_charger_ac_kw=P_charger_ac_kw,
+  #         eta_charger_dc=eta_charger_dc,
+  #         c_rate_max=c_rate_max,
+  #         v_pack_nom_v=v_pack_nom_v_abu,
+  #         i_term_c=i_term_c,
+  #         soc_start=soc_start_abu_cruise,
+  #         soc_target=soc_target,
+  #         soc_cc_end=soc_cc_end
+  #       )
+
+  #       if chg_main is None or chg_takeoff_abu is None or chg_cruise_abu is None:
+  #         continue
+
+  #       t_charge_hr_main = float(chg_main.get("t_charge_hr", 0.0))
+  #       t_charge_hr_takeoff_abu_raw = float(chg_takeoff_abu.get("t_charge_hr", 0.0))
+  #       t_charge_hr_cruise_abu_raw = float(chg_cruise_abu.get("t_charge_hr", 0.0))
+
+  #       # effective net ground charging times
+  #       t_charge_hr_takeoff_abu_net = max(
+  #         0.0, (t_charge_hr_takeoff_abu_raw + t_takeoff_abu_return_hr) - t_overlap_hr_takeoff_abu
+  #       )
+  #       t_charge_hr_cruise_abu_net = max(
+  #         0.0, (t_charge_hr_cruise_abu_raw + t_cruise_abu_return_hr) - t_overlap_hr_cruise_abu
+  #       )
+
+  #       # parallel total charging time
+  #       t_charge_hr_total = max(t_charge_hr_main, t_charge_hr_takeoff_abu_net, t_charge_hr_cruise_abu_net)
+
+  #       # cycle and daily throughput
+  #       t_cycle_hr = t_flight_hr + t_charge_hr_total + t_ground_ops_hr
+  #       if t_cycle_hr <= 0.0:
+  #         continue
+
+  #       n_feasible = int(24.0 // t_cycle_hr)
+  #       t_used_hr = n_feasible * t_cycle_hr
+  #       t_slack_hr = max(0.0, 24.0 - t_used_hr)
+  #       t_flight_day_hr = n_feasible * t_flight_hr
+  #       t_downtime_day_hr = n_feasible * (t_charge_hr_total + t_ground_ops_hr) + t_slack_hr
+
+  #       # store combined result
+  #       results.append({
+  #         "candidate_name": cand_name,
+
+  #         # cruise ABU sweep value
+  #         "E_abu_mission_cruise_per_abu_kwh": float(E_abu_mission_cruise_per_abu_kwh),
+
+  #         # main pack
+  #         "E_pack_kwh_main": E_pack_kwh_main,
+  #         "E_mission_kwh_main": E_mission_kwh_main,
+  #         "E_reserve_kwh": E_reserve_kwh,
+  #         "dod_main": dod_main,
+  #         "soc_start_main": soc_start_main,
+  #         "soc_target": soc_target,
+  #         "soc_cc_end": soc_cc_end,
+
+  #         # takeoff ABUs
+  #         "n_abus_takeoff": n_abus_takeoff,
+  #         "E_abu_used_takeoff_total_kwh": E_abu_used_takeoff_kwh,
+  #         "E_ops_takeoff_per_abu_kwh": E_ops_takeoff_per_abu_kwh,
+  #         "E_pack_takeoff_abu_per_abu_kwh": E_pack_takeoff_abu_per_abu_kwh,
+  #         "soc_start_abu_takeoff": soc_start_abu_takeoff,
+  #         "dod_abu_takeoff": dod_abu_takeoff,
+
+  #         # cruise ABUs
+  #         "n_abus_cruise": n_abus_cruise,
+  #         "E_abu_used_cruise_total_kwh": E_abu_used_cruise_total_kwh,
+  #         "E_saved_kwh_cruise": E_saved_kwh_cruise,
+  #         "E_ops_cruise_per_abu_kwh": E_ops_cruise_per_abu_kwh,
+  #         "E_pack_cruise_abu_per_abu_kwh": E_pack_cruise_abu_per_abu_kwh,
+  #         "soc_start_abu_cruise": soc_start_abu_cruise,
+  #         "dod_abu_cruise": dod_abu_cruise,
+
+  #         # timing & overlap
+  #         "t_flight_hr": t_flight_hr,
+  #         "t_overlap_hr_takeoff_abu": t_overlap_hr_takeoff_abu,
+  #         "t_overlap_hr_cruise_abu": t_overlap_hr_cruise_abu,
+  #         "t_charge_hr_main": t_charge_hr_main,
+  #         "t_charge_hr_takeoff_abu_raw": t_charge_hr_takeoff_abu_raw,
+  #         "t_charge_hr_cruise_abu_raw": t_charge_hr_cruise_abu_raw,
+  #         "t_charge_hr_takeoff_abu_net": t_charge_hr_takeoff_abu_net,
+  #         "t_charge_hr_cruise_abu_net": t_charge_hr_cruise_abu_net,
+  #         "t_charge_hr_total": t_charge_hr_total,
+  #         "t_ground_ops_hr": t_ground_ops_hr,
+  #         "t_takeoff_abu_return_hr": t_takeoff_abu_return_hr,
+  #         "t_cruise_abu_return_hr": t_cruise_abu_return_hr,
+  #         "t_cycle_hr": t_cycle_hr,
+  #         "n_feasible_flights": n_feasible,
+  #         "t_flight_day_hr": t_flight_day_hr,
+  #         "t_downtime_day_hr": t_downtime_day_hr,
+  #         "t_slack_hr": t_slack_hr,
+
+  #         # charger / power details
+  #         "charger_ac_kw": P_charger_ac_kw,
+  #         "eta_charger_dc": eta_charger_dc,
+  #         "c_rate_max": c_rate_max,
+  #         "v_pack_nom_v_main": v_pack_nom_v_main,
+  #         "v_pack_nom_v_abu": v_pack_nom_v_abu,
+  #         "i_term_c": i_term_c,
+
+  #         "P_dc_kw_main": chg_main.get("P_dc_kw", 0.0),
+  #         "P_cc_cap_kw_main": chg_main.get("P_cc_cap_kw", 0.0),
+  #         "P_cc_kw_main": chg_main.get("P_cc_kw", 0.0),
+  #         "I_cc_A_main": chg_main.get("I_cc_A", 0.0),
+  #         "I_term_A_main": chg_main.get("I_term_A", 0.0),
+  #         "charger_limit_indicator_flag_main": chg_main.get("charger_limit_indicator_flag"),
+
+  #         "P_dc_kw_takeoff_abu": chg_takeoff_abu.get("P_dc_kw", 0.0),
+  #         "P_cc_cap_kw_takeoff_abu": chg_takeoff_abu.get("P_cc_cap_kw", 0.0),
+  #         "P_cc_kw_takeoff_abu": chg_takeoff_abu.get("P_cc_kw", 0.0),
+  #         "I_cc_A_takeoff_abu": chg_takeoff_abu.get("I_cc_A", 0.0),
+  #         "I_term_A_takeoff_abu": chg_takeoff_abu.get("I_term_A", 0.0),
+  #         "charger_limit_indicator_flag_takeoff_abu": chg_takeoff_abu.get("charger_limit_indicator_flag"),
+
+  #         "P_dc_kw_cruise_abu": chg_cruise_abu.get("P_dc_kw", 0.0),
+  #         "P_cc_cap_kw_cruise_abu": chg_cruise_abu.get("P_cc_cap_kw", 0.0),
+  #         "P_cc_kw_cruise_abu": chg_cruise_abu.get("P_cc_kw", 0.0),
+  #         "I_cc_A_cruise_abu": chg_cruise_abu.get("I_cc_A", 0.0),
+  #         "I_term_A_cruise_abu": chg_cruise_abu.get("I_term_A", 0.0),
+  #         "charger_limit_indicator_flag_cruise_abu": chg_cruise_abu.get("charger_limit_indicator_flag"),
+  #       })
+
+  #   # restore MTOW
+  #   self.max_takeoff_mass_kg = orig_mtow
+  #   return results
+
+  # ABU Evaluator 4.4.3: Common Case Economics (Combined: Assisted Takeoff + Extended Flight ABU, Overlap Charging, Daily Utilization with Queuing)
+  #
+  # estimates daily utilization (flights/day, flight hours/day) for a single eVTOL when:
+  #   Takeoff ABUs assist the pre-cruise segments and detach, then return to the TAKEOFF landing zone.
+  #   Cruise ABUs power the cruise segment and detach on depletion or end-of-cruise, then return to the LANDING zone.
+  #
+  # A finite pool of ABUs is modeled for BOTH ABU types:
+  #   n_abu_pool_takeoff  : number of takeoff ABUs available per landing zone (for assisted takeoff)
+  #   n_abu_pool_cruise   : number of cruise ABUs available per landing zone (for extended cruise)
+  #
+  # For simplicity, we assume each mission is a closed loop starting/ending at an equivalent "landing zone",
+  # so per-flight we always require:
+  #   one takeoff ABU from the local takeoff pool
+  #   one cruise ABU from the local cruise pool
+  #
+  # The eVTOL can only depart when:
+  #   (a) its main battery is recharged and ground ops are complete, and
+  #   (b) at least one takeoff ABU AND one cruise ABU are fully charged and available.
+  #
+  # If not enough ABUs are ready, departure is delayed (ABU bottleneck).
   #
   # Inputs:
-  #   candidates                   : list of ABU assisted-takeoff detach cases 
-  #   E_mission_kwh_per_abu_list   : list of ABU mission energy values [kWh per ABU]
-  #   abu_spec_takeoff             : ABU spec for assisted takeoff
-  #   abu_spec_cruise              : ABU spec for extended flight
-  #   P_charger_ac_kw              : charger AC power [kW]
+  #   candidates                   : list of ABU assisted-takeoff detach cases (same as Evaluator 1 interface)
+  #   E_mission_kwh_per_abu_list   : list of cruise-ABU mission energy values [kWh per ABU]
+  #   abu_spec_takeoff             : ABU spec used for assisted takeoff (dict)
+  #   abu_spec_cruise              : ABU spec used for extended flight (dict)
+  #   n_abu_pool_takeoff           : size of takeoff-ABU pool at each LZ
+  #   n_abu_pool_cruise            : size of cruise-ABU pool at each LZ
+  #   P_charger_ac_kw              : charger AC power [kW] (assumed same for main + ABUs)
   #   eta_charger_dc               : charger AC->DC efficiency (0–1)
   #   c_rate_max                   : max allowed charge C-rate (e.g., 1.0)
   #   v_pack_nom_v_main            : nominal voltage of eVTOL main pack [V]
-  #   v_pack_nom_v_abu             : nominal voltage of ABU pack [V]
+  #   v_pack_nom_v_abu             : nominal voltage of ABU packs [V] (takeoff & cruise)
   #   i_term_c                     : CV termination current ratio (e.g., 0.05C)
   #   soc_target                   : target SOC after charge (default 1.0)
   #   soc_cc_end                   : SOC where CC ends (default 0.80)
-  #   t_ground_ops_hr              : turnaround ops [hr]
-  #   t_takeoff_abu_return_hr      : ABU (takeoff) return-to-base delay [hr]
-  #   t_cruise_abu_return_hr       : ABU (cruise) return-to-base delay [hr]
-  #   mission_time_s               : optional mission duration [s]; if None, sum main mission segments
-  def _evaluate_common_case_abu_combined_overlap_charging(self,
-                                                          candidates,
-                                                          E_mission_kwh_per_abu_list,
-                                                          abu_spec_takeoff=None,
-                                                          abu_spec_cruise=None,
-                                                          P_charger_ac_kw=115.0,
-                                                          eta_charger_dc=0.95,
-                                                          c_rate_max=1.0,
-                                                          v_pack_nom_v_main=800.0,
-                                                          v_pack_nom_v_abu=400.0,
-                                                          i_term_c=0.05,
-                                                          soc_target=1.0,
-                                                          soc_cc_end=0.80,
-                                                          t_ground_ops_hr=0.2833,
-                                                          t_takeoff_abu_return_hr=0.025,
-                                                          t_cruise_abu_return_hr=0.025,
-                                                          mission_time_s=None):
+  #   t_ground_ops_hr              : ground turnaround ops [hr]
+  #   V_takeoff_abu_horizontal_m_p_s : takeoff-ABU horizontal speed on return [m/s]
+  #   V_takeoff_abu_vertical_m_p_s   : takeoff-ABU vertical descent speed on return [m/s]
+  #   h_detach_takeoff_ft            : takeoff-ABU detach altitude [ft]
+  #   V_cruise_abu_horizontal_m_p_s  : cruise-ABU horizontal speed on return [m/s]
+  #   V_cruise_abu_vertical_m_p_s    : cruise-ABU vertical descent speed on return [m/s]
+  #   h_detach_cruise_ft             : cruise-ABU detach altitude [ft]
+  #   mission_time_s                 : optional mission duration [s]; if None, sum main-mission segments
+  def _evaluate_common_case_abu_combined_flight_overlap_charging_queuing(self,
+                                                                         candidates,
+                                                                         E_mission_kwh_per_abu_list,
+                                                                         abu_spec_takeoff=None,
+                                                                         abu_spec_cruise=None,
+                                                                         n_abu_pool_takeoff=3,
+                                                                         n_abu_pool_cruise=3,
+                                                                         P_charger_ac_kw=115.0,
+                                                                         eta_charger_dc=0.95,
+                                                                         c_rate_max=1.0,
+                                                                         v_pack_nom_v_main=800.0,
+                                                                         v_pack_nom_v_abu=400.0,
+                                                                         i_term_c=0.05,
+                                                                         soc_target=1.0,
+                                                                         soc_cc_end=0.80,
+                                                                         t_ground_ops_hr=0.2833,
+                                                                         V_takeoff_abu_horizontal_m_p_s=30.0,
+                                                                         V_takeoff_abu_vertical_m_p_s=5.1,
+                                                                         h_detach_takeoff_ft=3000.0,
+                                                                         V_cruise_abu_horizontal_m_p_s=30.0,
+                                                                         V_cruise_abu_vertical_m_p_s=5.1,
+                                                                         h_detach_cruise_ft=3000.0,
+                                                                         mission_time_s=None):
 
     if self.mission is None or self.propulsion is None or self.environ is None or self.power is None:
       return None
@@ -4257,12 +4637,12 @@ class Aircraft:
         "integration_frac": 0.05,
       }
 
-    # assisted takeoff outcomes
+    # assisted takeoff outcomes (Evaluator 1)
     takeoff_out = self.evaluate_abu_detach_candidates(candidates, abu_spec=abu_spec_takeoff)
     if takeoff_out is None or len(takeoff_out) == 0:
       return None
 
-    # compute full main-mission flight time
+    # compute full main-mission flight time if not provided
     if mission_time_s is None:
       seg_time_names = [
         "depart_taxi_s","hover_climb_s","trans_climb_s","depart_proc_s","accel_climb_s",
@@ -4288,7 +4668,7 @@ class Aircraft:
     batt_int_factor = self.power.batt_int_factor
     batt_accessible_frac = 1.0 - self.power.batt_inaccessible_energy_frac
 
-    # main pack nominal capacity (baseline mission)
+    # main pack nominal capacity (baseline total mission energy; nameplate)
     E_pack_kwh_main_nameplate = self._calc_total_mission_energy_kw_hr()
     if E_pack_kwh_main_nameplate is None:
       return None
@@ -4296,42 +4676,316 @@ class Aircraft:
     # reserve mission energy
     E_reserve_kwh = float(self._calc_total_reserve_mission_energy_kw_hr() or 0.0)
 
-    # mission time after cruise (for overlap computation)
-    seg_after_cruise_mission_time_names = [
-      "decel_descend_s","arrive_proc_s","trans_descend_s","hover_descend_s","arrive_taxi_s",
-    ]
-    after_cruise_mission_time_s = 0.0
-    if getattr(self, "mission", None) is not None:
-      for nm in seg_after_cruise_mission_time_names:
-        after_cruise_mission_time_s += float(getattr(self.mission, nm, 0.0) or 0.0)
+    mission = self.mission
 
-    # iterate combined scenarios
+    # pre-cruise timing and distance (used for both takeoff attach window and takeoff-ABU return distance)
+    depart_taxi_s   = float(getattr(mission, "depart_taxi_s", 0.0) or 0.0)
+    hover_climb_s   = float(getattr(mission, "hover_climb_s", 0.0) or 0.0)
+    trans_climb_s   = float(getattr(mission, "trans_climb_s", 0.0) or 0.0)
+    depart_proc_s   = float(getattr(mission, "depart_proc_s", 0.0) or 0.0)
+    accel_climb_s   = float(getattr(mission, "accel_climb_s", 0.0) or 0.0)
+
+    depart_taxi_v_h = float(getattr(mission, "depart_taxi_avg_h_m_p_s", 0.0) or 0.0)
+    trans_climb_v_h = float(getattr(mission, "trans_climb_avg_h_m_p_s", 0.0) or 0.0)
+    depart_proc_v_h = float(getattr(mission, "depart_proc_h_m_p_s", 0.0) or 0.0)
+    accel_climb_v_h = float(getattr(mission, "accel_climb_avg_h_m_p_s", 0.0) or 0.0)
+
+    # time from takeoff to start of cruise (also used as takeoff-ABU attach duration)
+    t_precruise_s = depart_taxi_s + hover_climb_s + trans_climb_s + depart_proc_s + accel_climb_s
+    t_precruise_hr = t_precruise_s / 3600.0
+
+    # horizontal distance to start of cruise (detach point for takeoff ABU)
+    d_precruise_m = \
+      depart_taxi_v_h * depart_taxi_s + \
+      trans_climb_v_h * trans_climb_s + \
+      depart_proc_v_h * depart_proc_s + \
+      accel_climb_v_h * accel_climb_s
+
+    # post-cruise segment distances (for cruise-ABU return)
+    decel_h_m_p_s = float(getattr(mission, "decel_descend_avg_h_m_p_s", 0.0) or 0.0)
+    decel_s       = float(getattr(mission, "decel_descend_s", 0.0) or 0.0)
+    arrive_proc_h = float(getattr(mission, "arrive_proc_h_m_p_s", 0.0) or 0.0)
+    arrive_proc_s = float(getattr(mission, "arrive_proc_s", 0.0) or 0.0)
+    trans_desc_h  = float(getattr(mission, "trans_descend_avg_h_m_p_s", 0.0) or 0.0)
+    trans_desc_s  = float(getattr(mission, "trans_descend_s", 0.0) or 0.0)
+    arrive_taxi_h = float(getattr(mission, "arrive_taxi_avg_h_m_p_s", 0.0) or 0.0)
+    arrive_taxi_s = float(getattr(mission, "arrive_taxi_s", 0.0) or 0.0)
+
+    d_postcruise_m = \
+      decel_h_m_p_s * decel_s + \
+      arrive_proc_h * arrive_proc_s + \
+      trans_desc_h  * trans_desc_s + \
+      arrive_taxi_h * arrive_taxi_s
+
+    cruise_v_m_p_s = float(getattr(mission, "cruise_h_m_p_s", 0.0) or 0.0)
+    cruise_s       = float(getattr(mission, "cruise_s", 0.0) or 0.0)
+
+    # helper: simulate 24 hr operations for a single eVTOL with *two* finite ABU pools
+    # (takeoff-ABU pool and cruise-ABU pool)
+    def _simulate_daily_ops_single_evtol_combined(n_abu_pool_takeoff_local,
+                                                  n_abu_pool_cruise_local,
+                                                  t_flight_hr_local,
+                                                  t_charge_hr_main_local,
+                                                  t_takeoff_attach_hr_local,
+                                                  t_return_takeoff_abu_hr_local,
+                                                  t_charge_takeoff_abu_hr_local,
+                                                  t_cruise_attach_hr_local,
+                                                  t_cruise_attach_start_hr_local,
+                                                  t_return_cruise_abu_hr_local,
+                                                  t_charge_cruise_abu_hr_local,
+                                                  t_ground_ops_hr_local):
+
+      # initialize aircraft & ABU pools
+      t_aircraft_ready_hr = 0.0
+
+      n_takeoff_pool = max(1, n_abu_pool_takeoff_local)
+      n_cruise_pool  = max(1, n_abu_pool_cruise_local)
+
+      takeoff_available_times_hr = [0.0 for _ in range(n_takeoff_pool)]
+      takeoff_busy_time_hr       = [0.0 for _ in range(n_takeoff_pool)]
+      cruise_available_times_hr  = [0.0 for _ in range(n_cruise_pool)]
+      cruise_busy_time_hr        = [0.0 for _ in range(n_cruise_pool)]
+
+      # timeline logs
+      aircraft_timeline       = []
+      takeoff_abu_timelines   = {j: [] for j in range(n_takeoff_pool)}
+      cruise_abu_timelines    = {j: [] for j in range(n_cruise_pool)}
+
+      n_flights_completed     = 0
+      t_wait_takeoff_abu_day_hr = 0.0
+      t_wait_cruise_abu_day_hr  = 0.0
+
+      # loop flights until 24 hr horizon
+      while True:
+        t_aircraft_earliest_depart_hr = t_aircraft_ready_hr
+
+        # --- takeoff ABU selection ---
+        ready_takeoff = [
+          j for j in range(n_takeoff_pool)
+          if takeoff_available_times_hr[j] <= t_aircraft_earliest_depart_hr
+        ]
+
+        if len(ready_takeoff) > 0:
+          # use lowest-index among ready ABUs
+          j_to_min = min(ready_takeoff)
+          t_to_min = takeoff_available_times_hr[j_to_min]
+        else:
+          # no ABUs ready; then pick ABU with minimum availability time
+          j_to_min = min(range(n_takeoff_pool),
+                         key=lambda j: takeoff_available_times_hr[j])
+          t_to_min = takeoff_available_times_hr[j_to_min]
+
+        # --- cruise ABU selection ---
+        ready_cruise = [
+          j for j in range(n_cruise_pool)
+          if cruise_available_times_hr[j] <= t_aircraft_earliest_depart_hr
+        ]
+
+        if len(ready_cruise) > 0:
+          j_cr_min = min(ready_cruise)
+          t_cr_min = cruise_available_times_hr[j_cr_min]
+        else:
+          j_cr_min = min(range(n_cruise_pool),
+                         key=lambda j: cruise_available_times_hr[j])
+          t_cr_min = cruise_available_times_hr[j_cr_min]
+
+        # departure time limited by aircraft readiness + ABU availability
+        t_block_abu_hr = max(t_to_min, t_cr_min)
+        t_depart_hr = max(t_aircraft_earliest_depart_hr, t_block_abu_hr)
+
+        # if departure cannot finish full mission within 24 hr, stop
+        if t_depart_hr + t_flight_hr_local > 24.0:
+          break
+
+        # attribute ABU-caused waiting (whichever ABU is the bottleneck vs aircraft readiness)
+        if t_block_abu_hr > t_aircraft_earliest_depart_hr:
+          if t_to_min >= t_cr_min:
+            t_wait_takeoff_abu_day_hr += (t_block_abu_hr - t_aircraft_earliest_depart_hr)
+          else:
+            t_wait_cruise_abu_day_hr += (t_block_abu_hr - t_aircraft_earliest_depart_hr)
+
+        flight_idx = n_flights_completed
+
+        # --- aircraft events ---
+        aircraft_timeline.append({
+          "t_hr": t_depart_hr,
+          "event": "aircraft_depart",
+          "flight_index": flight_idx
+        })
+
+        # arrival at end of mission
+        t_arrive_hr = t_depart_hr + t_flight_hr_local
+        aircraft_timeline.append({
+          "t_hr": t_arrive_hr,
+          "event": "aircraft_arrive",
+          "flight_index": flight_idx
+        })
+
+        # ground ops
+        t_after_ground_hr = t_arrive_hr + t_ground_ops_hr_local
+        aircraft_timeline.append({
+          "t_hr": t_after_ground_hr,
+          "event": "aircraft_ground_ops_done",
+          "flight_index": flight_idx
+        })
+
+        # main battery charge
+        t_after_main_charge_hr = t_after_ground_hr + t_charge_hr_main_local
+        aircraft_timeline.append({
+          "t_hr": t_after_main_charge_hr,
+          "event": "aircraft_charge_done",
+          "flight_index": flight_idx
+        })
+
+        t_aircraft_ready_hr = t_after_main_charge_hr
+
+        # --- takeoff ABU timeline ---
+        # attach from departure; detach after takeoff attach duration
+        t_takeoff_attach_start_hr = t_depart_hr
+        t_takeoff_detach_hr = t_takeoff_attach_start_hr + t_takeoff_attach_hr_local
+
+        takeoff_abu_timelines[j_to_min].append({
+          "t_hr": t_takeoff_attach_start_hr,
+          "event": "takeoff_abu_attached",
+          "flight_index": flight_idx
+        })
+        takeoff_abu_timelines[j_to_min].append({
+          "t_hr": t_takeoff_detach_hr,
+          "event": "takeoff_abu_detach",
+          "flight_index": flight_idx
+        })
+
+        # return & charge
+        t_takeoff_return_done_hr = t_takeoff_detach_hr + t_return_takeoff_abu_hr_local
+        takeoff_abu_timelines[j_to_min].append({
+          "t_hr": t_takeoff_return_done_hr,
+          "event": "takeoff_abu_return_done",
+          "flight_index": flight_idx
+        })
+
+        t_takeoff_charge_start_hr = t_takeoff_return_done_hr
+        t_takeoff_charge_done_hr = t_takeoff_charge_start_hr + t_charge_takeoff_abu_hr_local
+
+        takeoff_abu_timelines[j_to_min].append({
+          "t_hr": t_takeoff_charge_start_hr,
+          "event": "takeoff_abu_charge_start",
+          "flight_index": flight_idx
+        })
+        takeoff_abu_timelines[j_to_min].append({
+          "t_hr": t_takeoff_charge_done_hr,
+          "event": "takeoff_abu_charge_done",
+          "flight_index": flight_idx
+        })
+
+        takeoff_available_times_hr[j_to_min] = t_takeoff_charge_done_hr
+        takeoff_busy_time_hr[j_to_min] += (t_takeoff_charge_done_hr - t_depart_hr)
+
+        # --- cruise ABU timeline ---
+        # attach sometime into the mission (start of cruise)
+        t_cruise_attach_start_hr = t_depart_hr + t_cruise_attach_start_hr_local
+        t_cruise_detach_hr = t_cruise_attach_start_hr + t_cruise_attach_hr_local
+
+        cruise_abu_timelines[j_cr_min].append({
+          "t_hr": t_cruise_attach_start_hr,
+          "event": "cruise_abu_attached",
+          "flight_index": flight_idx
+        })
+        cruise_abu_timelines[j_cr_min].append({
+          "t_hr": t_cruise_detach_hr,
+          "event": "cruise_abu_detach",
+          "flight_index": flight_idx
+        })
+
+        t_cruise_return_done_hr = t_cruise_detach_hr + t_return_cruise_abu_hr_local
+        cruise_abu_timelines[j_cr_min].append({
+          "t_hr": t_cruise_return_done_hr,
+          "event": "cruise_abu_return_done",
+          "flight_index": flight_idx
+        })
+
+        t_cruise_charge_start_hr = t_cruise_return_done_hr
+        t_cruise_charge_done_hr = t_cruise_charge_start_hr + t_charge_cruise_abu_hr_local
+
+        cruise_abu_timelines[j_cr_min].append({
+          "t_hr": t_cruise_charge_start_hr,
+          "event": "cruise_abu_charge_start",
+          "flight_index": flight_idx
+        })
+        cruise_abu_timelines[j_cr_min].append({
+          "t_hr": t_cruise_charge_done_hr,
+          "event": "cruise_abu_charge_done",
+          "flight_index": flight_idx
+        })
+
+        cruise_available_times_hr[j_cr_min] = t_cruise_charge_done_hr
+        cruise_busy_time_hr[j_cr_min] += (t_cruise_charge_done_hr - t_depart_hr)
+
+        # increment completed flights
+        n_flights_completed += 1
+
+      # after simulation: compute daily stats
+      t_flight_day_hr_local = n_flights_completed * t_flight_hr_local
+      t_total_used_hr = min(24.0, t_aircraft_ready_hr)
+      t_slack_hr_local = max(0.0, 24.0 - t_total_used_hr)
+
+      total_busy_takeoff_hr = sum(takeoff_busy_time_hr)
+      total_busy_cruise_hr  = sum(cruise_busy_time_hr)
+
+      abu_utilization_avg_takeoff = total_busy_takeoff_hr / (24.0 * float(n_takeoff_pool)) if n_takeoff_pool > 0 else 0.0
+      abu_utilization_avg_cruise  = total_busy_cruise_hr / (24.0 * float(n_cruise_pool)) if n_cruise_pool > 0 else 0.0
+
+      return {
+        "n_flights_completed": n_flights_completed,
+        "t_flight_day_hr": t_flight_day_hr_local,
+        "t_slack_hr": t_slack_hr_local,
+        "t_wait_takeoff_abu_day_hr": t_wait_takeoff_abu_day_hr,
+        "t_wait_cruise_abu_day_hr": t_wait_cruise_abu_day_hr,
+        "abu_utilization_avg_takeoff": abu_utilization_avg_takeoff,
+        "abu_utilization_avg_cruise": abu_utilization_avg_cruise,
+        "aircraft_timeline": aircraft_timeline,
+        "takeoff_abu_timelines": takeoff_abu_timelines,
+        "cruise_abu_timelines": cruise_abu_timelines,
+      }
+
+    # iterate combined scenarios (for each assisted-takeoff candidate & cruise-ABU energy level)
     for cand in takeoff_out:
       cand_name = cand.get("name", "unknown")
 
-      # assisted-takeoff
+      # assisted-takeoff result: main-pack energy after offloading pre-cruise energy to ABUs
       E_aircraft_after_takeoff_kwh = float(cand.get("aircraft_total_kwh_after", 0.0))
       MTOW_detached = float(cand.get("MTOW_detached_kg", orig_mtow))
       E_abu_used_takeoff_kwh = float(cand.get("E_abu_used_kwh", 0.0))
 
       # takeoff ABU properties
       n_abus_takeoff = int(abu_spec_takeoff.get("n_abus", 1))
-      E_ops_takeoff_per_abu_kwh = float(abu_spec_takeoff.get("E_ops_kwh_per_abu", 0.5))
+      E_ops_takeoff_per_abu_kwh = float(abu_spec_takeoff.get("E_ops_kwh_per_abu", 6.0))
       E_pack_takeoff_abu_per_abu_kwh = float(abu_spec_takeoff.get("E_mission_kwh_per_abu", 0.0)) + E_ops_takeoff_per_abu_kwh
+
+      # SoC of takeoff ABUs at start of charge (used mission + ops reserve)
       E_used_mission_takeoff_per_abu_kwh = E_abu_used_takeoff_kwh / max(n_abus_takeoff, 1)
       dod_abu_takeoff = (E_used_mission_takeoff_per_abu_kwh + E_ops_takeoff_per_abu_kwh) / max(E_pack_takeoff_abu_per_abu_kwh, 1e-9)
       dod_abu_takeoff = max(0.0, min(1.0, dod_abu_takeoff))
       soc_start_abu_takeoff = max(0.0, soc_target - dod_abu_takeoff)
 
+      # pre-cruise attach duration for takeoff ABU (entire pre-cruise sequence)
+      t_takeoff_attach_hr = t_precruise_hr
+
+      # horizontal + vertical return time for takeoff ABU
+      t_horizontal_takeoff_abu_s = d_precruise_m / max(V_takeoff_abu_horizontal_m_p_s, 1e-9)
+      t_vertical_takeoff_abu_s   = max(0.0, h_detach_takeoff_ft * 0.3048) / max(V_takeoff_abu_vertical_m_p_s, 1e-9)
+      t_return_takeoff_abu_hr    = (t_horizontal_takeoff_abu_s + t_vertical_takeoff_abu_s) / 3600.0
+
       # sweep cruise ABU energies (recomputed at post-detach MTOW)
       for E_abu_mission_cruise_per_abu_kwh in E_mission_kwh_per_abu_list:
         n_abus_cruise = int(abu_spec_cruise.get("n_abus", 1))
-        E_ops_cruise_per_abu_kwh = float(abu_spec_cruise.get("E_ops_kwh_per_abu", 1.0))
+        E_ops_cruise_per_abu_kwh = float(abu_spec_cruise.get("E_ops_kwh_per_abu", 12.0))
         struct_frac = float(abu_spec_cruise.get("struct_frac", 0.20))
         integ_frac  = float(abu_spec_cruise.get("integration_frac", 0.05))
+
+        # ABU cruise pack nameplate per ABU
         E_pack_cruise_abu_per_abu_kwh = float(E_abu_mission_cruise_per_abu_kwh) + E_ops_cruise_per_abu_kwh
 
-        # infer ABU cruise mass
+        # infer ABU cruise mass (battery + structure + integration + rotor)
         m_abu_batt_per_abu_kg = (E_pack_cruise_abu_per_abu_kwh * 1000.0) / max(
           spec_energy_Wh_p_kg * batt_accessible_frac * batt_int_factor, 1e-9
         )
@@ -4342,15 +4996,15 @@ class Aircraft:
           m_abu_batt_per_abu_kg + m_struct_per_abu_kg + m_integ_per_abu_kg + m_rotor_per_abu_kg
         )
 
-        # recompute cruise powers
+        # recompute cruise powers at POST-TAKEOFF MTOW
         prev_mtow = self.max_takeoff_mass_kg
         try:
-          # baseline cruise
+          # baseline (no cruise ABUs) at post-takeoff MTOW
           self.max_takeoff_mass_kg = MTOW_detached
           baseline_cruise_power_kw = float(self._calc_cruise_avg_electric_power_kw() or 0.0)
           baseline_cruise_energy_kwh = float(self._calc_cruise_energy_kw_hr() or 0.0)
 
-          # attached cruise with ABUs
+          # attached cruise with ABUs (heavier by m_abu_total_all_kg)
           self.max_takeoff_mass_kg = MTOW_detached + m_abu_total_all_kg
           P_cruise_attach_kw = float(self._calc_cruise_avg_electric_power_kw() or 0.0)
         finally:
@@ -4359,27 +5013,30 @@ class Aircraft:
         if P_cruise_attach_kw <= 0.0 or baseline_cruise_power_kw <= 0.0:
           continue
 
-        # cruise ABU depletion
+        # cruise ABU depletion and attached duration
         E_abu_total_cruise_kwh = float(E_abu_mission_cruise_per_abu_kwh) * n_abus_cruise
         t_attached_until_depletion_s = (E_abu_total_cruise_kwh / P_cruise_attach_kw) * 3600.0
-        t_baseline_cruise_s = (baseline_cruise_energy_kwh / baseline_cruise_power_kw) * 3600.0
-        t_attached_effective_s = min(t_attached_until_depletion_s, t_baseline_cruise_s)
+        t_baseline_cruise_s          = (baseline_cruise_energy_kwh / baseline_cruise_power_kw) * 3600.0
+        t_attached_effective_s       = min(t_attached_until_depletion_s, t_baseline_cruise_s)
 
-        E_cruise_attach_kwh = P_cruise_attach_kw * (t_attached_effective_s / 3600.0)
-        E_abu_used_cruise_total_kwh = min(E_abu_total_cruise_kwh, E_cruise_attach_kwh)
+        # ABU energy actually used
+        E_cruise_attach_kwh          = P_cruise_attach_kw * (t_attached_effective_s / 3600.0)
+        E_abu_used_cruise_total_kwh  = min(E_abu_total_cruise_kwh, E_cruise_attach_kwh)
+
+        # main-battery energy saved on cruise at post-detach MTOW
         E_saved_kwh_cruise = min(
           baseline_cruise_power_kw * (t_attached_effective_s / 3600.0),
           baseline_cruise_energy_kwh
         )
 
-        # main pack recharge demand
+        # main pack energy to recharge (after takeoff + cruise ABU assistance)
         E_pack_kwh_main = E_aircraft_after_takeoff_kwh
         E_mission_kwh_main = max(0.0, E_pack_kwh_main - E_saved_kwh_cruise - E_reserve_kwh)
         dod_main = E_mission_kwh_main / max(E_pack_kwh_main, 1e-9)
         dod_main = max(0.0, min(1.0, dod_main))
         soc_start_main = max(0.0, soc_target - dod_main)
 
-        # cruise ABU SoC
+        # cruise ABU SoC at start of charge
         E_used_mission_cruise_per_abu_kwh = E_abu_used_cruise_total_kwh / max(n_abus_cruise, 1)
         dod_abu_cruise = (E_used_mission_cruise_per_abu_kwh + E_ops_cruise_per_abu_kwh) / max(
           E_pack_cruise_abu_per_abu_kwh, 1e-9
@@ -4387,16 +5044,23 @@ class Aircraft:
         dod_abu_cruise = max(0.0, min(1.0, dod_abu_cruise))
         soc_start_abu_cruise = max(0.0, soc_target - dod_abu_cruise)
 
-        # overlap charging windows
-        if t_attached_effective_s <= self.mission.cruise_s:
-          t_remaining_s = self.mission.cruise_s - t_attached_effective_s
-          t_overlap_hr_cruise_abu = (t_remaining_s + after_cruise_mission_time_s) / 3600.0
-        else:
-          t_overlap_hr_cruise_abu = after_cruise_mission_time_s / 3600.0
+        # cruise ABU attach duration (time under ABU power)
+        t_cruise_attach_hr = t_attached_effective_s / 3600.0
 
-        t_overlap_hr_takeoff_abu = max(0.0, (after_cruise_mission_time_s + self.mission.cruise_s)/3600)
+        # time from departure to cruise start (same as pre-cruise)
+        t_cruise_attach_start_hr = t_precruise_hr
 
-        # charging times (parallel charging assumed)
+        # cruise ABU return time (from detach point to LZ)
+        t_attach_s_clamped = max(0.0, min(t_attached_effective_s, cruise_s))
+        t_cruise_remaining_s = max(0.0, cruise_s - t_attach_s_clamped)
+        d_cruise_rem_m = cruise_v_m_p_s * t_cruise_remaining_s
+        d_total_horizontal_cruise_m = max(0.0, d_cruise_rem_m + d_postcruise_m)
+
+        t_horizontal_cruise_abu_s = d_total_horizontal_cruise_m / max(V_cruise_abu_horizontal_m_p_s, 1e-9)
+        t_vertical_cruise_abu_s   = max(0.0, h_detach_cruise_ft * 0.3048) / max(V_cruise_abu_vertical_m_p_s, 1e-9)
+        t_return_cruise_abu_hr    = (t_horizontal_cruise_abu_s + t_vertical_cruise_abu_s) / 3600.0
+
+        # charging times (main eVTOL + ABUs) via CC–CV
         chg_main = self._estimate_cccv_charge_time_hr(
           E_pack_kwh=E_pack_kwh_main,
           P_charger_ac_kw=P_charger_ac_kw,
@@ -4436,40 +5100,55 @@ class Aircraft:
         if chg_main is None or chg_takeoff_abu is None or chg_cruise_abu is None:
           continue
 
-        t_charge_hr_main = float(chg_main.get("t_charge_hr", 0.0))
-        t_charge_hr_takeoff_abu_raw = float(chg_takeoff_abu.get("t_charge_hr", 0.0))
-        t_charge_hr_cruise_abu_raw = float(chg_cruise_abu.get("t_charge_hr", 0.0))
+        t_charge_hr_main        = float(chg_main.get("t_charge_hr", 0.0))
+        t_charge_hr_takeoff_abu = float(chg_takeoff_abu.get("t_charge_hr", 0.0))
+        t_charge_hr_cruise_abu  = float(chg_cruise_abu.get("t_charge_hr", 0.0))
 
-        # effective net ground charging times
-        t_charge_hr_takeoff_abu_net = max(
-          0.0, (t_charge_hr_takeoff_abu_raw + t_takeoff_abu_return_hr) - t_overlap_hr_takeoff_abu
-        )
-        t_charge_hr_cruise_abu_net = max(
-          0.0, (t_charge_hr_cruise_abu_raw + t_cruise_abu_return_hr) - t_overlap_hr_cruise_abu
-        )
-
-        # parallel total charging time
-        t_charge_hr_total = max(t_charge_hr_main, t_charge_hr_takeoff_abu_net, t_charge_hr_cruise_abu_net)
-
-        # cycle and daily throughput
-        t_cycle_hr = t_flight_hr + t_charge_hr_total + t_ground_ops_hr
-        if t_cycle_hr <= 0.0:
+        # nominal cycle assuming infinite ABUs (no queuing limit)
+        t_cycle_nominal_hr = t_flight_hr + t_charge_hr_main + t_ground_ops_hr
+        if t_cycle_nominal_hr <= 0.0:
           continue
+        n_flights_nominal = int(24.0 // t_cycle_nominal_hr)
 
-        n_feasible = int(24.0 // t_cycle_hr)
-        t_used_hr = n_feasible * t_cycle_hr
-        t_slack_hr = max(0.0, 24.0 - t_used_hr)
-        t_flight_day_hr = n_feasible * t_flight_hr
-        t_downtime_day_hr = n_feasible * (t_charge_hr_total + t_ground_ops_hr) + t_slack_hr
+        # simulate 24 hr operations with BOTH finite pools and explicit return + charge timelines
+        sim = _simulate_daily_ops_single_evtol_combined(
+          n_abu_pool_takeoff_local       = n_abu_pool_takeoff,
+          n_abu_pool_cruise_local        = n_abu_pool_cruise,
+          t_flight_hr_local              = t_flight_hr,
+          t_charge_hr_main_local         = t_charge_hr_main,
+          t_takeoff_attach_hr_local      = t_takeoff_attach_hr,
+          t_return_takeoff_abu_hr_local  = t_return_takeoff_abu_hr,
+          t_charge_takeoff_abu_hr_local  = t_charge_hr_takeoff_abu,
+          t_cruise_attach_hr_local       = t_cruise_attach_hr,
+          t_cruise_attach_start_hr_local = t_cruise_attach_start_hr,
+          t_return_cruise_abu_hr_local   = t_return_cruise_abu_hr,
+          t_charge_cruise_abu_hr_local   = t_charge_hr_cruise_abu,
+          t_ground_ops_hr_local          = t_ground_ops_hr
+        )
 
-        # store combined result
+        n_flights_completed        = sim.get("n_flights_completed", 0)
+        t_flight_day_hr_sim        = sim.get("t_flight_day_hr", 0.0)
+        t_slack_hr_sim             = sim.get("t_slack_hr", 0.0)
+        t_wait_takeoff_abu_day_hr  = sim.get("t_wait_takeoff_abu_day_hr", 0.0)
+        t_wait_cruise_abu_day_hr   = sim.get("t_wait_cruise_abu_day_hr", 0.0)
+        abu_util_takeoff_avg       = sim.get("abu_utilization_avg_takeoff", 0.0)
+        abu_util_cruise_avg        = sim.get("abu_utilization_avg_cruise", 0.0)
+
+        abu_bottleneck_takeoff_flag = (n_flights_completed < n_flights_nominal and t_wait_takeoff_abu_day_hr > 0.0)
+        abu_bottleneck_cruise_flag  = (n_flights_completed < n_flights_nominal and t_wait_cruise_abu_day_hr > 0.0)
+
+        aircraft_timeline          = sim.get("aircraft_timeline", [])
+        takeoff_abu_timelines      = sim.get("takeoff_abu_timelines", {})
+        cruise_abu_timelines       = sim.get("cruise_abu_timelines", {})
+
+        # store combined result for this (candidate, cruise-ABU energy) pair
         results.append({
           "candidate_name": cand_name,
 
           # cruise ABU sweep value
           "E_abu_mission_cruise_per_abu_kwh": float(E_abu_mission_cruise_per_abu_kwh),
 
-          # main pack
+          # main pack (after takeoff + cruise ABU assistance)
           "E_pack_kwh_main": E_pack_kwh_main,
           "E_mission_kwh_main": E_mission_kwh_main,
           "E_reserve_kwh": E_reserve_kwh,
@@ -4478,41 +5157,48 @@ class Aircraft:
           "soc_target": soc_target,
           "soc_cc_end": soc_cc_end,
 
-          # takeoff ABUs
-          "n_abus_takeoff": n_abus_takeoff,
+          # takeoff ABUs (per flight)
+          "n_abus_takeoff_per_flight": n_abus_takeoff,
+          "n_abu_pool_takeoff": n_abu_pool_takeoff,
           "E_abu_used_takeoff_total_kwh": E_abu_used_takeoff_kwh,
           "E_ops_takeoff_per_abu_kwh": E_ops_takeoff_per_abu_kwh,
           "E_pack_takeoff_abu_per_abu_kwh": E_pack_takeoff_abu_per_abu_kwh,
           "soc_start_abu_takeoff": soc_start_abu_takeoff,
           "dod_abu_takeoff": dod_abu_takeoff,
+          "t_takeoff_attach_hr": t_takeoff_attach_hr,
+          "t_return_takeoff_abu_hr": t_return_takeoff_abu_hr,
 
-          # cruise ABUs
-          "n_abus_cruise": n_abus_cruise,
+          # cruise ABUs (per flight)
+          "n_abus_cruise_per_flight": n_abus_cruise,
+          "n_abu_pool_cruise": n_abu_pool_cruise,
           "E_abu_used_cruise_total_kwh": E_abu_used_cruise_total_kwh,
           "E_saved_kwh_cruise": E_saved_kwh_cruise,
           "E_ops_cruise_per_abu_kwh": E_ops_cruise_per_abu_kwh,
           "E_pack_cruise_abu_per_abu_kwh": E_pack_cruise_abu_per_abu_kwh,
           "soc_start_abu_cruise": soc_start_abu_cruise,
           "dod_abu_cruise": dod_abu_cruise,
+          "t_cruise_attach_hr": t_cruise_attach_hr,
+          "t_cruise_attach_start_hr": t_cruise_attach_start_hr,
+          "t_return_cruise_abu_hr": t_return_cruise_abu_hr,
 
-          # timing & overlap
+          # timing & nominal cycle
           "t_flight_hr": t_flight_hr,
-          "t_overlap_hr_takeoff_abu": t_overlap_hr_takeoff_abu,
-          "t_overlap_hr_cruise_abu": t_overlap_hr_cruise_abu,
           "t_charge_hr_main": t_charge_hr_main,
-          "t_charge_hr_takeoff_abu_raw": t_charge_hr_takeoff_abu_raw,
-          "t_charge_hr_cruise_abu_raw": t_charge_hr_cruise_abu_raw,
-          "t_charge_hr_takeoff_abu_net": t_charge_hr_takeoff_abu_net,
-          "t_charge_hr_cruise_abu_net": t_charge_hr_cruise_abu_net,
-          "t_charge_hr_total": t_charge_hr_total,
-          "t_ground_ops_hr": t_ground_ops_hr,
-          "t_takeoff_abu_return_hr": t_takeoff_abu_return_hr,
-          "t_cruise_abu_return_hr": t_cruise_abu_return_hr,
-          "t_cycle_hr": t_cycle_hr,
-          "n_feasible_flights": n_feasible,
-          "t_flight_day_hr": t_flight_day_hr,
-          "t_downtime_day_hr": t_downtime_day_hr,
-          "t_slack_hr": t_slack_hr,
+          "t_charge_hr_takeoff_abu": t_charge_hr_takeoff_abu,
+          "t_charge_hr_cruise_abu": t_charge_hr_cruise_abu,
+          "t_cycle_nominal_hr": t_cycle_nominal_hr,
+          "n_flights_nominal_no_abu_limit": n_flights_nominal,
+
+          # 24-hr simulation results with queuing
+          "n_flights_completed": n_flights_completed,
+          "t_flight_day_hr": t_flight_day_hr_sim,
+          "t_slack_hr": t_slack_hr_sim,
+          "t_wait_takeoff_abu_day_hr": t_wait_takeoff_abu_day_hr,
+          "t_wait_cruise_abu_day_hr": t_wait_cruise_abu_day_hr,
+          "abu_utilization_avg_takeoff": abu_util_takeoff_avg,
+          "abu_utilization_avg_cruise": abu_util_cruise_avg,
+          "abu_bottleneck_takeoff_flag": abu_bottleneck_takeoff_flag,
+          "abu_bottleneck_cruise_flag": abu_bottleneck_cruise_flag,
 
           # charger / power details
           "charger_ac_kw": P_charger_ac_kw,
@@ -4542,6 +5228,11 @@ class Aircraft:
           "I_cc_A_cruise_abu": chg_cruise_abu.get("I_cc_A", 0.0),
           "I_term_A_cruise_abu": chg_cruise_abu.get("I_term_A", 0.0),
           "charger_limit_indicator_flag_cruise_abu": chg_cruise_abu.get("charger_limit_indicator_flag"),
+
+          # full timelines (for later plotting / debugging)
+          "aircraft_timeline": aircraft_timeline,
+          "takeoff_abu_timelines": takeoff_abu_timelines,
+          "cruise_abu_timelines": cruise_abu_timelines,
         })
 
     # restore MTOW

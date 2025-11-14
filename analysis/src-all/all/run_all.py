@@ -45,8 +45,8 @@ def run_case(base_dir, config):
         # f"python log_mission_segment_abu_analysis_landing_safety_loiter.py {config} {base_dir}",
         # f"python plt_mission_segment_abu_analysis_landing_safety_loiter.py {base_dir}mission-segment-abu-analysis-landing-safety-loiter.csv {base_dir}",
 
-        # ABU (4.1): Common Case Economics (Baseline, non-ABU)
-        f"python log_mission_segment_abu_analysis_common_case_economics_baseline.py {config} {base_dir}",
+        # # ABU (4.1): Common Case Economics (Baseline, non-ABU)
+        # f"python log_mission_segment_abu_analysis_common_case_economics_baseline.py {config} {base_dir}",
 
         # # ABU (4.2): Common Case Economics (ABU, Assisted Takeoff)
         # f"python log_mission_segment_abu_analysis_common_case_economics_assisted_takeoff.py {config} {base_dir}",
@@ -57,11 +57,19 @@ def run_case(base_dir, config):
         # # ABU (4.3.2): Common Case Economics (ABU, Extended Flight Powered by ABU, Overlap Charging)
         # f"python log_mission_segment_abu_analysis_common_case_economics_extended_flight_overlap_charging.py {config} {base_dir}",
 
+        # ABU (4.3.3): Common Case Economics (ABU, Extended Flight Powered by ABU, Overlap Charging, Daily Utilization with Queuing)
+        f"log_mission_segment_abu_analysis_common_case_economics_extended_flight_overlap_charging_queuing_timeline.py {config} {base_dir}",
+        f"plt_mission_segment_abu_analysis_common_case_economics_extended_flight_overlap_charging_queuing_timeline.py {base_dir}mission-segment-abu-analysis-common-case-economics-extended-flight-overlap-charging-queuing-timeline.csv {base_dir}",
+
         # # ABU (4.4.1): Common Case Economics (ABU, Combined - Assisted Takeoff & Extended Flight Powered by ABU)
         # f"python log_mission_segment_abu_analysis_common_case_economics_combined.py {config} {base_dir}",
 
         # # ABU (4.4.2): Common Case Economics (ABU, Combined - Assisted Takeoff & Extended Flight Powered by ABU, Overlap Charging)
         # f"python log_mission_segment_abu_analysis_common_case_economics_combined_overlap_charging.py {config} {base_dir}",
+
+        # ABU (4.4.3): Common Case Economics (Combined: Assisted Takeoff + Extended Flight ABU, Overlap Charging, Daily Utilization with Queuing)
+        f"log_mission_segment_abu_analysis_common_case_economics_combined_flight_overlap_charging_queuing_timeline.py {config} {base_dir}",
+        f"plt_mission_segment_abu_analysis_common_case_economics_combined_flight_overlap_charging_queuing_timeline.py {base_dir}mission-segment-abu-analysis-common-case-economics-combined-flight-overlap-charging-queuing-timeline.csv {base_dir}",
 
     ]
 
@@ -72,30 +80,30 @@ def run_case(base_dir, config):
 def main():
     # Case study
     cases = [
-        ## High Altitude - 3000 ft
-        # Archer Midnight
-        ("../../cfg-case-study/high-altitude-3000-ft/archer-midnight/30-miles/",
-         "../../cfg-case-study/high-altitude-3000-ft/archer-midnight/30-miles/Archer-Midnight-3000-30.json"),
-        ("../../cfg-case-study/high-altitude-3000-ft/archer-midnight/45-miles/",
-         "../../cfg-case-study/high-altitude-3000-ft/archer-midnight/45-miles/Archer-Midnight-3000-45.json"),
-        ("../../cfg-case-study/high-altitude-3000-ft/archer-midnight/60-miles/",
-         "../../cfg-case-study/high-altitude-3000-ft/archer-midnight/60-miles/Archer-Midnight-3000-60.json"),
+        # ## High Altitude - 3000 ft
+        # # Archer Midnight
+        # ("../../cfg-case-study/high-altitude-3000-ft/archer-midnight/30-miles/",
+        #  "../../cfg-case-study/high-altitude-3000-ft/archer-midnight/30-miles/Archer-Midnight-3000-30.json"),
+        # ("../../cfg-case-study/high-altitude-3000-ft/archer-midnight/45-miles/",
+        #  "../../cfg-case-study/high-altitude-3000-ft/archer-midnight/45-miles/Archer-Midnight-3000-45.json"),
+        # ("../../cfg-case-study/high-altitude-3000-ft/archer-midnight/60-miles/",
+        #  "../../cfg-case-study/high-altitude-3000-ft/archer-midnight/60-miles/Archer-Midnight-3000-60.json"),
 
-        # Joby S4
-        ("../../cfg-case-study/high-altitude-3000-ft/joby-s4/30-miles/",
-         "../../cfg-case-study/high-altitude-3000-ft/joby-s4/30-miles/Joby-S4-3000-30.json"),
-        ("../../cfg-case-study/high-altitude-3000-ft/joby-s4/45-miles/",
-         "../../cfg-case-study/high-altitude-3000-ft/joby-s4/45-miles/Joby-S4-3000-45.json"),
-        ("../../cfg-case-study/high-altitude-3000-ft/joby-s4/60-miles/",
-         "../../cfg-case-study/high-altitude-3000-ft/joby-s4/60-miles/Joby-S4-3000-60.json"),
+        # # Joby S4
+        # ("../../cfg-case-study/high-altitude-3000-ft/joby-s4/30-miles/",
+        #  "../../cfg-case-study/high-altitude-3000-ft/joby-s4/30-miles/Joby-S4-3000-30.json"),
+        # ("../../cfg-case-study/high-altitude-3000-ft/joby-s4/45-miles/",
+        #  "../../cfg-case-study/high-altitude-3000-ft/joby-s4/45-miles/Joby-S4-3000-45.json"),
+        # ("../../cfg-case-study/high-altitude-3000-ft/joby-s4/60-miles/",
+        #  "../../cfg-case-study/high-altitude-3000-ft/joby-s4/60-miles/Joby-S4-3000-60.json"),
 
-        # Supernal S-A2
-        ("../../cfg-case-study/high-altitude-3000-ft/supernal/30-miles/",
-         "../../cfg-case-study/high-altitude-3000-ft/supernal/30-miles/Supernal-S-A2-3000-30.json"),
-        ("../../cfg-case-study/high-altitude-3000-ft/supernal/45-miles/",
-         "../../cfg-case-study/high-altitude-3000-ft/supernal/45-miles/Supernal-S-A2-3000-45.json"),
-        ("../../cfg-case-study/high-altitude-3000-ft/supernal/60-miles/",
-         "../../cfg-case-study/high-altitude-3000-ft/supernal/60-miles/Supernal-S-A2-3000-60.json"),
+        # # Supernal S-A2
+        # ("../../cfg-case-study/high-altitude-3000-ft/supernal/30-miles/",
+        #  "../../cfg-case-study/high-altitude-3000-ft/supernal/30-miles/Supernal-S-A2-3000-30.json"),
+        # ("../../cfg-case-study/high-altitude-3000-ft/supernal/45-miles/",
+        #  "../../cfg-case-study/high-altitude-3000-ft/supernal/45-miles/Supernal-S-A2-3000-45.json"),
+        # ("../../cfg-case-study/high-altitude-3000-ft/supernal/60-miles/",
+        #  "../../cfg-case-study/high-altitude-3000-ft/supernal/60-miles/Supernal-S-A2-3000-60.json"),
         
         ## Low Altitude - 1500 ft
         # Archer Midnight
