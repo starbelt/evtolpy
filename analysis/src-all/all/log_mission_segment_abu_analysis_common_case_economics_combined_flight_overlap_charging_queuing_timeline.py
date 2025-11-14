@@ -61,7 +61,7 @@ step  = 5
 E_mission_kwh_per_abu_list = list(range(start, stop + 1, step))
 
 # ABU pool sizes to sweep for queuing bottleneck
-n_takeoff_abu_pool_list = [1, 2]   # pool at takeoff LZ (takeoff-ABUs)
+n_takeoff_abu_pool_list = [1]   # pool at takeoff LZ (takeoff-ABUs)
 n_cruise_abu_pool_list  = [1, 2]   # pool at landing LZ (cruise-ABUs)
 
 # common-case parameters
