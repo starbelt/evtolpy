@@ -48,8 +48,11 @@ def run_case(base_dir, config):
         # # ABU (4.1): Common Case Economics (Baseline, non-ABU)
         # f"python log_mission_segment_abu_analysis_common_case_economics_baseline.py {config} {base_dir}",
 
-        # # ABU (4.2): Common Case Economics (ABU, Assisted Takeoff)
+        # # ABU (4.2.1): Common Case Economics (ABU, Assisted Takeoff)
         # f"python log_mission_segment_abu_analysis_common_case_economics_assisted_takeoff.py {config} {base_dir}",
+
+        # ABU (4.2.2): Common Case Economics (ABU, Assisted Takeoff)
+        f"python log_mission_segment_abu_analysis_common_case_economics_assisted_takeoff.py {config} {base_dir}",
 
         # # ABU (4.3.1): Common Case Economics (ABU, Extended Flight Powered by ABU)
         # f"python log_mission_segment_abu_analysis_common_case_economics_extended_flight.py {config} {base_dir}",
