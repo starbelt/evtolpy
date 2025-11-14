@@ -3013,7 +3013,7 @@ class Aircraft:
 
   #   return results
 
-  # ABU Evaluator 4.2.2: Common Case Economics (ABU, Assisted Takeoff + Overlap Charging + Daily Utilization + ABU Queuing)
+  # ABU Evaluator 4.2.2: Common Case Economics (ABU, Assisted Takeoff, Overlap Charging, Daily Utilization, ABU Queuing)
   #
   # Models:
   #   a finite pool of takeoff ABUs

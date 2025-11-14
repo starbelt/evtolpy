@@ -1,0 +1,2 @@
+candidate_name,n_abu_pool,n_abus_per_flight,E_pack_kwh_main,E_pack_kwh_abu,dod_main,dod_abu,soc_start_main,soc_start_abu,soc_target,t_flight_hr,t_takeoff_attach_hr,t_return_abu_hr,t_charge_hr_main,t_charge_hr_abu,t_cycle_nominal_hr,n_flights_nominal_no_abu_limit,n_flights_completed,t_flight_day_hr,t_slack_hr,t_wait_abu_day_hr,abu_utilization_avg
+after_accel_climb,1.000000,1.000000,69.902201,21.000000,0.857456,0.616098,0.142544,0.383902,1.000000,0.443611,0.039167,0.075380,0.875722,0.260281,1.602633,14.000000,15.000000,6.654167,0.000000,0.000000,0.234267
