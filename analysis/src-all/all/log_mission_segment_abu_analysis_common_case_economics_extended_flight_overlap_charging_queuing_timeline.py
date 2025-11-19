@@ -71,7 +71,7 @@ mission_time_s      = None       # auto-sum mission segments if None
 # ABU flight return parameters
 V_abu_horizontal_m_p_s = 30.0   # ABU horizontal return speed [m/s]
 V_abu_vertical_m_p_s   = 5.1    # ABU vertical descent speed [m/s]
-h_detach_ft            = 1500.0 # detach altitude [m]
+h_detach_ft            = 3000.0 # detach altitude [m]
 
 # ABU specifications
 abu_spec = {

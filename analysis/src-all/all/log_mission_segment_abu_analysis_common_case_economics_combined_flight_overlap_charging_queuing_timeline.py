@@ -80,12 +80,12 @@ mission_time_s      = None       # auto-sum mission segments if None
 # ABU flight return parameters (takeoff ABUs)
 V_takeoff_abu_horizontal_m_p_s = 30.0   # takeoff-ABU horizontal return speed [m/s]
 V_takeoff_abu_vertical_m_p_s   = 5.1    # takeoff-ABU vertical descent speed [m/s]
-h_takeoff_detach_ft            = 1500.0 # takeoff-ABU detach altitude [ft]
+h_takeoff_detach_ft            = 3000.0 # takeoff-ABU detach altitude [ft]
 
 # ABU flight return parameters (cruise ABUs)
 V_cruise_abu_horizontal_m_p_s = 30.0    # cruise-ABU horizontal return speed [m/s]
 V_cruise_abu_vertical_m_p_s   = 5.1     # cruise-ABU vertical descent speed [m/s]
-h_cruise_detach_ft            = 1500.0  # cruise-ABU detach altitude [ft]
+h_cruise_detach_ft            = 3000.0  # cruise-ABU detach altitude [ft]
 
 # ABU specifications (takeoff ABUs)
 abu_spec_takeoff = {
