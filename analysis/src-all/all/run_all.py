@@ -48,29 +48,14 @@ def run_case(base_dir, config):
         # # ABU (4.1): Common Case Economics (Baseline, non-ABU)
         # f"python log_mission_segment_abu_analysis_common_case_economics_baseline.py {config} {base_dir}",
 
-        # # ABU (4.2.1): Common Case Economics (ABU, Assisted Takeoff)
-        # f"python log_mission_segment_abu_analysis_common_case_economics_assisted_takeoff.py {config} {base_dir}",
+        # # ABU (4.2): Common Case Economics (ABU, Assisted Takeoff, Overlap Charging, Daily Utilization, ABU Queuing)
+        # f"python log_mission_segment_abu_analysis_common_case_economics_assisted_takeoff_overlap_charging_queuing_timeline.py {config} {base_dir}",
 
-        # ABU (4.2.2): Common Case Economics (ABU, Assisted Takeoff, Overlap Charging, Daily Utilization, ABU Queuing)
-        f"python log_mission_segment_abu_analysis_common_case_economics_assisted_takeoff_overlap_charging_queuing_timeline.py {config} {base_dir}",
-
-        # # ABU (4.3.1): Common Case Economics (ABU, Extended Flight Powered by ABU)
-        # f"python log_mission_segment_abu_analysis_common_case_economics_extended_flight.py {config} {base_dir}",
-
-        # # ABU (4.3.2): Common Case Economics (ABU, Extended Flight Powered by ABU, Overlap Charging)
-        # f"python log_mission_segment_abu_analysis_common_case_economics_extended_flight_overlap_charging.py {config} {base_dir}",
-
-        # # ABU (4.3.3): Common Case Economics (ABU, Extended Flight Powered by ABU, Overlap Charging, Daily Utilization with Queuing)
+        # # ABU (4.3): Common Case Economics (ABU, Extended Flight Powered by ABU, Overlap Charging, Daily Utilization with Queuing)
         # f"python log_mission_segment_abu_analysis_common_case_economics_extended_flight_overlap_charging_queuing_timeline.py {config} {base_dir}",
         # f"python plt_mission_segment_abu_analysis_common_case_economics_extended_flight_overlap_charging_queuing_timeline.py {base_dir}mission-segment-abu-analysis-common-case-economics-extended-flight-overlap-charging-queuing-timeline.csv {base_dir}",
 
-        # # ABU (4.4.1): Common Case Economics (ABU, Combined - Assisted Takeoff & Extended Flight Powered by ABU)
-        # f"python log_mission_segment_abu_analysis_common_case_economics_combined.py {config} {base_dir}",
-
-        # # ABU (4.4.2): Common Case Economics (ABU, Combined - Assisted Takeoff & Extended Flight Powered by ABU, Overlap Charging)
-        # f"python log_mission_segment_abu_analysis_common_case_economics_combined_overlap_charging.py {config} {base_dir}",
-
-        # # ABU (4.4.3): Common Case Economics (Combined: Assisted Takeoff + Extended Flight ABU, Overlap Charging, Daily Utilization with Queuing)
+        # # ABU (4.4): Common Case Economics (Combined: Assisted Takeoff + Extended Flight ABU, Overlap Charging, Daily Utilization with Queuing)
         # f"python log_mission_segment_abu_analysis_common_case_economics_combined_flight_overlap_charging_queuing_timeline.py {config} {base_dir}",
         # f"python plt_mission_segment_abu_analysis_common_case_economics_combined_flight_overlap_charging_queuing_timeline.py {base_dir}mission-segment-abu-analysis-common-case-economics-combined-flight-overlap-charging-queuing-timeline.csv {base_dir}",
 
