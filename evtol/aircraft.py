@@ -2696,16 +2696,17 @@ class Aircraft:
   # for a baseline eVTOL that must recharge its main pack between flights using the analytical CC-CV charging model
   #
   # Inputs:
-  #   E_pack_kwh       : main battery pack energy capacity [kWh]
-  #   P_charger_ac_kw  : charger AC power [kW]
-  #   eta_charger_dc   : AC->DC efficiency (0–1)
-  #   c_rate_max       : max allowed charge C-rate (e.g., 1.0)
-  #   v_pack_nom_v     : nominal pack voltage [V]
-  #   i_term_c         : CV termination current ratio (e.g., 0.05C)
-  #   soc_target       : target SOC after charge (default 1.0)
-  #   soc_cc_end       : SOC where CC ends (default 0.80)
-  #   t_ground_ops_hr  : turnaround ops [hr]
-  #   mission_time_s   : optional mission duration [s]; if None, sum segments
+  #   E_pack_kwh          : main battery pack energy capacity [kWh]
+  #   P_charger_ac_kw     : charger AC power [kW]
+  #   eta_charger_dc      : AC->DC efficiency (0–1)
+  #   c_rate_max          : max allowed charge C-rate (e.g., 1.0)
+  #   v_pack_nom_v        : nominal pack voltage [V]
+  #   i_term_c            : CV termination current ratio (e.g., 0.05C)
+  #   soc_target          : target SOC after charge (default 1.0)
+  #   soc_cc_end          : SOC where CC ends (default 0.80)
+  #   t_ground_ops_hr     : turnaround ops [hr]
+  #   daily_operation_hr  : daily operation window [hr]
+  #   mission_time_s      : optional mission duration [s]; if None, sum segments
   def _evaluate_common_case_baseline(self,
                                      E_pack_kwh=None,
                                      P_charger_ac_kw=115.0,
@@ -2717,6 +2718,7 @@ class Aircraft:
                                      soc_target=1.0,
                                      soc_cc_end=0.80,
                                      t_ground_ops_hr=0.2833,
+                                     daily_operation_hr=24.0,
                                      mission_time_s=None):
 
     # 1. Per-mission energy (from aircraft model)
@@ -2784,14 +2786,15 @@ class Aircraft:
     if t_cycle_hr <= 0.0:
       return None
 
-    n_feasible = int(24.0 // t_cycle_hr)
+    n_feasible = int(daily_operation_hr // t_cycle_hr)
     t_used_hr  = n_feasible * t_cycle_hr
-    t_slack_hr = max(0.0, 24.0 - t_used_hr)
+    t_slack_hr = max(0.0, daily_operation_hr - t_used_hr)
 
     t_flight_day_hr   = n_feasible * t_flight_hr
     t_downtime_day_hr = n_feasible * (t_charge_hr + t_ground_ops_hr) + t_slack_hr
 
     return {
+      "daily_operation_hr": daily_operation_hr,
       "E_mission_kwh": E_mission_kwh,
       "E_pack_kwh": E_pack_kwh,
       "dod": dod,
@@ -2823,11 +2826,28 @@ class Aircraft:
 
   # ABU Evaluator 4.2: Common Case Economics (ABU, Assisted Takeoff, Overlap Charging, Daily Utilization, ABU Queuing)
   #
-  # Models:
-  #   a finite pool of takeoff ABUs
+  # A finite pool of takeoff ABUs
   #   takeoff attach → detach → ABU returns → ABU recharges
   #   main battery charges in parallel with ABU
-  #   24-hour utilization simulation
+
+  # Inputs:
+  #   candidates                     : list of ABU assisted-takeoff detach cases 
+  #   abu_spec                       : ABU spec used for assisted takeoff 
+  #   n_abu_pool                     : size of takeoff-ABU pool at each LZ
+  #   P_charger_ac_kw                : charger AC power [kW] (assumed same for main + ABUs)
+  #   eta_charger_dc                 : charger AC->DC efficiency (0–1)
+  #   c_rate_max                     : max allowed charge C-rate (e.g., 1.0)
+  #   v_pack_nom_v_main              : nominal voltage of eVTOL main pack [V]
+  #   v_pack_nom_v_abu               : nominal voltage of ABU packs [V] 
+  #   i_term_c                       : CV termination current ratio (e.g., 0.05C)
+  #   soc_target                     : target SOC after charge (default 1.0)
+  #   soc_cc_end                     : SOC where CC ends (default 0.80)
+  #   t_ground_ops_hr                : ground turnaround ops [hr]
+  #   V_abu_horizontal_m_p_s         : takeoff-ABU horizontal speed on return [m/s]
+  #   V_abu_vertical_m_p_s           : takeoff-ABU vertical descent speed on return [m/s]
+  #   h_detach_takeoff_ft            : takeoff-ABU detach altitude [ft]
+  #   daily_operation_hr             : daily operation window [hr]
+  #   mission_time_s                 : optional mission duration [s]; if None, sum main-mission segments
   def _evaluate_common_case_abu_assisted_takeoff_overlap_charging_queuing(self,
                                                                           candidates,
                                                                           abu_spec=None,
@@ -2844,6 +2864,7 @@ class Aircraft:
                                                                           V_abu_horizontal_m_p_s=30.0,
                                                                           V_abu_vertical_m_p_s=5.1,
                                                                           h_detach_ft=3000.0,
+                                                                          daily_operation_hr = 24.0,
                                                                           mission_time_s=None):
 
     if self.mission is None or self.propulsion is None or self.environ is None or self.power is None:
@@ -2902,7 +2923,7 @@ class Aircraft:
 
     t_flight_hr = mission_time_s_eff / 3600.0
 
-    # helper simulation: 24-hour operations with finite ABU pool (Option A1)
+    # helper simulation: N-hour operations with finite ABU pool 
     def _simulate_daily_ops_abu_pool(n_abu_pool_local,
                                      t_flight_hr_local,
                                      t_charge_hr_main_local,
@@ -2941,8 +2962,8 @@ class Aircraft:
         t_block = t_min
         t_depart = max(t_earliest, t_block)
 
-        # check if flight fits before 24 hours
-        if t_depart + t_flight_hr_local > 24.0:
+        # check if flight fits before N (hours) of daily operation
+        if t_depart + t_flight_hr_local > daily_operation_hr:
           break
 
         # waiting time due to ABU bottleneck
@@ -3039,11 +3060,11 @@ class Aircraft:
 
       # end simulation day 
       t_flight_day_hr = n_flights_completed * t_flight_hr_local
-      t_used_hr       = min(24.0, t_aircraft_ready_hr)
-      t_slack_hr      = max(0.0, 24.0 - t_used_hr)
+      t_used_hr       = min(daily_operation_hr, t_aircraft_ready_hr)
+      t_slack_hr      = max(0.0, daily_operation_hr - t_used_hr)
 
       total_busy      = sum(abu_busy_time)
-      abu_util_avg    = total_busy / (24.0 * n_pool)
+      abu_util_avg    = total_busy / (daily_operation_hr * n_pool)
 
       return {
         "n_flights_completed": n_flights_completed,
@@ -3119,7 +3140,7 @@ class Aircraft:
 
       # nominal cycle (infinite ABUs)
       t_cycle_nominal_hr = t_flight_hr + t_charge_main + t_ground_ops_hr
-      n_nominal = int(24.0 // t_cycle_nominal_hr)
+      n_nominal = int(daily_operation_hr // t_cycle_nominal_hr)
 
       # finite ABU pool simulation
       sim = _simulate_daily_ops_abu_pool(
@@ -3133,6 +3154,8 @@ class Aircraft:
       )
 
       results.append({
+        "daily_operation_hr": daily_operation_hr,
+
         "candidate_name": name,
         "n_abu_pool": n_abu_pool,
         "n_abus_per_flight": n_abus,
@@ -3155,7 +3178,7 @@ class Aircraft:
         "t_cycle_nominal_hr": t_cycle_nominal_hr,
         "n_flights_nominal_no_abu_limit": n_nominal,
 
-        # 24-hour simulation
+        # N-hour simulation
         "n_flights_completed": sim["n_flights_completed"],
         "t_flight_day_hr": sim["t_flight_day_hr"],
         "t_slack_hr": sim["t_slack_hr"],
@@ -3198,6 +3221,7 @@ class Aircraft:
   #   V_abu_horizontal_m_p_s     : ABU horizontal speed during return [m/s]
   #   V_abu_vertical_m_p_s       : ABU vertical descent speed during return [m/s]
   #   h_detach_ft                : ABU detach altitude above landing zone [ft]
+  #   daily_operation_hr         : daily operation window [hr]
   #   mission_time_s             : optional mission duration override [s]; if None, sum segments
   def _evaluate_common_case_abu_extended_flight_overlap_charging_queuing(self,
                                                                          E_mission_kwh_per_abu_list,
@@ -3215,6 +3239,7 @@ class Aircraft:
                                                                          V_abu_horizontal_m_p_s=30.0,
                                                                          V_abu_vertical_m_p_s=5.1,
                                                                          h_detach_ft=3000.0,
+                                                                         daily_operation_hr = 24.0,
                                                                          mission_time_s=None):
 
     if self.mission is None or self.propulsion is None or self.environ is None or self.power is None:
@@ -3252,7 +3277,7 @@ class Aircraft:
 
     t_flight_hr = (mission_time_s or 0.0) / 3600.0
 
-    # helper: simulate 24 hr operations for a single eVTOL and finite ABU pool at the landing zone
+    # helper: simulate N-hr operations for a single eVTOL and finite ABU pool at the landing zone
     def _simulate_daily_ops_single_evtol(n_abu_pool_local,
                                          t_flight_hr_local,
                                          t_charge_hr_main_local,
@@ -3264,7 +3289,7 @@ class Aircraft:
       # initialize aircraft and ABUs
       t_aircraft_ready_hr = 0.0  # time when aircraft is ready to depart (main charged + ground ops done); initially 0 = ready at start of day
       abu_available_times_hr = [0.0 for _ in range(max(1, n_abu_pool_local))] # time when ABU j will next be ready (fully charged)
-      abu_busy_time_hr = [0.0 for _ in range(max(1, n_abu_pool_local))] # how much of the 24 hours ABU j was actively busy (for utilization calculation)
+      abu_busy_time_hr = [0.0 for _ in range(max(1, n_abu_pool_local))] # how much of the N-hours ABU j was actively busy (for utilization calculation)
 
       # new: timeline logs
       aircraft_timeline = []
@@ -3282,7 +3307,7 @@ class Aircraft:
         + float(getattr(self.mission, "accel_climb_s", 0.0) or 0.0)
       ) / 3600.0
 
-      # while True, keep flying flights until time runs past 24 hours
+      # while True, keep flying flights until time runs past the defined operating hours
       while True:
 
         # aircraft earliest departure (based on its own readiness; eVTOL must wait until its previous flight + ground ops + main battery charge are done)
@@ -3310,8 +3335,8 @@ class Aircraft:
               j_min = j
           t_depart_hr = max(t_aircraft_earliest_depart_hr, t_abu_min_hr)
 
-        # check if a full mission can be completed within 24 hr
-        if t_depart_hr + t_flight_hr_local > 24.0:
+        # check if a full mission can be completed within N-hr
+        if t_depart_hr + t_flight_hr_local > daily_operation_hr:
           break
 
         # log ABU bottleneck wait time (if any; meaning if ABU wasn’t ready, aircraft waited)
@@ -3405,18 +3430,18 @@ class Aircraft:
 
         t_aircraft_ready_hr = t_after_charge_main_hr
 
-        # total flights per day that fit inside 24 hours
+        # total flights per day that fit inside N-hours
         n_flights_completed += 1
 
       # after simulation: compute daily stats
       # aircraft metrics
       t_flight_day_hr_local = n_flights_completed * t_flight_hr_local
-      t_total_used_hr = min(24.0, t_aircraft_ready_hr)
-      t_slack_hr_local = max(0.0, 24.0 - t_total_used_hr)
+      t_total_used_hr = min(daily_operation_hr, t_aircraft_ready_hr)
+      t_slack_hr_local = max(0.0, daily_operation_hr - t_total_used_hr)
 
       # ABU utilization
       total_busy_hr = sum(abu_busy_time_hr)
-      abu_utilization_avg = total_busy_hr / (24.0 * float(n_abu_pool_local)) if n_abu_pool_local > 0 else 0.0 # fraction of day the ABU pool is busy/ active
+      abu_utilization_avg = total_busy_hr / (daily_operation_hr * float(n_abu_pool_local)) if n_abu_pool_local > 0 else 0.0 # fraction of day the ABU pool is busy/ active
 
       return {
         "n_flights_completed": n_flights_completed,
@@ -3532,9 +3557,9 @@ class Aircraft:
       t_cycle_nominal_hr = t_flight_hr + t_charge_hr_main + t_ground_ops_hr
       if t_cycle_nominal_hr <= 0.0:
         continue
-      n_flights_nominal = int(24.0 // t_cycle_nominal_hr)
+      n_flights_nominal = int(daily_operation_hr // t_cycle_nominal_hr)
 
-      # 6. simulate 24 hr operations with finite ABU pool and overlapping return+charge
+      # 6. simulate N-hr operations with finite ABU pool and overlapping return+charge
       sim = _simulate_daily_ops_single_evtol(
         n_abu_pool_local       = n_abu_pool,
         t_flight_hr_local      = t_flight_hr,
@@ -3558,6 +3583,8 @@ class Aircraft:
 
       # 7. store results for this ABU energy case
       results.append({
+        "daily_operation_hr": daily_operation_hr,
+
         "E_abu_mission_kwh_per_abu": E_abu_mission_kwh_per_abu,
         "E_abu_total_kwh_per_abu": E_abu_total_kwh_per_abu,
         "E_abu_used_kwh_total": E_abu_used_kwh,
@@ -3633,27 +3660,28 @@ class Aircraft:
   # If not enough ABUs are ready, departure is delayed (ABU bottleneck).
   #
   # Inputs:
-  #   candidates                   : list of ABU assisted-takeoff detach cases (same as Evaluator 1 interface)
-  #   E_mission_kwh_per_abu_list   : list of cruise-ABU mission energy values [kWh per ABU]
-  #   abu_spec_takeoff             : ABU spec used for assisted takeoff (dict)
-  #   abu_spec_cruise              : ABU spec used for extended flight (dict)
-  #   n_abu_pool_takeoff           : size of takeoff-ABU pool at each LZ
-  #   n_abu_pool_cruise            : size of cruise-ABU pool at each LZ
-  #   P_charger_ac_kw              : charger AC power [kW] (assumed same for main + ABUs)
-  #   eta_charger_dc               : charger AC->DC efficiency (0–1)
-  #   c_rate_max                   : max allowed charge C-rate (e.g., 1.0)
-  #   v_pack_nom_v_main            : nominal voltage of eVTOL main pack [V]
-  #   v_pack_nom_v_abu             : nominal voltage of ABU packs [V] (takeoff & cruise)
-  #   i_term_c                     : CV termination current ratio (e.g., 0.05C)
-  #   soc_target                   : target SOC after charge (default 1.0)
-  #   soc_cc_end                   : SOC where CC ends (default 0.80)
-  #   t_ground_ops_hr              : ground turnaround ops [hr]
+  #   candidates                     : list of ABU assisted-takeoff detach cases (same as Evaluator 1 interface)
+  #   E_mission_kwh_per_abu_list     : list of cruise-ABU mission energy values [kWh per ABU]
+  #   abu_spec_takeoff               : ABU spec used for assisted takeoff (dict)
+  #   abu_spec_cruise                : ABU spec used for extended flight (dict)
+  #   n_abu_pool_takeoff             : size of takeoff-ABU pool at each LZ
+  #   n_abu_pool_cruise              : size of cruise-ABU pool at each LZ
+  #   P_charger_ac_kw                : charger AC power [kW] (assumed same for main + ABUs)
+  #   eta_charger_dc                 : charger AC->DC efficiency (0–1)
+  #   c_rate_max                     : max allowed charge C-rate (e.g., 1.0)
+  #   v_pack_nom_v_main              : nominal voltage of eVTOL main pack [V]
+  #   v_pack_nom_v_abu               : nominal voltage of ABU packs [V] (takeoff & cruise)
+  #   i_term_c                       : CV termination current ratio (e.g., 0.05C)
+  #   soc_target                     : target SOC after charge (default 1.0)
+  #   soc_cc_end                     : SOC where CC ends (default 0.80)
+  #   t_ground_ops_hr                : ground turnaround ops [hr]
   #   V_takeoff_abu_horizontal_m_p_s : takeoff-ABU horizontal speed on return [m/s]
   #   V_takeoff_abu_vertical_m_p_s   : takeoff-ABU vertical descent speed on return [m/s]
   #   h_detach_takeoff_ft            : takeoff-ABU detach altitude [ft]
   #   V_cruise_abu_horizontal_m_p_s  : cruise-ABU horizontal speed on return [m/s]
   #   V_cruise_abu_vertical_m_p_s    : cruise-ABU vertical descent speed on return [m/s]
   #   h_detach_cruise_ft             : cruise-ABU detach altitude [ft]
+  #   daily_operation_hr             : daily operation window [hr]
   #   mission_time_s                 : optional mission duration [s]; if None, sum main-mission segments
   def _evaluate_common_case_abu_combined_flight_overlap_charging_queuing(self,
                                                                          candidates,
@@ -3677,6 +3705,7 @@ class Aircraft:
                                                                          V_cruise_abu_horizontal_m_p_s=30.0,
                                                                          V_cruise_abu_vertical_m_p_s=5.1,
                                                                          h_detach_cruise_ft=3000.0,
+                                                                         daily_operation_hr = 24.0,
                                                                          mission_time_s=None):
 
     if self.mission is None or self.propulsion is None or self.environ is None or self.power is None:
@@ -3786,7 +3815,7 @@ class Aircraft:
     cruise_v_m_p_s = float(getattr(mission, "cruise_h_m_p_s", 0.0) or 0.0)
     cruise_s       = float(getattr(mission, "cruise_s", 0.0) or 0.0)
 
-    # helper: simulate 24 hr operations for a single eVTOL with *two* finite ABU pools
+    # helper: simulate N-hr operations for a single eVTOL with a number of finite ABU pools
     # (takeoff-ABU pool and cruise-ABU pool)
     def _simulate_daily_ops_single_evtol_combined(n_abu_pool_takeoff_local,
                                                   n_abu_pool_cruise_local,
@@ -3821,7 +3850,7 @@ class Aircraft:
       t_wait_takeoff_abu_day_hr = 0.0
       t_wait_cruise_abu_day_hr  = 0.0
 
-      # loop flights until 24 hr horizon
+      # loop flights until the defined operating hours
       while True:
         t_aircraft_earliest_depart_hr = t_aircraft_ready_hr
 
@@ -3859,8 +3888,8 @@ class Aircraft:
         t_block_abu_hr = max(t_to_min, t_cr_min)
         t_depart_hr = max(t_aircraft_earliest_depart_hr, t_block_abu_hr)
 
-        # if departure cannot finish full mission within 24 hr, stop
-        if t_depart_hr + t_flight_hr_local > 24.0:
+        # if departure cannot finish full mission within N-hr, stop
+        if t_depart_hr + t_flight_hr_local > daily_operation_hr:
           break
 
         # attribute ABU-caused waiting (whichever ABU is the bottleneck vs aircraft readiness)
@@ -3991,14 +4020,14 @@ class Aircraft:
 
       # after simulation: compute daily stats
       t_flight_day_hr_local = n_flights_completed * t_flight_hr_local
-      t_total_used_hr = min(24.0, t_aircraft_ready_hr)
-      t_slack_hr_local = max(0.0, 24.0 - t_total_used_hr)
+      t_total_used_hr = min(daily_operation_hr, t_aircraft_ready_hr)
+      t_slack_hr_local = max(0.0, daily_operation_hr - t_total_used_hr)
 
       total_busy_takeoff_hr = sum(takeoff_busy_time_hr)
       total_busy_cruise_hr  = sum(cruise_busy_time_hr)
 
-      abu_utilization_avg_takeoff = total_busy_takeoff_hr / (24.0 * float(n_takeoff_pool)) if n_takeoff_pool > 0 else 0.0
-      abu_utilization_avg_cruise  = total_busy_cruise_hr / (24.0 * float(n_cruise_pool)) if n_cruise_pool > 0 else 0.0
+      abu_utilization_avg_takeoff = total_busy_takeoff_hr / (daily_operation_hr * float(n_takeoff_pool)) if n_takeoff_pool > 0 else 0.0
+      abu_utilization_avg_cruise  = total_busy_cruise_hr / (daily_operation_hr * float(n_cruise_pool)) if n_cruise_pool > 0 else 0.0
 
       return {
         "n_flights_completed": n_flights_completed,
@@ -4174,9 +4203,9 @@ class Aircraft:
         t_cycle_nominal_hr = t_flight_hr + t_charge_hr_main + t_ground_ops_hr
         if t_cycle_nominal_hr <= 0.0:
           continue
-        n_flights_nominal = int(24.0 // t_cycle_nominal_hr)
+        n_flights_nominal = int(daily_operation_hr // t_cycle_nominal_hr)
 
-        # simulate 24 hr operations with BOTH finite pools and explicit return + charge timelines
+        # simulate N-hr operations with BOTH finite pools and explicit return + charge timelines
         sim = _simulate_daily_ops_single_evtol_combined(
           n_abu_pool_takeoff_local       = n_abu_pool_takeoff,
           n_abu_pool_cruise_local        = n_abu_pool_cruise,
@@ -4209,6 +4238,8 @@ class Aircraft:
 
         # store combined result for this (candidate, cruise-ABU energy) pair
         results.append({
+          "daily_operation_hr": daily_operation_hr,
+
           "candidate_name": cand_name,
 
           # cruise ABU sweep value
@@ -4255,7 +4286,7 @@ class Aircraft:
           "t_cycle_nominal_hr": t_cycle_nominal_hr,
           "n_flights_nominal_no_abu_limit": n_flights_nominal,
 
-          # 24-hr simulation results with queuing
+          # N-hr simulation results with queuing
           "n_flights_completed": n_flights_completed,
           "t_flight_day_hr": t_flight_day_hr_sim,
           "t_slack_hr": t_slack_hr_sim,

@@ -56,16 +56,17 @@ E_mission_kwh_per_abu_list = list(range(start, stop + 1, step))
 n_abu_pool_list = [1, 2]
 
 # common-case parameters
-P_charger_ac_kw   = 115.0      # AC charger power [kW]
-eta_charger_dc    = 0.95       # Charger AC->DC efficiency
-c_rate_max        = 20.0       # max charge rate [C]
-v_pack_nom_v_main = 800.0      # nominal voltage of main eVTOL battery [V]
-v_pack_nom_v_abu  = 400.0      # nominal voltage of ABU battery [V]
-i_term_c          = 0.05       # termination current (fraction of C)
-soc_target        = 1.0        # target full charge
-soc_cc_end        = 0.80       # SOC at CC to CV transition
-t_ground_ops_hr   = 0.2833     # ground turnaround time [hr]
-mission_time_s    = None       # auto-sum mission segments if None
+P_charger_ac_kw     = 115.0      # AC charger power [kW]
+eta_charger_dc      = 0.95       # Charger AC->DC efficiency
+c_rate_max          = 20.0       # max charge rate [C]
+v_pack_nom_v_main   = 800.0      # nominal voltage of main eVTOL battery [V]
+v_pack_nom_v_abu    = 400.0      # nominal voltage of ABU battery [V]
+i_term_c            = 0.05       # termination current (fraction of C)
+soc_target          = 1.0        # target full charge
+soc_cc_end          = 0.80       # SOC at CC to CV transition
+t_ground_ops_hr     = 0.2833     # ground turnaround time [hr]
+daily_operation_hr  = 8.0        # daily operation window [hr]
+mission_time_s      = None       # auto-sum mission segments if None
 
 # ABU flight return parameters
 V_abu_horizontal_m_p_s = 30.0   # ABU horizontal return speed [m/s]
@@ -103,6 +104,7 @@ for n_abu_pool in n_abu_pool_list:
     V_abu_horizontal_m_p_s     = V_abu_horizontal_m_p_s,
     V_abu_vertical_m_p_s       = V_abu_vertical_m_p_s,
     h_detach_ft                = h_detach_ft,
+    daily_operation_hr         = daily_operation_hr,
     mission_time_s             = mission_time_s
   )
 
@@ -156,6 +158,7 @@ output_csv = os.path.join(
 
 # define CSV fieldnames
 fieldnames = [
+  "daily_operation_hr",
   "n_abu_pool",
   "E_abu_mission_kwh_per_abu",
   "E_abu_total_kwh_per_abu",
