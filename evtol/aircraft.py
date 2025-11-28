@@ -2824,6 +2824,197 @@ class Aircraft:
       "charger_limit_indicator_flag": chg.get("charger_limit_indicator_flag"),
     }
 
+  # ABU Evaluator 4.1-TL: Common Case Economics (Baseline, no ABU)
+  # Same as baseline evaluator, but includes full operating timeline logging
+  #
+  # Logs:
+  #   • aircraft_depart
+  #   • aircraft_arrive
+  #   • aircraft_ground_ops_start
+  #   • aircraft_ground_ops_done
+  #   • aircraft_charge_start
+  #   • aircraft_charge_done
+  #
+  # Returns:
+  #   baseline summary metrics + timeline event list
+  #
+  def _evaluate_common_case_baseline_timeline(self,
+                                              E_pack_kwh=None,
+                                              P_charger_ac_kw=115.0,
+                                              eta_charger_dc=0.95,
+                                              c_rate_max=1.0,
+                                              v_pack_nom_v=800.0,
+                                              i_term_c=0.05,
+                                              soc_start=None,
+                                              soc_target=1.0,
+                                              soc_cc_end=0.80,
+                                              t_ground_ops_hr=0.2833,
+                                              daily_operation_hr=24.0,
+                                              mission_time_s=None):
+
+    # 1. Mission energy
+    E_mission_kwh = self._calc_total_mission_energy_kw_hr()
+    if E_mission_kwh is None:
+      return None
+
+    # 2. Pack size 
+    if E_pack_kwh is None:
+      E_pack_kwh = E_mission_kwh  # baseline: pack sized to mission
+
+    # 3. Flight time 
+    if mission_time_s is None:
+      seg_time_names = [
+        "depart_taxi_s","hover_climb_s","trans_climb_s","depart_proc_s","accel_climb_s",
+        "cruise_s","decel_descend_s","arrive_proc_s","trans_descend_s","hover_descend_s","arrive_taxi_s",
+      ]
+      mission_time_s = 0.0
+      if getattr(self, "mission", None) is not None:
+        for nm in seg_time_names:
+          mission_time_s += float(getattr(self.mission, nm, 0.0) or 0.0)
+
+    t_flight_hr = (mission_time_s or 0.0) / 3600.0
+
+    # 4. Infer DoD, initial SOC 
+    if soc_start is None:
+      dod = min(1.0, max(0.0, E_mission_kwh / max(E_pack_kwh, 1e-9)))
+      soc_start = max(0.0, soc_target - dod)
+    else:
+      dod = soc_target - soc_start
+      dod = min(1.0, max(0.0, dod))
+
+    # 5. Charge time model
+    chg = self._estimate_cccv_charge_time_hr(
+      E_pack_kwh=E_pack_kwh,
+      P_charger_ac_kw=P_charger_ac_kw,
+      eta_charger_dc=eta_charger_dc,
+      c_rate_max=c_rate_max,
+      v_pack_nom_v=v_pack_nom_v,
+      i_term_c=i_term_c,
+      soc_start=soc_start,
+      soc_target=soc_target,
+      soc_cc_end=soc_cc_end
+    )
+    if chg is None:
+      return None
+
+    t_charge_hr = chg["t_charge_hr"]
+    t_cc_hr = chg.get("t_cc_hr", 0.0)
+    t_cv_hr = chg.get("t_cv_hr", 0.0)
+
+    # 6. Cycle time
+    t_cycle_hr = t_flight_hr + t_charge_hr + t_ground_ops_hr
+    if t_cycle_hr <= 0.0:
+      return None
+
+    # Timeline Simulation
+    timeline = []          # list of {t_hr, event, flight_index}
+    t_now_hr = 0.0         # current aircraft availability time
+    flight_index = 0
+
+    while True:
+
+      # If starting a new flight exceeds operation window → stop
+      if t_now_hr + t_flight_hr > daily_operation_hr:
+        break
+
+      # --- departure ---
+      timeline.append({
+        "t_hr": t_now_hr,
+        "event": "aircraft_depart",
+        "flight_index": flight_index
+      })
+
+      # --- arrival ---
+      t_arrive = t_now_hr + t_flight_hr
+      timeline.append({
+        "t_hr": t_arrive,
+        "event": "aircraft_arrive",
+        "flight_index": flight_index
+      })
+
+      # --- ground ops ---
+      timeline.append({
+        "t_hr": t_arrive,
+        "event": "aircraft_ground_ops_start",
+        "flight_index": flight_index
+      })
+
+      t_after_ground = t_arrive + t_ground_ops_hr
+      timeline.append({
+        "t_hr": t_after_ground,
+        "event": "aircraft_ground_ops_done",
+        "flight_index": flight_index
+      })
+
+      # --- charging ---
+      timeline.append({
+        "t_hr": t_after_ground,
+        "event": "aircraft_charge_start",
+        "flight_index": flight_index
+      })
+
+      t_after_charge = t_after_ground + t_charge_hr
+      timeline.append({
+        "t_hr": t_after_charge,
+        "event": "aircraft_charge_done",
+        "flight_index": flight_index
+      })
+
+      # update availability
+      t_now_hr = t_after_charge
+      flight_index += 1
+
+      if t_now_hr > daily_operation_hr:
+        break
+
+    # number of completed flights
+    n_flights_completed = flight_index
+
+    # slack
+    t_total_used_hr = min(daily_operation_hr, t_now_hr)
+    t_slack_hr = max(0.0, daily_operation_hr - t_total_used_hr)
+
+    t_flight_day_hr = n_flights_completed * t_flight_hr
+    t_downtime_day_hr = n_flights_completed * (t_charge_hr + t_ground_ops_hr) + t_slack_hr
+
+    # results
+    return {
+      "daily_operation_hr": daily_operation_hr,
+      "E_mission_kwh": E_mission_kwh,
+      "E_pack_kwh": E_pack_kwh,
+      "dod": dod,
+      "soc_start": soc_start,
+      "soc_target": soc_target,
+      "soc_cc_end": soc_cc_end,
+
+      "t_flight_hr": t_flight_hr,
+      "t_charge_hr": t_charge_hr,
+      "t_cc_hr": t_cc_hr,
+      "t_cv_hr": t_cv_hr,
+      "t_ground_ops_hr": t_ground_ops_hr,
+      "t_cycle_hr": t_cycle_hr,
+
+      "n_flights_completed": n_flights_completed,
+      "t_flight_day_hr": t_flight_day_hr,
+      "t_downtime_day_hr": t_downtime_day_hr,
+      "t_slack_hr": t_slack_hr,
+
+      "charger_ac_kw": P_charger_ac_kw,
+      "eta_charger_dc": eta_charger_dc,
+      "c_rate_max": c_rate_max,
+      "v_pack_nom_v": v_pack_nom_v,
+      "i_term_c": i_term_c,
+
+      "P_dc_kw": chg.get("P_dc_kw", 0.0),
+      "P_cc_cap_kw": chg.get("P_cc_cap_kw", 0.0),
+      "P_cc_kw": chg.get("P_cc_kw", 0.0),
+      "I_cc_A": chg.get("I_cc_A", 0.0),
+      "I_term_A": chg.get("I_term_A", 0.0),
+      "charger_limit_indicator_flag": chg.get("charger_limit_indicator_flag"),
+
+      "aircraft_timeline": timeline,
+    }
+
   # ABU Evaluator 4.2: Common Case Economics (ABU, Assisted Takeoff, Overlap Charging, Daily Utilization, ABU Queuing)
   #
   # A finite pool of takeoff ABUs
