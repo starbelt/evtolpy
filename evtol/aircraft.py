@@ -3829,7 +3829,7 @@ class Aircraft:
 
     return results
 
-  # ABU Evaluator 4.4.3: Common Case Economics (Combined: Assisted Takeoff + Extended Flight ABU, Overlap Charging, Daily Utilization with Queuing)
+  # ABU Evaluator 4.4: Common Case Economics (Combined: Assisted Takeoff + Extended Flight ABU, Overlap Charging, Daily Utilization with Queuing)
   #
   # estimates daily utilization (flights/day, flight hours/day) for a single eVTOL when:
   #   Takeoff ABUs assist the pre-cruise segments and detach, then return to the TAKEOFF landing zone.
