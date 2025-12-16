@@ -16,8 +16,8 @@ consistent maximum takeoff weight (MTOW). The tool supports comparative studies
 across aircraft architectures, propulsion layouts, battery technologies, and
 mission definitions.
 
-The `evtolpy` simulator accepts inputs describing aircraft geometry (e.g.,
-wingspan, fuselage dimensions, rotor diameter), aerodynamic and drag-related
+The `evtolpy` simulator accepts JSON-based inputs describing aircraft geometry
+(e.g., wingspan, fuselage dimensions, rotor diameter), aerodynamic and drag-related
 properties, propulsion system characteristics (e.g., rotor count, thrust and
 power coefficients, efficiency parameters), mission definitions (e.g., segment
 speeds, durations, and vertical profiles), battery cell and pack properties
@@ -64,6 +64,13 @@ Analysis scripts are organized by study type within the `analysis/` directory.
 Each analysis follows a similar workflow consisting of a logging step followed
 by a plotting step.
 
+The simulator is driven by a JSON input file that defines both the aircraft
+configuration and mission parameters. In the examples below, `test-all.json`
+specifies vehicle geometry, aerodynamic and propulsion properties, battery
+characteristics, and the sequence of mission segments. Users may modify this
+file to define custom aircraft configurations and mission profiles. This JSON
+file serves as the primary input to the `evtolpy` simulator.
+
 ### 1. Mission Energy Analysis
 ```
 cd analysis/mission-segment-energy/src
@@ -100,7 +107,8 @@ This repository may be cited using the following BibTeX entry:
 }
 ```
 
-The most recent publication introducing evtolpy and the ABU framework was presented at the AIAA SciTech Forum 2026 and may be cited as:
+The most recent publication introducing evtolpy and the ABU framework was
+presented at the AIAA SciTech Forum 2026 and may be cited as:
 ```
 @inproceedings{nguyen2026autonomous,
   title     = {Autonomous Battery Units as an Enabling Technology for Urban Air Mobility},
