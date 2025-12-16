@@ -5,7 +5,9 @@ and mission-level simulation of electric vertical takeoff and landing (eVTOL)
 aircraft. The software evaluates vehicle aerodynamics, rotorcraft performance,
 subsystem masses, battery requirements, and mission energy consumption using an
 extensible set of physics-based methods combined with empirical mass
-regressions.
+regressions.  
+
+License: MIT License
 
 ## Overview
 
