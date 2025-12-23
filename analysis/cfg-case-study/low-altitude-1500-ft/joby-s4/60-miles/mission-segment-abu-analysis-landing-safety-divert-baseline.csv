@@ -1,0 +1,2 @@
+divert_distance_mi,t_hover_s,t_hover_descend_s,tol,max_iter,baseline_mtow_kg,mtow_converged_kg,delta_battery_mass_converged_kg,baseline_converged_total_mission_kwh,total_required_kwh,divert_required_kwh,P_hover_kw,P_cruise_kw,t_divert_s,E_hover_loiter_kwh,E_divert_cruise_kwh,E_hover_descend_kwh,n_iterations,note
+6.000000,60.000000,20.000000,0.001000,100,2404.000000,2522.881332,118.881332,81.919568,101.419079,19.499511,589.452544,175.326380,143.905216,9.824209,7.008439,2.666862,6,

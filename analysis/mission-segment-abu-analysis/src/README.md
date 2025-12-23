@@ -24,6 +24,9 @@ This directory contains source scripts.
 * [plt_mission_segment_abu_analysis_landing_safety_loiter.py](plt_mission_segment_abu_analysis_landing_safety_loiter.py): 
   Accepts a log file as input and produces a plot file as output
 
+* [log_mission_segment_abu_analysis_landing_safety_divert_baseline.py](log_mission_segment_abu_analysis_landing_safety_divert_baseline.py): 
+  Accepts a configuration file as input and produces a log file as output
+
 * [log_mission_segment_abu_analysis_common_case_economics_baseline.py](log_mission_segment_abu_analysis_common_case_economics_baseline.py): 
   Accepts a configuration file as input and produces a log file as output
 

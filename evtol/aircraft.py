@@ -2576,6 +2576,184 @@ class Aircraft:
 
     return results
 
+  # ABU Evaluator 3 (Baseline): Landing Safety without ABU (designed-in divert energy, incremental from baseline MTOW)
+  # quantify how much extra main-pack energy is required if the aircraft is designed
+  # to carry the divert capability itself (no landing ABU), starting from the baseline
+  # MTOW already specified in the JSON configuration.
+  #
+  # This evaluator adds an incremental battery mass on top of the baseline aircraft
+  # to cover a landing-disruption contingency: loiter/hover + divert cruise + final hover-descent/landing.
+  # Because extra mass increases power/energy, MTOW is iterated until convergence.
+  #
+  # Assumptions:
+  # - No ABU attachment; all propulsion energy comes from the main aircraft battery.
+  # - Baseline aircraft (JSON) is already sized for baseline mission; we only add extra battery mass.
+  # - Contingency energy is computed at (baseline MTOW + added battery mass).
+  #
+  # Inputs:
+  #   divert_distance_mi : straight-line distance to alternate (miles)
+  #   t_hover_s          : required hover/loiter time (seconds)
+  #   t_hover_descend_s  : approximate hover-descent time (seconds)
+  #   tol                : MTOW convergence tolerance (kg)
+  #   max_iter           : maximum MTOW iterations
+  def _evaluate_landing_safety_divert_baseline(self,
+                                              divert_distance_mi,
+                                              t_hover_s,
+                                              t_hover_descend_s,
+                                              tol=1e-3,
+                                              max_iter=100):
+    if self.mission is None or self.propulsion is None or self.environ is None or self.power is None:
+      return None
+
+    # battery sizing parameters
+    spec_energy_Wh_p_kg = self.power.batt_spec_energy_w_h_p_kg
+    batt_int_factor = self.power.batt_int_factor
+    batt_accessible_energy_frac = 1.0 - self.power.batt_inaccessible_energy_frac
+
+    if spec_energy_Wh_p_kg is None or spec_energy_Wh_p_kg <= 0.0:
+      return None
+    if batt_int_factor is None or batt_int_factor <= 0.0:
+      return None
+    if batt_accessible_energy_frac <= 0.0:
+      return None
+
+    # original baseline MTOW 
+    baseline_mtow_kg = self.max_takeoff_mass_kg
+
+    # helper: compute battery mass directly from an energy requirement
+    def _battery_mass_from_energy_kwh(E_total_kwh):
+      return (E_total_kwh * 1000.0) / (
+        spec_energy_Wh_p_kg * batt_accessible_energy_frac * batt_int_factor
+      )
+
+    history = []
+
+    # initial guess: no added battery mass
+    mtow_guess = baseline_mtow_kg
+
+    # iterate MTOW increment due to added contingency battery mass
+    for i in range(max_iter):
+      try:
+        self.max_takeoff_mass_kg = mtow_guess
+
+        # baseline mission energy at this (temporary) MTOW
+        E_baseline_kwh = self._calc_total_mission_energy_kw_hr()
+        if E_baseline_kwh is None:
+          return None
+
+        # compute powers at this MTOW
+        P_hover_kw = self._calc_hover_electric_power_kw()
+        P_cruise_kw = self._calc_cruise_avg_electric_power_kw()
+        if P_hover_kw is None or P_cruise_kw is None:
+          return None
+
+        V_cruise_m_p_s = self.mission.cruise_h_m_p_s
+        if V_cruise_m_p_s is None or V_cruise_m_p_s <= 0.0:
+          return None
+
+        # 1) loiter/hover energy
+        E_hover_loiter_kwh = P_hover_kw * (t_hover_s / 3600.0)
+
+        # 2) divert cruise energy
+        t_divert_s = divert_distance_mi * 1609.34 / V_cruise_m_p_s
+        E_divert_kwh = P_cruise_kw * (t_divert_s / 3600.0)
+
+        # 3) hover descent (landing) energy with patched hover_descend_s
+        E_hover_descend_kwh = 0.0
+
+        try:
+          orig_prop = type(self.mission).hover_descend_s
+          orig_getter = getattr(type(self.mission), 'hover_descend_s', None)
+
+          type(self.mission).hover_descend_s = property(lambda _self: t_hover_descend_s)
+
+          E_hover_descend_kwh = self._calc_hover_descend_energy_kw_hr()
+          if E_hover_descend_kwh is None:
+            return None
+
+        finally:
+          if orig_getter is not None:
+            type(self.mission).hover_descend_s = orig_prop
+
+        # contingency energy required for landing disruption
+        E_divert_required_kwh = E_hover_loiter_kwh + E_divert_kwh + E_hover_descend_kwh
+
+        # 4) incremental battery mass required for the contingency ONLY
+        # (do not re-size baseline pack; just add mass on top of baseline aircraft)
+        delta_batt_mass_kg = _battery_mass_from_energy_kwh(E_divert_required_kwh)
+
+        # new MTOW = baseline MTOW + incremental contingency battery mass
+        new_mtow_kg = baseline_mtow_kg + delta_batt_mass_kg
+        delta_kg = new_mtow_kg - mtow_guess
+
+        # total energy required
+        E_total_required_kwh = E_baseline_kwh + E_divert_required_kwh
+
+        history.append({
+          "iteration": i,
+          "mtow_guess_kg": mtow_guess,
+          "new_mtow_kg": new_mtow_kg,
+          "delta_kg": delta_kg,
+          "baseline_mtow_kg": baseline_mtow_kg,
+          "E_baseline_kwh": E_baseline_kwh,
+          "E_divert_required_kwh": E_divert_required_kwh,
+          "E_total_required_kwh": E_total_required_kwh,
+          "P_hover_kw": P_hover_kw,
+          "P_cruise_kw": P_cruise_kw,
+          "t_divert_s": t_divert_s,
+          "E_hover_loiter_kwh": E_hover_loiter_kwh,
+          "E_divert_cruise_kwh": E_divert_kwh,
+          "E_hover_descend_kwh": E_hover_descend_kwh,
+          "delta_batt_mass_kg": delta_batt_mass_kg,
+        })
+
+        if abs(delta_kg) < tol:
+          return {
+            "baseline_mtow_kg": baseline_mtow_kg,
+            "mtow_converged_kg": new_mtow_kg,
+            "delta_battery_mass_converged_kg": delta_batt_mass_kg,
+            "baseline_converged_total_mission_kwh": E_baseline_kwh,
+            "divert_required_kwh": E_divert_required_kwh,
+            "total_required_kwh": E_total_required_kwh,
+            "P_hover_kw": P_hover_kw,
+            "P_cruise_kw": P_cruise_kw,
+            "t_divert_s": t_divert_s,
+            "E_hover_loiter_kwh": E_hover_loiter_kwh,
+            "E_divert_cruise_kwh": E_divert_kwh,
+            "E_hover_descend_kwh": E_hover_descend_kwh,
+            "history": history,
+          }
+
+        mtow_guess = new_mtow_kg
+
+      finally:
+        # keep looping; MTOW restored after loop
+        pass
+
+    # if not converged, still return last iterate + history
+    self.max_takeoff_mass_kg = baseline_mtow_kg
+
+    if len(history) == 0:
+      return None
+
+    last = history[-1]
+    return {
+      "baseline_mtow_kg": baseline_mtow_kg,
+      "mtow_converged_kg": last.get("new_mtow_kg", mtow_guess),
+      "delta_battery_mass_converged_kg": last.get("delta_batt_mass_kg", 0.0),
+      "baseline_converged_total_mission_kwh": last.get("E_baseline_kwh", 0.0),
+      "total_required_kwh": last.get("E_total_required_kwh", 0.0),
+      "divert_required_kwh": last.get("E_divert_required_kwh", 0.0),
+      "P_hover_kw": last.get("P_hover_kw", 0.0),
+      "P_cruise_kw": last.get("P_cruise_kw", 0.0),
+      "t_divert_s": last.get("t_divert_s", 0.0),
+      "E_hover_loiter_kwh": last.get("E_hover_loiter_kwh", 0.0),
+      "E_divert_cruise_kwh": last.get("E_divert_kwh", 0.0),
+      "E_hover_descend_kwh": last.get("E_hover_descend_kwh", 0.0),
+      "history": history,
+      "note": "did not converge within max_iter; returning last iterate"
+    }
+
   # battery charging time estimator (based on CC–CV Model)
   # estimates total charge time [hr] from SOC_start to SOC_target
   # using the analytical expressions from Donateo et al., "Fuel economy of hybrid electric flight", (2017) 
