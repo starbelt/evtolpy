@@ -117,7 +117,7 @@ presented at the AIAA SciTech Forum 2026 and may be cited as:
   author    = {Nguyen, Khoa D. and Hogge, Dylan and Riris, John and Sarojini, Darshan and Denby, Bradley},
   booktitle = {AIAA SciTech 2026 Forum},
   year      = {2026},
-  doi       = {},
-  url       = {}
+  doi       = {10.2514/6.2026-1713},
+  url       = {https://arc.aiaa.org/doi/10.2514/6.2026-1713}
 }
 ```
