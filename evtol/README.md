@@ -13,4 +13,5 @@ This Python package includes classes representing an aircraft and its mission pr
 * [power.py](power.py): A Python class containing aircraft power characteristics
 * [propulsion.py](propulsion.py): A Python class containing aircraft propulsion
   characteristics
+* [aircraft_modules](aircraft_modules/README.md): Directory containing modules related to aicraft simulation
 * [README.md](README.md): This document
