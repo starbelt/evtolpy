@@ -143,8 +143,30 @@ class Aircraft:
     return aircraft_aero._calc_total_drag_coef(self)
 
 
+  # Wrapper methods: aircraft_geometry
+  def _calc_wing_area_m2(self):
+    return aircraft_geometry._calc_wing_area_m2(self)
 
+  def _calc_fuselage_fineness_ratio(self):
+    return aircraft_geometry._calc_fuselage_fineness_ratio(self)
 
+  def _calc_wing_mac_m(self):
+    return aircraft_geometry._calc_wing_mac_m(self)
+
+  def _calc_wing_aspect_ratio(self):
+    return aircraft_geometry._calc_wing_aspect_ratio(self)
+
+  def _calc_wing_root_chord_m(self):
+    return aircraft_geometry._calc_wing_root_chord_m(self)
+
+  def _calc_horiz_tail_area_m2(self):
+    return aircraft_geometry._calc_horiz_tail_area_m2(self)
+
+  def _calc_vert_tail_area_m2(self):
+    return aircraft_geometry._calc_vert_tail_area_m2(self)
+
+  def _calc_fuselage_wetted_area_m2(self):
+    return aircraft_geometry._calc_fuselage_wetted_area_m2(self)
 
 
 
@@ -195,88 +217,23 @@ class Aircraft:
     else:
       return None
 
-  # requires environ air_density_max_alt_kg_p_m3
-  # stall speed equation solved for wing area
-  # return None if environ object not populated
-  def _calc_wing_area_m2(self):
-    if self.environ != None:
-      return \
-       (2.0*self.max_takeoff_mass_kg*self.environ.g_m_p_s2)/\
-       (self.environ.air_density_sea_lvl_kg_p_m3*(self.stall_speed_m_p_s**2.0)*\
-        self.vehicle_cl_max)
-    else:
-      return None
 
 
 
-  # Hoerner Eq 13.1 (p 238)
-  def _calc_fuselage_fineness_ratio(self):
-    return 2.0*self.fuselage_l_m/(self.fuselage_w_m+self.fuselage_h_m)
-
-
-# requires aircraft wing_root_chord_m
-# wing Mean Aerodynamic Chord formula
-# return None if aircraft field not populated
-  def _calc_wing_mac_m(aircraft):
-    if aircraft.wing_root_chord_m != None:
-      return \
-       (2.0/3.0)*aircraft.wing_root_chord_m*\
-       (1.0+aircraft.wing_taper_ratio**2.0/(1.0+aircraft.wing_taper_ratio))
-    else:
-      return None
-
-
-  # requires aircraft wing_area_m2
-  # wing aspect ratio = wingspan^2/wing area
-  # return None if aircraft field not populated
-  def _calc_wing_aspect_ratio(self):
-    if self.wing_area_m2 != None:
-      return self.wingspan_m**2.0/self.wing_area_m2
-    else:
-      return None
 
 
 
-  # requires aircraft wing_area_m2
-  # recall wing aspect ratio = wingspan^2/wing area
-  # return None if aircraft field not populated
-  def _calc_wing_root_chord_m(self):
-    if self.wing_area_m2 != None:
-      return 2.0*self.wing_area_m2/(self.wingspan_m*(1.0+self.wing_taper_ratio))
-    else:
-      return None
-
-
-  # requires aircraft wing_area_m2 and wing_mac_m
-  # return None if aircraft field not populated
-  def _calc_horiz_tail_area_m2(self):
-    if self.wing_area_m2 != None and self.wing_mac_m != None:
-      return \
-       (self.horiz_tail_vol_coeff*self.wing_area_m2*self.wing_mac_m)/\
-       (0.5*self.fuselage_l_m)
-    else:
-      return None
-
-  # requires aircraft wing_area_m2
-  # return None if aircraft field not populated
-  def _calc_vert_tail_area_m2(self):
-    if self.wing_area_m2 != None :
-      return \
-       (self.vert_tail_vol_coeff*self.wingspan_m*self.wing_area_m2)/\
-       (0.5*self.fuselage_l_m)
-    else:
-      return None
 
 
 
-  # Hoerner Eq 6.30 (p 111)
-  def _calc_fuselage_wetted_area_m2(self):
-    if self.fuselage_cf != None and self.wing_area_m2 != None:
-      fuselage_reference_area = math.pi*((self.fuselage_w_m+self.fuselage_h_m)/4.0)**2.0
-      return 3*self.fuselage_fineness_ratio*fuselage_reference_area
-    else:
-      return None
-  
+
+
+
+
+
+
+
+
 
   
   # calculates the over-torque factor for the propulsion system.
@@ -4681,6 +4638,41 @@ class Aircraft:
     return aircraft_aero._calc_total_drag_coef(self)
 
 
+  # aircraft_geometry properties
+  @property
+  def wing_area_m2(self):
+    return aircraft_geometry._calc_wing_area_m2(self)
+
+  @property
+  def fuselage_fineness_ratio(self):
+    return aircraft_geometry._calc_fuselage_fineness_ratio(self)
+
+  @property
+  def wing_mac_m(self):
+    return aircraft_geometry._calc_wing_mac_m(self)
+
+  @property
+  def wing_aspect_ratio(self):
+    return aircraft_geometry._calc_wing_aspect_ratio(self)
+
+  @property
+  def wing_root_chord_m(self):
+    return aircraft_geometry._calc_wing_root_chord_m(self)
+
+  @property
+  def horiz_tail_area_m2(self):
+    return aircraft_geometry._calc_horiz_tail_area_m2(self)
+
+  @property
+  def vert_tail_area_m2(self):
+    return aircraft_geometry._calc_vert_tail_area_m2(self)
+    
+  @property
+  def fuselage_wetted_area_m2(self):
+    return aircraft_geometry._calc_fuselage_wetted_area_m2(self)
+
+
+
 
 
 
@@ -4816,45 +4808,7 @@ class Aircraft:
   def hover_shaft_power_kw(self):
     return self._calc_hover_shaft_power_kw()
 
-  @property
-  def wing_area_m2(self):
-    return self._calc_wing_area_m2()
 
-
-
-  @property
-  def fuselage_fineness_ratio(self):
-    return self._calc_fuselage_fineness_ratio()
-
-
-
-  @property
-  def wing_aspect_ratio(self):
-    return self._calc_wing_aspect_ratio()
-
-
-
-  @property
-  def wing_root_chord_m(self):
-    return self._calc_wing_root_chord_m()
-
-  @property
-  def wing_mac_m(self):
-    return self._calc_wing_mac_m()
-
-  @property
-  def horiz_tail_area_m2(self):
-    return self._calc_horiz_tail_area_m2()
-
-  @property
-  def vert_tail_area_m2(self):
-    return self._calc_vert_tail_area_m2()
-
-
-    
-  @property
-  def fuselage_wetted_area_m2(self):
-    return self._calc_fuselage_wetted_area_m2()
 
   @property
   def over_torque_factor(self):
