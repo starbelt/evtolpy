@@ -169,11 +169,47 @@ class Aircraft:
     return aircraft_geometry._calc_fuselage_wetted_area_m2(self)
 
 
-
-
-  # ratio of payload mass to max takeoff mass
+  # Wrapper methods: aircraft_mass
   def _calc_payload_mass_frac(self):
-    return self.payload_kg/self.max_takeoff_mass_kg
+    return aircraft_mass._calc_payload_mass_frac(self)
+
+  def _calc_single_epu_mass_kg(self):
+    return aircraft_mass._calc_single_epu_mass_kg(self)
+
+  def _calc_battery_mass_kg(self):
+    return aircraft_mass._calc_battery_mass_kg(self)
+
+  def _calc_wing_mass_kg(self):
+    return aircraft_mass._calc_wing_mass_kg(self)
+
+  def _calc_horiz_tail_mass_kg(self):
+    return aircraft_mass._calc_horiz_tail_mass_kg(self)
+
+  def _calc_vert_tail_mass_kg(self):
+    return aircraft_mass._calc_vert_tail_mass_kg(self)
+
+  def _calc_fuselage_mass_kg(self):
+    return aircraft_mass._calc_fuselage_mass_kg(self)
+
+  def _calc_boom_mass_kg(self):
+    return aircraft_mass._calc_boom_mass_kg(self)
+
+  def _calc_landing_gear_mass_kg(self):
+    return aircraft_mass._calc_landing_gear_mass_kg(self)
+
+  def _calc_epu_mass_kg(self):
+    return aircraft_mass._calc_epu_mass_kg(self)
+
+  def _calc_lift_rotor_hub_mass_kg(self):
+    return aircraft_mass._calc_lift_rotor_hub_mass_kg(self)
+
+  def _calc_tilt_rotor_mass_kg(self):
+    return aircraft_mass._calc_tilt_rotor_mass_kg(self)
+
+  def _calc_empty_mass_kg(self):
+    return aircraft_mass._calc_empty_mass_kg(self)
+
+
 
   # requires disk_area_m2 from propulsion
   # use MTOM to calculate kg per disk area m2
@@ -218,24 +254,6 @@ class Aircraft:
       return None
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
   # calculates the over-torque factor for the propulsion system.
   def _calc_over_torque_factor(self):
     if self.propulsion == None:
@@ -243,28 +261,7 @@ class Aircraft:
     else:
       return self.propulsion.rotor_count/(self.propulsion.rotor_count-2)+0.3
 
-  # Parametric EPU mass estimation model (FHE / Magicall datasheet based)
-  # Uses hover torque and over-torque scaling to compute motor torque at max thrust
-  # Scales rotor RPM to account for sea-level vs. minimum air density conditions
-  # Computes maximum motor power and applies empirical regression to estimate single EPU mass
-  def _calc_single_epu_mass_kg(self):
-    if self.propulsion == None and self.environ == None:
-      return None
-    else:
-      # Hover torque
-      rpm_hover_rpm = (self.environ.sound_speed_m_p_s*self.propulsion.tip_mach/(self.propulsion.rotor_diameter_m/2.0))*60.0/(2.0*math.pi)
-      omega_hover_rad_s = 2.0*math.pi*rpm_hover_rpm/60.0
-      torque_hover_nm = (self.hover_shaft_power_kw*1000.0/self.propulsion.rotor_count)/omega_hover_rad_s
-      torque_max_nm = self.over_torque_factor * torque_hover_nm
 
-      # Max RPM (min density)
-      rpm_hover_sl_rpm = rpm_hover_rpm  # assuming hover calc is at sea-level
-      rpm_max_rpm = rpm_hover_sl_rpm*math.sqrt(self.environ.air_density_sea_lvl_kg_p_m3/self.environ.air_density_max_alt_kg_p_m3)*math.sqrt(self.over_torque_factor)
-      omega_max_rad_s = 2.0*math.pi*rpm_max_rpm/60.0
-      power_max_kw = (torque_max_nm*omega_max_rad_s)/1000.0
-
-      # Empirical mass model
-      return 1.15*((power_max_kw/12.67) + (torque_max_nm/52.2) + 2.55)
   
   # estimates rotor solidity from thrust coefficient at hover
   # based on MTOW, air density, rotor geometry, and tip Mach hover RPM
@@ -1478,236 +1475,9 @@ class Aircraft:
     else:
       return None
 
-  # calculates battery mass [kg] from total mission energy, 
-  # requires battery specific energy, inaccessible energy fraction, and integration factor.
-  def _calc_battery_mass_kg(self):
-    if self.power is None:
-      return None
-    total_energy_kw_hr = self._calc_total_mission_energy_kw_hr()
-    batt_accessible_energy_frac = 1-self.power.batt_inaccessible_energy_frac
-    if total_energy_kw_hr != None and self.power != None:
-      return (total_energy_kw_hr*1000.0)/(self.power.batt_spec_energy_w_h_p_kg*batt_accessible_energy_frac*self.power.batt_int_factor)
-    else:
-      return None 
+
   
-  # estimates wing structural mass [kg] using NDARC AFDD93 model 
-  # based on Raymer estimation and 0.9 technology factor
-  def _calc_wing_mass_kg(self):
-    max_takeoff_mass_lb = self.max_takeoff_mass_kg*KG_2_LB
-    wing_area_ft2 = self.wing_area_m2*(M_2_FT**2)
-    wing_mass_lb = (
-      5.66411
-      *(max_takeoff_mass_lb/1000.0)**0.847
-      *(3.8*1.5)**0.39579
-      *(wing_area_ft2)**0.21754
-      *(self.wing_aspect_ratio)**0.50016
-      *((1.0+self.wing_taper_ratio)/self.wing_t_p_c)**0.09359
-      *0.9
-    )
-    return wing_mass_lb/KG_2_LB
 
-  # estimates horizontal tail structural mass [kg] using NDARC model 
-  # based on tail area, dive speed, and 0.9 technology factor
-  def _calc_horiz_tail_mass_kg(self):
-    if self.mission is None:
-      return None
-    horiz_tail_area_ft2 = self.horiz_tail_area_m2*(M_2_FT**2)
-    dive_speed_kts = 1.4*self.mission.cruise_h_m_p_s*M_P_S_2_KTS
-    horiz_tail_mass_lb = (
-      horiz_tail_area_ft2
-      *(0.00395*(horiz_tail_area_ft2**0.2)*dive_speed_kts-0.4885)
-      *0.9
-    )
-    return horiz_tail_mass_lb/KG_2_LB
-
-  # estimates vertical tail structural mass [kg] using NDARC model 
-  # based on tail area, dive speed, and 0.9 technology factor
-  def _calc_vert_tail_mass_kg(self):
-    if self.mission is None:
-      return None
-    vert_tail_area_ft2 = self.vert_tail_area_m2*(M_2_FT**2)
-    dive_speed_kts = 1.4*self.mission.cruise_h_m_p_s*M_P_S_2_KTS
-    vert_tail_mass_lb = (
-        vert_tail_area_ft2
-        *(0.00395*(vert_tail_area_ft2**0.2)*dive_speed_kts-0.4885)
-        *0.9
-    )
-    return vert_tail_mass_lb/KG_2_LB
-
-  # estimates fuselage structural mass [kg] using NDARC model 
-  # based on wetted area, fineness ratio, dynamic pressure, and 0.9 technology factor
-  def _calc_fuselage_mass_kg(self):
-    if self.mission is None or self.environ is None:
-      return None
-    fuselage_wetted_area_ft2 = self.fuselage_wetted_area_m2*(M_2_FT**2)
-    max_takeoff_mass_lb = self.max_takeoff_mass_kg*KG_2_LB
-    fuselage_length_ft = self.fuselage_l_m*0.5*M_2_FT
-    cruise_speed_m_p_s = self.mission.cruise_h_m_p_s
-    dyn_pressure_lb_ft2 = (
-        0.5*self.environ.air_density_sea_lvl_kg_p_m3*(cruise_speed_m_p_s**2.0)
-        *N_P_M2_2_LB_P_FT2
-    )
-    fuselage_mass_lb = (
-        0.052
-        *(fuselage_wetted_area_ft2**1.086)
-        *((3.8*1.5*max_takeoff_mass_lb)**0.177)
-        *(fuselage_length_ft**-0.051)
-        *(self.fuselage_fineness_ratio**-0.072)
-        *(dyn_pressure_lb_ft2**0.241)
-        *0.9
-    )
-    return fuselage_mass_lb/KG_2_LB
-  
-  # estimates boom structural mass [kg] using NDARC engine support model and cowling equations
-  # based on EPU weight, rotor count, rotor diameter, and wing MAC
-  def _calc_boom_mass_kg(self):
-    if self.propulsion is None:
-      return None
-    single_epu_mass_lb = self.single_epu_mass_kg*KG_2_LB
-    rotor_count = self.propulsion.rotor_count
-    rotor_diameter_m = self.propulsion.rotor_diameter_m
-    wing_mac_m = self.wing_mac_m
-
-    boom_mass_kg = (
-      0.0412*(single_epu_mass_lb**1.1433)*(rotor_count**1.3762)/KG_2_LB
-      + 6*0.2315*((1.2*rotor_diameter_m + wing_mac_m)**1.3476)
-    )*2
-    return boom_mass_kg
-
-  # estimates landing gear mass [kg] using NDARC simple model 
-  # assumes 3.25% of MTOW with factors for crashworthiness (1.14) and retractable gear (1.08)
-  def _calc_landing_gear_mass_kg(self):
-    return 0.0325*self.max_takeoff_mass_kg*1.14*1.08
-
-  # estimates total electric propulsion unit (EPU) mass [kg] 
-  # using parametric model from FHE based on Magicall datasheet 
-  # scales single EPU mass by number of rotors
-  def _calc_epu_mass_kg(self):
-    if self.propulsion is None:
-      return None
-    else:
-      return self.single_epu_mass_kg*self.propulsion.rotor_count
-    
-  # NDARC Section 19.2 AFDD00 rotor + hub mass model
-  # assumes 2-bladed rotors, flap natural frequency at 1.1 × max RPM
-  # returns lift rotor + hub mass [kg]
-  def _calc_lift_rotor_hub_mass_kg(self):
-    if self.propulsion is None or self.environ is None:
-      return None
-    rotor_radius_ft = (self.propulsion.rotor_diameter_m / 2.0) * M_2_FT
-    solidity = self.rotor_solidity
-    sound_speed_m_p_s = self.environ.sound_speed_m_p_s
-    tip_mach = self.propulsion.tip_mach
-    rho_sl = self.environ.air_density_sea_lvl_kg_p_m3
-    rho_alt = self.environ.air_density_max_alt_kg_p_m3
-    over_torque_factor = self.over_torque_factor
-
-    # common geometric term:
-    term_common = (math.pi / 2.0/ 2.0) * self.propulsion.rotor_diameter_m * solidity * M_2_FT
-
-    tip_speed_ft_s = (
-      sound_speed_m_p_s
-      * tip_mach
-      * math.sqrt(rho_sl / rho_alt)
-      * math.sqrt(over_torque_factor)
-      * M_2_FT
-    )
-
-    lift_rotor_hub_mass_lb = (
-      (
-        0.0024419
-        * (self.propulsion.lift_rotor_count)
-        * (2.0 ** 0.53479)
-        * (rotor_radius_ft ** 1.74231)
-        * (term_common ** 0.77291)
-        * (tip_speed_ft_s ** 0.87562)
-        * (1.1 ** 2.51048)
-      )
-      + (
-        0.00037547
-        * (self.propulsion.lift_rotor_count)
-        * (2.0 ** 0.71443)
-        * (rotor_radius_ft ** 1.99321)
-        * (term_common ** 0.79577)
-        * (tip_speed_ft_s ** 0.96323)
-        * (1.1 ** 0.46203)
-        * (1.1 ** 2.58473)
-      )
-    )
-    return lift_rotor_hub_mass_lb / KG_2_LB
-
-  # NDARC Section 19.2 AFDD00 tilt rotor mass model
-  # assumes 3-bladed rotors, flap natural frequency at 1.1 × max RPM
-  # returns tilt rotor mass [kg]
-  def _calc_tilt_rotor_mass_kg(self):
-    if self.propulsion is None or self.environ is None:
-      return None
-    
-    rotor_radius_ft = (self.propulsion.rotor_diameter_m / 2.0) * M_2_FT
-    solidity = self.rotor_solidity
-    sound_speed_m_p_s = self.environ.sound_speed_m_p_s
-    tip_mach = self.propulsion.tip_mach
-    rho_sl = self.environ.air_density_sea_lvl_kg_p_m3
-    rho_alt = self.environ.air_density_max_alt_kg_p_m3
-    over_torque_factor = self.over_torque_factor
-
-    # common geometric term 
-    term_common = (math.pi / 2.0 / 3.0) * self.propulsion.rotor_diameter_m * solidity * M_2_FT
-
-    tip_speed_ft_s = (
-      sound_speed_m_p_s
-      * tip_mach
-      * math.sqrt(rho_sl / rho_alt)
-      * math.sqrt(over_torque_factor)
-      * M_2_FT
-    )
-
-    tilt_rotor_mass_lb = (
-      (
-        0.0024419 * 1.1794
-        * (self.propulsion.tilt_rotor_count)
-        * (3.0 ** 0.53479)
-        * (rotor_radius_ft ** 1.74231)
-        * (term_common ** 0.77291)
-        * (tip_speed_ft_s ** 0.87562)
-        * (1.1 ** 2.51048)
-      )
-      + (
-        0.00037547 * (1.1794 ** 1.02958)
-        * (self.propulsion.tilt_rotor_count)
-        * (3.0 ** 0.71443)
-        * (rotor_radius_ft ** 1.99321)
-        * (term_common ** 0.79577)
-        * (tip_speed_ft_s ** 0.96323)
-        * (1.1 ** 0.46203)
-        * (1.1 ** 2.58473)
-      )
-    )
-    return tilt_rotor_mass_lb / KG_2_LB
-
-  # calculates aircraft empty mass
-  def _calc_empty_mass_kg(self):
-    structural_mass = (
-      self.wing_mass_kg +
-      self.horiz_tail_mass_kg +
-      self.vert_tail_mass_kg +
-      self.fuselage_mass_kg +
-      self.boom_mass_kg +
-      self.landing_gear_mass_kg +
-      self.lift_rotor_hub_mass_kg +
-      self.tilt_rotor_mass_kg
-    )
-    subsys_mass = (
-      self.epu_mass_kg +
-      self.actuator_mass_kg +
-      self.furnishings_mass_kg +
-      self.environmental_control_system_mass_kg +
-      self.avionics_mass_kg +
-      self.hivolt_power_dist_mass_kg +
-      self.lovolt_power_coms_mass_kg
-    )
-    subtotal = structural_mass + subsys_mass
-    return subtotal * (1.0 + self.mass_margin_factor)
 
   # iterate Maximum Takeoff Weight (MTOW) until convergence
   def _iterate_mtow(self, tol=1e-3, max_iter=150):
@@ -4672,6 +4442,60 @@ class Aircraft:
     return aircraft_geometry._calc_fuselage_wetted_area_m2(self)
 
 
+  # aircraft_mass properties
+  @property
+  def payload_mass_frac(self):
+    return aircraft_mass._calc_payload_mass_frac(self)
+
+  @property
+  def single_epu_mass_kg(self):
+    return aircraft_mass._calc_single_epu_mass_kg(self)
+
+  @property
+  def battery_mass_kg(self):
+    return aircraft_mass._calc_battery_mass_kg(self)
+
+  @property
+  def wing_mass_kg(self):
+    return aircraft_mass._calc_wing_mass_kg(self)
+
+  @property
+  def horiz_tail_mass_kg(self):
+    return aircraft_mass._calc_horiz_tail_mass_kg(self)
+
+  @property
+  def vert_tail_mass_kg(self):
+    return aircraft_mass._calc_vert_tail_mass_kg(self)
+
+  @property
+  def fuselage_mass_kg(self):
+    return aircraft_mass._calc_fuselage_mass_kg(self)
+
+  @property
+  def boom_mass_kg(self):
+    return aircraft_mass._calc_boom_mass_kg(self)
+
+  @property
+  def landing_gear_mass_kg(self):
+    return aircraft_mass._calc_landing_gear_mass_kg(self)
+
+  @property
+  def epu_mass_kg(self):
+    return aircraft_mass._calc_epu_mass_kg(self)
+
+  @property
+  def lift_rotor_hub_mass_kg(self):
+    return aircraft_mass._calc_lift_rotor_hub_mass_kg(self)
+
+  @property
+  def tilt_rotor_mass_kg(self):
+    return aircraft_mass._calc_tilt_rotor_mass_kg(self)
+
+  @property
+  def empty_mass_kg(self):
+    return aircraft_mass._calc_empty_mass_kg(self)
+
+
 
 
 
@@ -4813,10 +4637,6 @@ class Aircraft:
   @property
   def over_torque_factor(self):
     return self._calc_over_torque_factor()
-
-  @property
-  def single_epu_mass_kg(self):
-    return self._calc_single_epu_mass_kg()
 
   @property
   def rotor_solidity(self):
@@ -5046,46 +4866,3 @@ class Aircraft:
   def total_reserve_mission_energy_kw_hr(self):
     return self._calc_total_reserve_mission_energy_kw_hr()
 
-  @property
-  def battery_mass_kg(self):
-    return self._calc_battery_mass_kg()
-
-  @property
-  def wing_mass_kg(self):
-    return self._calc_wing_mass_kg()
-
-  @property
-  def horiz_tail_mass_kg(self):
-    return self._calc_horiz_tail_mass_kg()
-
-  @property
-  def vert_tail_mass_kg(self):
-    return self._calc_vert_tail_mass_kg()
-
-  @property
-  def fuselage_mass_kg(self):
-    return self._calc_fuselage_mass_kg()
-
-  @property
-  def boom_mass_kg(self):
-    return self._calc_boom_mass_kg()
-
-  @property
-  def landing_gear_mass_kg(self):
-    return self._calc_landing_gear_mass_kg()
-
-  @property
-  def epu_mass_kg(self):
-    return self._calc_epu_mass_kg()
-
-  @property
-  def lift_rotor_hub_mass_kg(self):
-    return self._calc_lift_rotor_hub_mass_kg()
-
-  @property
-  def tilt_rotor_mass_kg(self):
-    return self._calc_tilt_rotor_mass_kg()
-
-  @property
-  def empty_mass_kg(self):
-    return self._calc_empty_mass_kg()
