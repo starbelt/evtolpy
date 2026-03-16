@@ -15,10 +15,20 @@ import sys  # not needed when using as a package
 
 # path to directory with other classes; use before deploying as package
 sys.path.append('../evtol')
-from environ import Environ
-from mission import Mission
-from power import Power
-from propulsion import Propulsion
+from .environ import Environ
+from .mission import Mission
+from .power import Power
+from .propulsion import Propulsion
+
+# path to directory with other aircraft modules; use before deploying as package
+from .aircraft_modules import aircraft_abu
+from .aircraft_modules import aircraft_aero
+from .aircraft_modules import aircraft_battery
+from .aircraft_modules import aircraft_geometry
+from .aircraft_modules import aircraft_iteration
+from .aircraft_modules import aircraft_mass
+from .aircraft_modules import aircraft_performance
+from .aircraft_modules import aircraft_propulsion
 
 # comment above and uncomment below when ready to deploy as package
 #from .environ import Environ
@@ -92,6 +102,53 @@ class Aircraft:
     # close JSON file
     ifile.close()
 
+  # Wrapper methods: aircraft_aero
+  def _calc_cruise_cl(self):
+    return aircraft_aero._calc_cruise_cl(self)
+
+  def _calc_fuselage_cd0_p_cf(self):
+    return aircraft_aero._calc_fuselage_cd0_p_cf(self)
+
+  def _calc_fuselage_cruise_reynolds(self):
+    return aircraft_aero._calc_fuselage_cruise_reynolds(self)
+
+  def _calc_fuselage_cf(self):
+    return aircraft_aero._calc_fuselage_cf(self)
+
+  def _calc_fuselage_cd0(self):
+    return aircraft_aero._calc_fuselage_cd0(self)
+
+  def _calc_induced_drag_cdi(self):
+    return aircraft_aero._calc_induced_drag_cdi(self)
+
+  def _calc_horiz_tail_cd0(self):
+    return aircraft_aero._calc_horiz_tail_cd0(self)
+
+  def _calc_vert_tail_cd0(self):
+    return aircraft_aero._calc_vert_tail_cd0(self)
+
+  def _calc_landing_gear_cd0(self):
+    return aircraft_aero._calc_landing_gear_cd0(self)
+
+  def _calc_stopped_rotor_cd0(self):
+    return aircraft_aero._calc_stopped_rotor_cd0(self)
+
+  def _calc_cruise_cd(self):
+    return aircraft_aero._calc_cruise_cd(self)
+
+  def _calc_cruise_l_p_d(self):
+    return aircraft_aero._calc_cruise_l_p_d(self)
+
+  def _calc_total_drag_coef(self):
+    return aircraft_aero._calc_total_drag_coef(self)
+
+
+
+
+
+
+
+
   # ratio of payload mass to max takeoff mass
   def _calc_payload_mass_frac(self):
     return self.payload_kg/self.max_takeoff_mass_kg
@@ -150,66 +207,24 @@ class Aircraft:
     else:
       return None
 
-  # requires mission cruise_h_m_p_s
-  # this calculation replaces stall speed with cruise speed
-  # see stall speed equation
-  # return None if mission object not populated
-  def _calc_cruise_cl(self):
-    if self.mission != None:
-      return \
-       (self.stall_speed_m_p_s**2.0)*self.vehicle_cl_max/\
-       (self.mission.cruise_h_m_p_s**2.0)
-    else:
-      return None
+
 
   # Hoerner Eq 13.1 (p 238)
   def _calc_fuselage_fineness_ratio(self):
     return 2.0*self.fuselage_l_m/(self.fuselage_w_m+self.fuselage_h_m)
 
-  # Hoerner Eq 6.31 (p 111)
-  def _calc_fuselage_cd0_p_cf(self):
-    return \
-     3.0*self.fuselage_fineness_ratio+4.5/self.fuselage_fineness_ratio**0.5+\
-     21.0/self.fuselage_fineness_ratio**2.0
 
-  # requires environ kinematic_viscosity_max_alt_m2_p_s
-  # requires mission cruise_h_m_p_s
-  # reynolds number = velocity*length/kinematic viscosity
-  # return None if environ or mission object not populated
-  def _calc_fuselage_cruise_reynolds(self):
-    if self.environ != None and self.mission != None:
+# requires aircraft wing_root_chord_m
+# wing Mean Aerodynamic Chord formula
+# return None if aircraft field not populated
+  def _calc_wing_mac_m(aircraft):
+    if aircraft.wing_root_chord_m != None:
       return \
-       self.mission.cruise_h_m_p_s*self.fuselage_l_m/\
-       self.environ.kinematic_viscosity_max_alt_m2_p_s
+       (2.0/3.0)*aircraft.wing_root_chord_m*\
+       (1.0+aircraft.wing_taper_ratio**2.0/(1.0+aircraft.wing_taper_ratio))
     else:
       return None
 
-  # requires aircraft fuselage_cruise_reynolds
-  # Prandtl-Schlichting skin friction formula
-  # where other additive terms are negligible in this regime
-  # return None if aircraft field not populated
-  def _calc_fuselage_cf(self):
-    if self.fuselage_cruise_reynolds != None:
-      return 0.455/math.log10(self.fuselage_cruise_reynolds)**2.58
-      # negligible: 
-      # +0.0016*self.fuselage_fineness_ratio/self.fuselage_cruise_reynolds**0.4
-    else:
-      return None
-
-  # requires aircraft fuselage_cf and aircraft wing_area_m2
-  # dimensional analysis
-  # fuselage_cd0 = fuselage_cda/wing_area_m2
-  # where fuselage_cda = fuselage_cd0_p_cf*fuselage_cf*fuselage_reference_area
-  # where fuselage_reference_area = pi*((fuselage_w+fuselage_h)/4)**2
-  # return None if aircraft field not populated
-  def _calc_fuselage_cd0(self):
-    if self.fuselage_cf != None and self.wing_area_m2 != None:
-      fuselage_reference_area = math.pi*((self.fuselage_w_m+self.fuselage_h_m)/4.0)**2.0
-      return (
-        self.fuselage_cd0_p_cf*self.fuselage_cf*fuselage_reference_area/self.wing_area_m2
-      )
-    else:
-      return None
 
   # requires aircraft wing_area_m2
   # wing aspect ratio = wingspan^2/wing area
@@ -220,16 +235,7 @@ class Aircraft:
     else:
       return None
 
-  # requires aircraft cruise_cl, wing_aspect_ratio
-  # induced drag coefficient equation
-  # return None if aircraft field not populated
-  def _calc_induced_drag_cdi(self):
-    if self.cruise_cl != None and self.wing_aspect_ratio != None:
-      return \
-       self.cruise_cl**2.0/\
-       (math.pi*self.wing_aspect_ratio*self.span_effic_factor)
-    else:
-      return None
+
 
   # requires aircraft wing_area_m2
   # recall wing aspect ratio = wingspan^2/wing area
@@ -240,16 +246,6 @@ class Aircraft:
     else:
       return None
 
-  # requires aircraft wing_root_chord_m
-  # wing Mean Aerodynamic Chord formula
-  # return None if aircraft field not populated
-  def _calc_wing_mac_m(self):
-    if self.wing_root_chord_m != None:
-      return \
-       (2.0/3.0)*self.wing_root_chord_m*\
-       (1.0+self.wing_taper_ratio**2.0/(1.0+self.wing_taper_ratio))
-    else:
-      return None
 
   # requires aircraft wing_area_m2 and wing_mac_m
   # return None if aircraft field not populated
@@ -271,85 +267,7 @@ class Aircraft:
     else:
       return None
 
-  # requires aircraft horiz_tail_area_m2
-  # return None if aircraft field not populated
-  def _calc_horiz_tail_cd0(self):
-    if self.horiz_tail_area_m2 != None and self.vert_tail_area_m2 != None:
-      return (\
-       self.horiz_tail_area_m2/(self.wing_area_m2)\
-       )*self.empennage_airfoil_cd0
-    else:
-      return None
 
-  # requires aircraft vert_tail_area_m2
-  # return None if aircraft field not populated
-  def _calc_vert_tail_cd0(self):
-    if self.horiz_tail_area_m2 != None and self.vert_tail_area_m2 != None:
-      return (\
-       self.vert_tail_area_m2/(self.wing_area_m2)\
-       )*self.empennage_airfoil_cd0
-    else:
-      return None
-
-  # requires aircraft wing_area_m2
-  # return None if aircraft field not populated
-  def _calc_landing_gear_cd0(self):
-    if self.wing_area_m2 != None:
-      return self.landing_gear_drag_area_m2/self.wing_area_m2
-    else:
-      return None
-
-  # requires aircraft wing_area_m2
-  # requires propulsion disk_area_m2
-  # return None if aircraft field or propulsion object not populated
-  def _calc_stopped_rotor_cd0(self):
-    if self.wing_area_m2 != None and self.propulsion.disk_area_m2 != None:
-      return \
-       (self.propulsion.disk_area_m2/self.ratio_disk_to_stopped_rotor_area)/\
-       self.wing_area_m2
-    else:
-      return None
-
-  # requires aircraft fuselage_cd0, induced_drag_cdi, horiz_tail_cd0,
-  # vert_tail_cd0, landing_gear_cd0, stopped_rotor_cd0
-  # per-component drag buildup
-  # return None if aircraft field(s) not populated
-  def _calc_cruise_cd(self):
-    if self.fuselage_cd0 != None and self.induced_drag_cdi != None and \
-       self.horiz_tail_cd0 != None and self.vert_tail_cd0 != None and \
-       self.landing_gear_cd0 != None and self.stopped_rotor_cd0 != None:
-      return (\
-       self.fuselage_cd0+self.wing_airfoil_cd_at_cruise_cl+\
-       self.induced_drag_cdi+self.horiz_tail_cd0+self.vert_tail_cd0+\
-       self.landing_gear_cd0+self.stopped_rotor_cd0)*self.trim_drag_factor*\
-       self.excres_protub_factor
-    else:
-      return None
-
-  # requires aircraft cruise_cl and cruise_cd
-  # dimensional analysis
-  # return None if aircraft field not populated
-  def _calc_cruise_l_p_d(self):
-    if self.cruise_cl != None and self.cruise_cd != None:
-      return self.cruise_cl/self.cruise_cd
-    else:
-      return None
-  
-  # requires aircraft fields for fuselage, empennage, landing gear, etc.
-  # returns total drag coefficient
-  def _calc_total_drag_coef(self):
-    if self.environ == None or self.wing_area_m2 == None:
-      return None
-    cd0_sum = 0.0
-    if self.fuselage_cd0 != None:
-      cd0_sum += self.fuselage_cd0
-    if self.horiz_tail_cd0 != None:
-      cd0_sum += self.horiz_tail_cd0
-    if self.vert_tail_cd0 != None:
-      cd0_sum += self.vert_tail_cd0
-    if self.landing_gear_cd0 != None:
-      cd0_sum += self.landing_gear_cd0
-    return cd0_sum
 
   # Hoerner Eq 6.30 (p 111)
   def _calc_fuselage_wetted_area_m2(self):
@@ -358,6 +276,8 @@ class Aircraft:
       return 3*self.fuselage_fineness_ratio*fuselage_reference_area
     else:
       return None
+  
+
   
   # calculates the over-torque factor for the propulsion system.
   def _calc_over_torque_factor(self):
@@ -4705,6 +4625,65 @@ class Aircraft:
     self.max_takeoff_mass_kg = orig_mtow
     return results
 
+
+
+  # aircraft_aero properties
+  @property
+  def cruise_cl(self):
+    return aircraft_aero._calc_cruise_cl(self)
+
+  @property
+  def fuselage_cd0_p_cf(self):
+    return aircraft_aero._calc_fuselage_cd0_p_cf(self)
+
+  @property
+  def fuselage_cruise_reynolds(self):
+    return aircraft_aero._calc_fuselage_cruise_reynolds(self)
+
+  @property
+  def fuselage_cf(self):
+    return aircraft_aero._calc_fuselage_cf(self)
+
+  @property
+  def fuselage_cd0(self):
+    return aircraft_aero._calc_fuselage_cd0(self)
+
+  @property
+  def induced_drag_cdi(self):
+    return aircraft_aero._calc_induced_drag_cdi(self)
+
+  @property
+  def horiz_tail_cd0(self):
+    return aircraft_aero._calc_horiz_tail_cd0(self)
+
+  @property
+  def vert_tail_cd0(self):
+    return aircraft_aero._calc_vert_tail_cd0(self)
+
+  @property
+  def landing_gear_cd0(self):
+    return aircraft_aero._calc_landing_gear_cd0(self)
+
+  @property
+  def stopped_rotor_cd0(self):
+    return aircraft_aero._calc_stopped_rotor_cd0(self)
+
+  @property
+  def cruise_cd(self):
+    return aircraft_aero._calc_cruise_cd(self)
+
+  @property
+  def cruise_l_p_d(self):
+    return aircraft_aero._calc_cruise_l_p_d(self)
+
+  @property
+  def total_drag_coef(self):
+    return aircraft_aero._calc_total_drag_coef(self)
+
+
+
+
+
   @property
   def max_takeoff_mass_kg(self):
     return self._max_takeoff_mass_kg
@@ -4841,37 +4820,19 @@ class Aircraft:
   def wing_area_m2(self):
     return self._calc_wing_area_m2()
 
-  @property
-  def cruise_cl(self):
-    return self._calc_cruise_cl()
+
 
   @property
   def fuselage_fineness_ratio(self):
     return self._calc_fuselage_fineness_ratio()
 
-  @property
-  def fuselage_cd0_p_cf(self):
-    return self._calc_fuselage_cd0_p_cf()
 
-  @property
-  def fuselage_cruise_reynolds(self):
-    return self._calc_fuselage_cruise_reynolds()
-
-  @property
-  def fuselage_cf(self):
-    return self._calc_fuselage_cf()
-
-  @property
-  def fuselage_cd0(self):
-    return self._calc_fuselage_cd0()
 
   @property
   def wing_aspect_ratio(self):
     return self._calc_wing_aspect_ratio()
 
-  @property
-  def induced_drag_cdi(self):
-    return self._calc_induced_drag_cdi()
+
 
   @property
   def wing_root_chord_m(self):
@@ -4889,33 +4850,7 @@ class Aircraft:
   def vert_tail_area_m2(self):
     return self._calc_vert_tail_area_m2()
 
-  @property
-  def horiz_tail_cd0(self):
-    return self._calc_horiz_tail_cd0()
 
-  @property
-  def vert_tail_cd0(self):
-    return self._calc_vert_tail_cd0()
-
-  @property
-  def landing_gear_cd0(self):
-    return self._calc_landing_gear_cd0()
-
-  @property
-  def stopped_rotor_cd0(self):
-    return self._calc_stopped_rotor_cd0()
-
-  @property
-  def cruise_cd(self):
-    return self._calc_cruise_cd()
-
-  @property
-  def cruise_l_p_d(self):
-    return self._calc_cruise_l_p_d()
-
-  @property
-  def total_drag_coef(self):
-    return self._calc_total_drag_coef()
     
   @property
   def fuselage_wetted_area_m2(self):
