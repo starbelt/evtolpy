@@ -18,8 +18,8 @@ import csv # csv
 import sys # argv
 
 # path to directory containing evtolpy package; use before deploying as package
-sys.path.append('../../../evtol')
-from aircraft import Aircraft
+sys.path.append('../../../')
+from evtol.aircraft import Aircraft
 
 # comment above and uncomment below when ready to deploy as package
 #from ... import Aircraft

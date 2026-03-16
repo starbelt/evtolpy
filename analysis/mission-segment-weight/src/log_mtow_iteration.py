@@ -19,8 +19,8 @@ import sys
 import os
 
 # path to evtolpy package
-sys.path.append('../../../evtol')
-from aircraft import Aircraft
+sys.path.append('../../../')
+from evtol.aircraft import Aircraft
 
 if len(sys.argv) == 3:
     cfg = sys.argv[1]

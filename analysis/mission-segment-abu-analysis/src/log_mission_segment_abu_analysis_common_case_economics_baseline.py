@@ -21,8 +21,8 @@ import sys  # argv
 import os   # path
 
 # path to directory containing evtolpy package; use before deploying as package
-sys.path.append('../../../evtol')
-from aircraft import Aircraft
+sys.path.append('../../../')
+from evtol.aircraft import Aircraft
 
 # initialize script arguments
 cfg = ''  # path to configuration JSON file

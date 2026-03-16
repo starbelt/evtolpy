@@ -18,8 +18,8 @@ import csv
 import sys
 
 # path to directory containing evtolpy package
-sys.path.append('../../../evtol')
-from aircraft import Aircraft
+sys.path.append('../../../')
+from evtol.aircraft import Aircraft
 
 # parse script arguments
 if len(sys.argv) == 3:
