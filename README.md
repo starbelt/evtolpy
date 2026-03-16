@@ -57,6 +57,7 @@ Units (ABU) concept introduced in the AIAA SciTech Forum 2026 paper
   technical sources
 * [sample-inputs](sample-inputs/README.md): Example configuration files for
   testing and demonstrations
+* [tutorial](tutorial/README.md): evtolpy tutorials (Jupyter notebooks)
 * [README.md](README.md): This document
 
 ## Quick Start Guide
