@@ -1,6 +1,6 @@
-# Case Study Simulation Results
+# AIAA SciTech 2026 - Case Study Simulation
 
-This directory contains simulation results for the AIAA SciTech 2026 paper  
+This directory contains case study simulation results for the AIAA SciTech 2026 paper  
 **“Autonomous Battery Units as an Enabling Technology for Urban Air Mobility.”**
 
 The simulations were conducted for three eVTOL aircraft:

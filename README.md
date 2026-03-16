@@ -57,7 +57,6 @@ Units (ABU) concept introduced in the AIAA SciTech Forum 2026 paper
   technical sources
 * [sample-inputs](sample-inputs/README.md): Example configuration files for
   testing and demonstrations
-* [tests](tests/README.md): Package unit tests
 * [README.md](README.md): This document
 
 ## Quick Start Guide
