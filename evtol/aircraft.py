@@ -215,18 +215,19 @@ class Aircraft:
     return aircraft_iteration._iterate_mtow(self)
 
 
-
-
-
-
-  # requires disk_area_m2 from propulsion
-  # use MTOM to calculate kg per disk area m2
-  # return None if propulsion object not populated
+  # Wrapper methods: aircraft_mass
   def _calc_disk_loading_kg_p_m2(self):
-    if self.propulsion != None:
-      return self.max_takeoff_mass_kg/self.propulsion.disk_area_m2
-    else:
-      return None
+    return aircraft_propulsion._calc_disk_loading_kg_p_m2(self)
+
+  def _calc_over_torque_factor(self):
+    return aircraft_propulsion._calc_over_torque_factor(self)
+
+  def _calc_rotor_solidity(self):
+    return aircraft_propulsion._calc_rotor_solidity(self)
+
+
+
+
 
   # requires environ g_m_p_s2, air_density_sea_lvl_kg_p_m3
   # requires propulsion disk_area_m2, rotor_effic
@@ -262,35 +263,7 @@ class Aircraft:
       return None
 
 
-  # calculates the over-torque factor for the propulsion system.
-  def _calc_over_torque_factor(self):
-    if self.propulsion == None:
-      return None
-    else:
-      return self.propulsion.rotor_count/(self.propulsion.rotor_count-2)+0.3
 
-
-  
-  # estimates rotor solidity from thrust coefficient at hover
-  # based on MTOW, air density, rotor geometry, and tip Mach hover RPM
-  def _calc_rotor_solidity(self):
-    if self.propulsion is None or self.environ is None:
-      return None
-    else:
-      # Hover RPM at sea level 
-      rpm_hover_rpm = (self.environ.sound_speed_m_p_s*self.propulsion.tip_mach/(self.propulsion.rotor_diameter_m/2.0))*60.0/(2.0*math.pi)
-      omega_hover_sl_rad_s = rpm_hover_rpm*math.pi/30.0 # Convert to rad/s
-
-      # Rotor thrust coefficient at hover 
-      ct_hover = (
-        (self.max_takeoff_mass_kg*self.environ.g_m_p_s2/self.propulsion.rotor_count)
-        /(self.environ.air_density_sea_lvl_kg_p_m3
-          *math.pi*(self.propulsion.rotor_diameter_m/2.0)**4
-          *(omega_hover_sl_rad_s**2.0))
-      )
-      # Rotor solidity 
-      rotor_solidity = ct_hover*6.0/self.propulsion.rotor_avg_cl
-      return rotor_solidity
   
 # ----- Depart Taxi (Segment A) -----
   # requires mission depart_taxi_avg_h_m_p_s, depart_taxi_s
@@ -4462,11 +4435,24 @@ class Aircraft:
     return aircraft_mass._calc_empty_mass_kg(self)
 
 
-  # aircraft_iteration properties
+  # aircraft_propulsion properties
   @property
   def iterate_mtow(self):
     return aircraft_iteration._iterate_mtow(self)
 
+
+  # aircraft_iteration properties
+  @property
+  def disk_loading_kg_p_m2(self):
+    return aircraft_propulsion._calc_disk_loading_kg_p_m2(self)
+  
+  @property
+  def over_torque_factor(self):
+    return aircraft_propulsion._calc_over_torque_factor(self)
+
+  @property
+  def rotor_solidity(self):
+    return aircraft_propulsion._calc_rotor_solidity(self)
 
 
 
@@ -4605,13 +4591,6 @@ class Aircraft:
 
 
 
-  @property
-  def over_torque_factor(self):
-    return self._calc_over_torque_factor()
-
-  @property
-  def rotor_solidity(self):
-    return self._calc_rotor_solidity()
 
   @property
   def depart_taxi_avg_shaft_power_kw(self):
