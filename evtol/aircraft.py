@@ -210,6 +210,14 @@ class Aircraft:
     return aircraft_mass._calc_empty_mass_kg(self)
 
 
+  # Wrapper methods: aircraft_mass
+  def _iterate_mtow(self):
+    return aircraft_iteration._iterate_mtow(self)
+
+
+
+
+
 
   # requires disk_area_m2 from propulsion
   # use MTOM to calculate kg per disk area m2
@@ -1479,49 +1487,7 @@ class Aircraft:
   
 
 
-  # iterate Maximum Takeoff Weight (MTOW) until convergence
-  def _iterate_mtow(self, tol=1e-3, max_iter=150):
-    mtow_guess = self.max_takeoff_mass_kg
-    history = []
 
-    for i in range(max_iter):
-      self.max_takeoff_mass_kg = mtow_guess
-
-      # recalculate dependent masses on this guess
-      empty_mass_kg = self.empty_mass_kg
-      battery_mass_kg = self.battery_mass_kg
-
-      if battery_mass_kg is None:
-        raise ValueError(
-            f"Battery mass could not be computed at iteration {i}. "
-            f"Likely mission infeasible for this config."
-        )
-
-      new_mtow = empty_mass_kg + self.payload_kg + battery_mass_kg
-
-      delta = new_mtow - mtow_guess
-
-      # store iteration data
-      history.append({
-          "iteration": i,
-          "mtow_guess_kg": mtow_guess,
-          "new_mtow_kg": new_mtow,
-          "delta_kg": delta,
-          "empty_mass_kg": empty_mass_kg,
-          "battery_mass_kg": battery_mass_kg,
-          "payload_mass_kg": self.payload_kg,
-          "total_energy_converged_kw_hr": self._calc_total_mission_energy_kw_hr()
-      })
-
-      if abs(delta) < tol:
-        self.max_takeoff_mass_kg = new_mtow
-        return new_mtow, history
-      
-      mtow_guess = new_mtow
-    
-    self.max_takeoff_mass_kg = mtow_guess
-
-    return mtow_guess, history
 
   # ABU Evaluator 1 - Assisted Takeoff
   # quantify benefits of ABUs detaching after takeoff 
@@ -4495,6 +4461,11 @@ class Aircraft:
   def empty_mass_kg(self):
     return aircraft_mass._calc_empty_mass_kg(self)
 
+
+  # aircraft_iteration properties
+  @property
+  def iterate_mtow(self):
+    return aircraft_iteration._iterate_mtow(self)
 
 
 
