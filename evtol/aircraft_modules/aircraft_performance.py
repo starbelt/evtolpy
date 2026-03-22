@@ -388,14 +388,24 @@ def _calc_accel_climb_energy_kw_hr(aircraft):
 # vertical motion neglected (lift = weight)
 # includes aerodynamic lift, induced drag, parasite drag, and horizontal drag
 # return None if mission, propulsion, or environment object not populated
+# supports cruise_wing_lift_fraction < 1.0 for powered lift
+# wing provides (fraction * weight) of lift, rotors provide the remainder
+# total power = horizontal drag power + rotor lift power
 def _calc_cruise_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
       q = 0.5*aircraft.environ.air_density_max_alt_kg_p_m3*aircraft.mission.cruise_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
       lift_n = weight_n
+      rho = aircraft.environ.air_density_max_alt_kg_p_m3
+      V = aircraft.mission.cruise_h_m_p_s
+
+      # wing lift vs powered lift from rotors
+      f_wing = aircraft.cruise_wing_lift_fraction
+      wing_lift_n = f_wing*weight_n
+      rotor_lift_n = (1.0 - f_wing)*weight_n
       
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # induced drag from wing lift only
+      di_n = (wing_lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
@@ -408,7 +418,16 @@ def _calc_cruise_avg_shaft_power_kw(aircraft):
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
-      return (total_drag_n*aircraft.mission.cruise_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW)
+      # horizontal power to overcome drag
+      P_horizontal_kw = (total_drag_n*V)/(aircraft.propulsion.rotor_effic*W_P_KW)
+
+      # powered lift power from rotors
+      P_vertical_kw = 0.0
+      if rotor_lift_n > 0.0:
+        v_induced = math.sqrt(rotor_lift_n/(2.0*rho*aircraft.propulsion.disk_area_m2))
+        P_vertical_kw = (rotor_lift_n*v_induced)/(aircraft.propulsion.rotor_effic*W_P_KW)
+
+      return P_horizontal_kw + P_vertical_kw
     else:
       return None
 
@@ -962,12 +981,19 @@ def _calc_reserve_accel_climb_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_cruise_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
-      q = 0.5*aircraft.environ.air_density_max_alt_kg_p_m3*aircraft.mission.reserve_cruise_h_m_p_s**2.0
+      q = 0.5*aircraft.environ.air_density_max_alt_kg_p_m3*aircraft.mission.cruise_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
       lift_n = weight_n
+      rho = aircraft.environ.air_density_max_alt_kg_p_m3
+      V = aircraft.mission.cruise_h_m_p_s
+
+      # wing lift vs powered lift from rotors
+      f_wing = aircraft.cruise_wing_lift_fraction
+      wing_lift_n = f_wing*weight_n
+      rotor_lift_n = (1.0 - f_wing)*weight_n
       
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # induced drag from wing lift only
+      di_n = (wing_lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
@@ -980,7 +1006,16 @@ def _calc_reserve_cruise_avg_shaft_power_kw(aircraft):
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
-      return (total_drag_n*aircraft.mission.reserve_cruise_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW)
+      # horizontal power to overcome drag
+      P_horizontal_kw = (total_drag_n*V)/(aircraft.propulsion.rotor_effic*W_P_KW)
+
+      # powered lift power from rotors
+      P_vertical_kw = 0.0
+      if rotor_lift_n > 0.0:
+        v_induced = math.sqrt(rotor_lift_n/(2.0*rho*aircraft.propulsion.disk_area_m2))
+        P_vertical_kw = (rotor_lift_n*v_induced)/(aircraft.propulsion.rotor_effic*W_P_KW)
+
+      return P_horizontal_kw + P_vertical_kw
     else:
       return None
 

@@ -24,14 +24,16 @@ N_P_M2_2_LB_P_FT2 = 0.0209
 # requires mission cruise_h_m_p_s
 # this calculation replaces stall speed with cruise speed
 # see stall speed equation
+# scaled by cruise_wing_lift_fraction when wing provides partial lift
 # return None if mission object not populated
-def _calc_cruise_cl(aircraft):
-    if aircraft.mission != None:
-      return \
-       (aircraft.stall_speed_m_p_s**2.0)*aircraft.vehicle_cl_max/\
-       (aircraft.mission.cruise_h_m_p_s**2.0)
-    else:
-      return None
+def _calc_cruise_cl(self):
+  if self.mission != None:
+    return \
+      self.cruise_wing_lift_fraction*\
+      (self.stall_speed_m_p_s**2.0)*self.vehicle_cl_max/\
+      (self.mission.cruise_h_m_p_s**2.0)
+  else:
+    return None
     
 # Hoerner Eq 6.31 (p 111)
 def _calc_fuselage_cd0_p_cf(aircraft):
@@ -147,11 +149,36 @@ def _calc_cruise_cd(aircraft):
 # requires aircraft cruise_cl and cruise_cd
 # dimensional analysis
 # return None if aircraft field not populated
+# when cruise_wing_lift_fraction < 1.0, rotors supplement lift and their
+# induced power is converted to an equivalent drag via momentum theory with Glauert correction
+# requires aircraft cruise_cl and cruise_cd
 def _calc_cruise_l_p_d(aircraft):
-    if aircraft.cruise_cl != None and aircraft.cruise_cd != None:
-      return aircraft.cruise_cl/aircraft.cruise_cd
-    else:
-      return None
+  if aircraft.cruise_cl != None and aircraft.cruise_cd != None:
+    f_wing = getattr(aircraft, 'cruise_wing_lift_fraction', 1.0)
+    if f_wing >= 1.0 or aircraft.environ == None or aircraft.mission == None or \
+        aircraft.propulsion == None:
+      return aircraft.cruise_cl / aircraft.cruise_cd
+    
+    # total weight as CL
+    cl_total = aircraft.cruise_cl / f_wing
+    
+    # rotor lift fraction
+    cl_rotor = (1.0 - f_wing) * cl_total
+    
+    rho = aircraft.environ.air_density_max_alt_kg_p_m3
+    V = aircraft.mission.cruise_h_m_p_s
+    q = 0.5 * rho * V**2.0
+    
+    rotor_lift_n = q * aircraft.wing_area_m2 * cl_rotor
+    
+    # momentum theory for induced velocity
+    v_induced = math.sqrt(rotor_lift_n/(2.0*rho*aircraft.propulsion.disk_area_m2))
+
+    cd_rotor_equiv = cl_rotor * v_induced / V
+    
+    return cl_total / (aircraft.cruise_cd + cd_rotor_equiv)
+  else:
+    return None
 
 # requires aircraft fields for fuselage, empennage, landing gear, etc.
 # returns total drag coefficient

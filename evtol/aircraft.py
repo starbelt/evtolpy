@@ -15,7 +15,7 @@ import sys  # not needed when using as a package
 
 # path to directory with other classes; use before deploying as package
 sys.path.append('../evtol')
-from .environ import Environ
+from evtol.environ import Environ
 from .mission import Mission
 from .power import Power
 from .propulsion import Propulsion
@@ -81,7 +81,11 @@ class Aircraft:
     self._lovolt_power_coms_mass_kg = \
      ijson['aircraft']['lovolt_power_coms_mass_kg']
     self._mass_margin_factor = ijson['aircraft']['mass_margin_factor']
-
+    if 'cruise_wing_lift_fraction' in ijson['aircraft']:
+      self._cruise_wing_lift_fraction = ijson['aircraft']['cruise_wing_lift_fraction']
+    else:
+      self._cruise_wing_lift_fraction = 1.0
+      
     # has-a classes: add classes if they exist in JSON
     self._environ = None
     if 'environ' in ijson:
@@ -731,6 +735,10 @@ class Aircraft:
   @property
   def total_drag_coef(self):
     return aircraft_aero._calc_total_drag_coef(self)
+  
+  @property
+  def cruise_wing_lift_fraction(self):
+    return self._cruise_wing_lift_fraction
   
 
   # aircraft_geometry properties
