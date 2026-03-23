@@ -15,7 +15,7 @@ import sys  # not needed when using as a package
 
 # path to directory with other classes; use before deploying as package
 sys.path.append('../evtol')
-from evtol.environ import Environ
+from .environ import Environ
 from .mission import Mission
 from .power import Power
 from .propulsion import Propulsion

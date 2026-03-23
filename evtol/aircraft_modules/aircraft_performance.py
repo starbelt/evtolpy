@@ -981,11 +981,11 @@ def _calc_reserve_accel_climb_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_cruise_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
-      q = 0.5*aircraft.environ.air_density_max_alt_kg_p_m3*aircraft.mission.cruise_h_m_p_s**2.0
+      q = 0.5*aircraft.environ.air_density_max_alt_kg_p_m3*aircraft.mission.reserve_cruise_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
       lift_n = weight_n
       rho = aircraft.environ.air_density_max_alt_kg_p_m3
-      V = aircraft.mission.cruise_h_m_p_s
+      V = aircraft.mission.reserve_cruise_h_m_p_s
 
       # wing lift vs powered lift from rotors
       f_wing = aircraft.cruise_wing_lift_fraction
