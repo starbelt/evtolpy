@@ -150,13 +150,12 @@ def _calc_cruise_cd(aircraft):
 # dimensional analysis
 # return None if aircraft field not populated
 # when cruise_wing_lift_fraction < 1.0, rotors supplement lift and their
-# induced power is converted to an equivalent drag via momentum theory with Glauert correction
+# induced power is converted to an equivalent drag via momentum theory
 # requires aircraft cruise_cl and cruise_cd
 def _calc_cruise_l_p_d(aircraft):
   if aircraft.cruise_cl != None and aircraft.cruise_cd != None:
     f_wing = getattr(aircraft, 'cruise_wing_lift_fraction', 1.0)
-    if f_wing >= 1.0 or aircraft.environ == None or aircraft.mission == None or \
-        aircraft.propulsion == None:
+    if f_wing == 1.0:
       return aircraft.cruise_cl / aircraft.cruise_cd
     
     # total weight as CL
