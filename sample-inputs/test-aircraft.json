@@ -11,6 +11,7 @@
     "fuselage_w_m": 1.30,
     "fuselage_h_m": 1.35,
     "wing_airfoil_cd_at_cruise_cl": 0.007,
+    "cruise_wing_lift_fraction": 0.8,
     "empennage_airfoil_cd0": 0.006,
     "span_effic_factor": 0.8,
     "trim_drag_factor": 1.02,

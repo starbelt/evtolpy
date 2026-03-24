@@ -43,6 +43,11 @@ Units (ABU) concept introduced in the AIAA SciTech Forum 2026 paper
   battery characteristics
 - Modular Python package suitable for research, teaching, and early-stage
   conceptual design of eVTOL aircraft
+- Supports multiple eVTOL aircraft architectures, including:
+  - **Multirotor** (e.g., EHang EH216-S)
+  - **Lift + Cruise** (e.g., Archer Midnight, Wisk)
+  - **Tilt-rotor** (e.g., Joby S4)
+  - **Vectored Thrust / Hybrid configurations** (e.g., Supernal S-A2)
 
 ## Requirements
 - Python 3.x

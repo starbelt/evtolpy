@@ -57,3 +57,40 @@ def _calc_rotor_solidity(aircraft):
       # Rotor solidity 
       rotor_solidity = ct_hover*6.0/aircraft.propulsion.rotor_avg_cl
       return rotor_solidity
+  
+# requires propulsion pusher_rotor_diameter_m and pusher_rotor_tip_mach
+# requires environ sound_speed_m_p_s
+# calculates pusher rotor RPM from tip Mach and rotor radius
+# return None if required object/field not populated
+def _calc_pusher_rotor_rpm(aircraft):
+    if aircraft.propulsion == None or aircraft.environ == None:
+      return None
+    if aircraft.propulsion.pusher_rotor_count == 0:
+      return 0.0
+    if aircraft.propulsion.pusher_rotor_diameter_m == None or \
+       aircraft.propulsion.pusher_rotor_tip_mach == None:
+      return None
+    else:
+      return \
+       (aircraft.environ.sound_speed_m_p_s*aircraft.propulsion.pusher_rotor_tip_mach/\
+        (aircraft.propulsion.pusher_rotor_diameter_m/2.0))*60.0/(2.0*math.pi)
+
+# requires aircraft cruise_avg_shaft_power_kw
+# requires propulsion pusher_rotor_count
+# requires aircraft pusher_rotor_rpm
+# calculates single pusher motor torque [N-m] from cruise shaft power per motor
+# return None if required field/object not populated
+def _calc_pusher_motor_torque_nm(aircraft):
+    if aircraft.propulsion == None:
+      return None
+    if aircraft.propulsion.pusher_rotor_count == 0:
+      return 0.0
+    if aircraft.pusher_rotor_rpm == None or aircraft.cruise_avg_shaft_power_kw == None:
+      return None
+    else:
+      omega_rad_p_s = aircraft.pusher_rotor_rpm*math.pi/30.0
+      if omega_rad_p_s == 0.0:
+        return None
+      return \
+       (aircraft.cruise_avg_shaft_power_kw*1000.0/aircraft.propulsion.pusher_rotor_count)/\
+       omega_rad_p_s

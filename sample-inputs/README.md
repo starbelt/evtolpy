@@ -141,9 +141,17 @@ Mission segments:
   rotor and the power applied (e.g. 0.8)
 * `rotor_count`: number of rotors
 * `lift_rotor_count`: number of lift rotors
-* `tilt_rotor_count`: number of tilt rotors
+* `tilt_rotor_count`: number of tilt rotors; optional parameter.
+  Set to 0 or omit if the aircraft does not use dedicated propulsors.
+* `pusher_rotor_count`: number of cruise (pusher) rotors; optional parameter.
+  Set to 0 or omit if the aircraft does not use dedicated propulsors.
 * `rotor_diameter_m`: rotor diameter in meters
+* `pusher_rotor_diameter_m`: diameter of each pusher rotor in meters; optional
+  parameter required only if `pusher_rotor_count` > 0
 * `tip_mach`: ratio of rotor tip to speed of sound; impacts noise level
+* `pusher_rotor_tip_mach`: ratio of pusher rotor tip speed to speed of sound;
+  used to estimate pusher rotor RPM for cruise motor sizing. Optional parameter
+  required only if `pusher_rotor_count` > 0
 * `rotor_avg_cl`: average coefficient of lift for the rotor; thrust coefficient
   (Ct) normalized by rotor solidity (sigma) (max. 0.2; 0.125 more realistic)
   times 6 gives a theoretical upper limit for Cl
@@ -161,6 +169,11 @@ Mission segments:
 * `fuselage_w_m`: fuselage width in meters
 * `fuselage_h_m`: fuselage height in meters
 * `wing_airfoil_cd_at_cruise_cl`: wing airfoil drag coefficient at cruise
+* `cruise_wing_lift_fraction`: fraction of total aircraft lift provided by the
+  wing during cruise (range: 0.0 to 1.0). A value of 1.0 indicates the wing
+  provides all lift (conventional fixed-wing cruise), while values less than 1.0
+  indicate that rotors provide a portion of the lift (powered-lift configuration).
+  If omitted, this parameter defaults to 1.0.
 * `empennage_airfoil_cd0`: tail assembly zero-lift drag coefficient
 * `span_effic_factor`: wing geometry & lift distribution effect on induced drag
 * `trim_drag_factor`: additional drag caused by control surfaces
