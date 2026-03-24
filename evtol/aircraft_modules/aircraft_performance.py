@@ -197,6 +197,7 @@ def _calc_hover_climb_energy_kw_hr(aircraft):
 # horizontal velocity: initial = 0, accelerates to final velocity
 # average horizontal velocity provided → used to find displacement, acceleration, and final velocity
 # vertical velocity: constant throughout (no vertical acceleration)
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # return None if mission, propulsion, or environment object not populated
 def _calc_trans_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
@@ -204,16 +205,32 @@ def _calc_trans_climb_avg_shaft_power_kw(aircraft):
       theta = math.atan2(aircraft.mission.trans_climb_v_m_p_s, aircraft.mission.trans_climb_avg_h_m_p_s)
 
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n*math.cos(theta)
-      vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
 
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n*math.cos(theta)
+        vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
+
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
@@ -269,29 +286,53 @@ def _calc_trans_climb_energy_kw_hr(aircraft):
 # ----- Depart Procedures (Segment D) -----
 # requires mission depart_proc_h_m_p_s, depart_proc_s
 # horizontal power component only, assumes constant velocity
-# vertical motion neglected (lift = weight)
-# includes aerodynamic lift, induced drag, parasite drag, and horizontal drag
+# vertical motion neglected
+# for winged aircraft, wing provides lift and induced drag is included
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # return None if mission, propulsion, or environment object not populated
 def _calc_depart_proc_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.depart_proc_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n
-      
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n
+        
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
       # force components 
       force_h_n = total_drag_n
 
-      return (force_h_n*aircraft.mission.depart_proc_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW)
+      # rotor lift power
+      rotor_lift_n = max(0.0, weight_n - lift_n)
+      P_vertical_kw = 0.0
+      if rotor_lift_n > 0.0:
+        v_induced = math.sqrt(rotor_lift_n/(2.0*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.propulsion.disk_area_m2))
+        P_vertical_kw = (rotor_lift_n*v_induced)/(aircraft.propulsion.rotor_effic*W_P_KW)
+
+      return (force_h_n*aircraft.mission.depart_proc_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW) + P_vertical_kw
     else:
       return None
 
@@ -320,6 +361,7 @@ def _calc_depart_proc_energy_kw_hr(aircraft):
 # includes aerodynamic lift, induced drag, parasite drag, weight, horizontal and vertical accelerations
 # horizontal velocity: initial = depart_proc_h_m_p_s, average velocity provided → used to compute final velocity
 # vertical velocity: initial = 0, accelerates to accel_climb_v_m_p_s
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # return None if mission, propulsion, or environment object not populated
 def _calc_accel_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
@@ -327,16 +369,32 @@ def _calc_accel_climb_avg_shaft_power_kw(aircraft):
       theta = math.atan2(aircraft.mission.accel_climb_v_m_p_s, aircraft.mission.accel_climb_avg_h_m_p_s)
 
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n*math.cos(theta)
-      vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
 
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n*math.cos(theta)
+        vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
+
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
@@ -387,34 +445,50 @@ def _calc_accel_climb_energy_kw_hr(aircraft):
 # horizontal power component only, assumes constant velocity
 # vertical motion neglected (lift = weight)
 # includes aerodynamic lift, induced drag, parasite drag, and horizontal drag
-# return None if mission, propulsion, or environment object not populated
 # supports cruise_wing_lift_fraction < 1.0 for powered lift
 # wing provides (fraction * weight) of lift, rotors provide the remainder
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full lift
 # total power = horizontal drag power + rotor lift power
+# return None if mission, propulsion, or environment object not populated
 def _calc_cruise_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
       q = 0.5*aircraft.environ.air_density_max_alt_kg_p_m3*aircraft.mission.cruise_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n
       rho = aircraft.environ.air_density_max_alt_kg_p_m3
       V = aircraft.mission.cruise_h_m_p_s
 
-      # wing lift vs powered lift from rotors
-      f_wing = aircraft.cruise_wing_lift_fraction
-      wing_lift_n = f_wing*weight_n
-      rotor_lift_n = (1.0 - f_wing)*weight_n
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        f_wing = aircraft.cruise_wing_lift_fraction
+        wing_lift_n = f_wing*weight_n
+        rotor_lift_n = (1.0 - f_wing)*weight_n
       
-      # induced drag from wing lift only
-      di_n = (wing_lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+        # induced drag from wing lift only
+        di_n = (wing_lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        wing_lift_n = 0.0
+        rotor_lift_n = weight_n
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      if aircraft.wing_airfoil_cd_at_cruise_cl != None and aircraft.stopped_rotor_cd0 != None:
+      if aircraft.wing_airfoil_cd_at_cruise_cl != None and aircraft.stopped_rotor_cd0 != None and \
+         aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0:
         cd0_cruise = cd0+aircraft.wing_airfoil_cd_at_cruise_cl+aircraft.stopped_rotor_cd0
       else:
         cd0_cruise = cd0
-      dp_n = q*aircraft.wing_area_m2*cd0_cruise
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0_cruise
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
@@ -430,7 +504,7 @@ def _calc_cruise_avg_shaft_power_kw(aircraft):
       return P_horizontal_kw + P_vertical_kw
     else:
       return None
-
+    
 # requires aircraft cruise_shaft_power_kw
 # requires power epu_effic
 # scale cruise_shaft_power_kw by epu_effic
@@ -458,6 +532,7 @@ def _calc_cruise_energy_kw_hr(aircraft):
 # includes aerodynamic lift, induced drag, parasite drag, weight, horizontal deceleration, vertical thrust assist if gravity is insufficient, and spoiler drag if power is negative
 # horizontal velocity: initial = cruise_h_m_p_s, average velocity provided → used to compute final velocity
 # vertical velocity: initial = 0, accelerates to decel_descend_v_m_p_s (downwards)
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # provide vertical thrust assist and spoiler drag (if needed)
 # return None if mission, propulsion, or environment object not populated
 def _calc_decel_descend_avg_shaft_power_kw(aircraft):
@@ -466,16 +541,32 @@ def _calc_decel_descend_avg_shaft_power_kw(aircraft):
       theta = math.atan2(aircraft.mission.decel_descend_v_m_p_s, aircraft.mission.decel_descend_avg_h_m_p_s)
 
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n*math.cos(theta)
-      vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
 
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n*math.cos(theta)
+        vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
+
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
@@ -511,17 +602,20 @@ def _calc_decel_descend_avg_shaft_power_kw(aircraft):
       if shaft_power_kw < 0.0:
         # required additional horizontal force to neutralize negative power
         required_extra_force_n = -force_h_n
-        # compute equivalent delta Cd
-        delta_cd_spoiler = required_extra_force_n/(q*aircraft.wing_area_m2)
-        if delta_cd_spoiler < 0.0:
-          delta_cd_spoiler = 0.0
-        # recompute with spoilers
-        dp_spoiler_n = q*aircraft.wing_area_m2*delta_cd_spoiler
-        total_drag_n = (di_n+dp_n+dp_spoiler_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
-        force_h_n = total_drag_n+aircraft.max_takeoff_mass_kg*a_h_m_p_s2
+        if aircraft.wing_area_m2 != None and aircraft.wing_area_m2 > 0.0 and q > 0.0:
+          # compute equivalent delta Cd
+          delta_cd_spoiler = required_extra_force_n/(q*aircraft.wing_area_m2)
+          if delta_cd_spoiler < 0.0:
+            delta_cd_spoiler = 0.0
+          # recompute with spoilers
+          dp_spoiler_n = q*aircraft.wing_area_m2*delta_cd_spoiler
+          total_drag_n = (di_n+dp_n+dp_spoiler_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
+          force_h_n = total_drag_n+aircraft.max_takeoff_mass_kg*a_h_m_p_s2
 
-        # total shaft power (with spoiler drag and vertical assist)
-        shaft_power_kw = (force_h_n*aircraft.mission.decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(aircraft.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+          # total shaft power (with spoiler drag and vertical assist)
+          shaft_power_kw = (force_h_n*aircraft.mission.decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(aircraft.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+        else:
+          shaft_power_kw = 0.0
 
       return shaft_power_kw
     else:
@@ -552,29 +646,53 @@ def _calc_decel_descend_energy_kw_hr(aircraft):
 # ----- Arrive Procedures (Segment H) -----
 # requires mission arrive_proc_h_m_p_s, arrive_proc_s
 # horizontal power component only, assumes constant velocity
-# vertical motion neglected (lift = weight)
-# includes aerodynamic lift, induced drag, parasite drag, and horizontal drag
+# vertical motion neglected
+# for winged aircraft, wing provides lift and induced drag is included
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # return None if mission, propulsion, or environment object not populated
 def _calc_arrive_proc_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.arrive_proc_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      # horizontal component
-      lift_n = weight_n
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n
+
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
       # force components
       force_h_n = total_drag_n
 
-      return (force_h_n*aircraft.mission.arrive_proc_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW)
+      # rotor lift power
+      rotor_lift_n = max(0.0, weight_n-lift_n)
+      P_vertical_kw = 0.0
+      if rotor_lift_n > 0.0:
+        v_induced = math.sqrt(rotor_lift_n/(2.0*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.propulsion.disk_area_m2))
+        P_vertical_kw = (rotor_lift_n*v_induced)/(aircraft.propulsion.rotor_effic*W_P_KW)
+
+      return (force_h_n*aircraft.mission.arrive_proc_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW) + P_vertical_kw
     else:
       return None
 
@@ -604,6 +722,7 @@ def _calc_arrive_proc_energy_kw_hr(aircraft):
 # hover-induced thrust assist if gravity is insufficient, and spoiler drag if power is negative
 # horizontal velocity: initial estimated from average, final = 0 (vehicle decelerates to stop)
 # vertical velocity: initial = decel_descend_v_m_p_s, final = trans_descend_v_m_p_s
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # return None if mission, propulsion, or environment object not populated
 def _calc_trans_descend_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
@@ -611,16 +730,32 @@ def _calc_trans_descend_avg_shaft_power_kw(aircraft):
       theta = math.atan2(aircraft.mission.trans_descend_v_m_p_s, aircraft.mission.trans_descend_avg_h_m_p_s)
 
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n*math.cos(theta)
-      vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
 
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n*math.cos(theta)
+        vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
+
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
@@ -654,15 +789,18 @@ def _calc_trans_descend_avg_shaft_power_kw(aircraft):
       # check for negative power → apply spoiler drag to dissipate excess
       if shaft_power_kw < 0.0:
         required_extra_force_n = -force_h_n
-        delta_cd_spoiler = required_extra_force_n/(q*aircraft.wing_area_m2)
-        if delta_cd_spoiler < 0.0:
-          delta_cd_spoiler = 0.0
-        dp_spoiler_n = q*aircraft.wing_area_m2*delta_cd_spoiler
-        total_drag_n = (di_n+dp_n+dp_spoiler_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
-        force_h_n = total_drag_n+aircraft.max_takeoff_mass_kg*a_h_m_p_s2
+        if aircraft.wing_area_m2 != None and aircraft.wing_area_m2 > 0.0 and q > 0.0:
+          delta_cd_spoiler = required_extra_force_n/(q*aircraft.wing_area_m2)
+          if delta_cd_spoiler < 0.0:
+            delta_cd_spoiler = 0.0
+          dp_spoiler_n = q*aircraft.wing_area_m2*delta_cd_spoiler
+          total_drag_n = (di_n+dp_n+dp_spoiler_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
+          force_h_n = total_drag_n+aircraft.max_takeoff_mass_kg*a_h_m_p_s2
 
-        # recompute total shaft power with spoiler drag
-        shaft_power_kw = (P_hover_W+force_h_n*aircraft.mission.trans_descend_avg_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW)
+          # recompute total shaft power with spoiler drag
+          shaft_power_kw = (P_hover_W+force_h_n*aircraft.mission.trans_descend_avg_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW)
+        else:
+          shaft_power_kw = 0.0
 
       return shaft_power_kw
     else:
@@ -842,6 +980,7 @@ def _calc_reserve_hover_climb_energy_kw_hr(aircraft):
 # includes aerodynamic lift, induced drag, parasite drag, weight, hover-induced power, and climb forces
 # horizontal velocity: initial = 0, average horizontal velocity provided → used to find displacement and final velocity
 # vertical velocity: constant throughout the segment (no vertical acceleration)
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_trans_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
@@ -849,16 +988,32 @@ def _calc_reserve_trans_climb_avg_shaft_power_kw(aircraft):
       theta = math.atan2(aircraft.mission.reserve_trans_climb_v_m_p_s, aircraft.mission.reserve_trans_climb_avg_h_m_p_s)
 
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n*math.cos(theta)
-      vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
 
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n*math.cos(theta)
+        vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
+
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
@@ -916,6 +1071,7 @@ def _calc_reserve_trans_climb_energy_kw_hr(aircraft):
 # includes aerodynamic lift, induced drag, parasite drag, weight, and climb forces
 # horizontal velocity: initial = final of Reserve Transition Climb (2*reserve_trans_climb_avg_h_m_p_s),
 # vertical velocity: constant throughout the segment (no vertical acceleration)
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_accel_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
@@ -923,16 +1079,32 @@ def _calc_reserve_accel_climb_avg_shaft_power_kw(aircraft):
       theta = math.atan2(aircraft.mission.reserve_accel_climb_v_m_p_s, aircraft.mission.reserve_accel_climb_avg_h_m_p_s)
 
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n*math.cos(theta)
-      vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
 
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n*math.cos(theta)
+        vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
+
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
       
@@ -951,7 +1123,7 @@ def _calc_reserve_accel_climb_avg_shaft_power_kw(aircraft):
       return (force_h_n*aircraft.mission.reserve_accel_climb_avg_h_m_p_s+force_v_n*aircraft.mission.reserve_accel_climb_v_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW)
     else:
       return None
-
+    
 # requires aircraft reserve_accel_climb_avg_shaft_power_kw
 # requires power epu_effic
 # scale reserve_accel_climb_avg_shaft_power_kw by epu_effic
@@ -978,31 +1150,47 @@ def _calc_reserve_accel_climb_energy_kw_hr(aircraft):
 # requires mission reserve_cruise_h_m_p_s, reserve_cruise_s
 # horizontal power component only
 # includes aerodynamic lift, induced drag, parasite drag, weight, and horizontal motion
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full lift
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_cruise_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
       q = 0.5*aircraft.environ.air_density_max_alt_kg_p_m3*aircraft.mission.reserve_cruise_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n
       rho = aircraft.environ.air_density_max_alt_kg_p_m3
       V = aircraft.mission.reserve_cruise_h_m_p_s
 
-      # wing lift vs powered lift from rotors
-      f_wing = aircraft.cruise_wing_lift_fraction
-      wing_lift_n = f_wing*weight_n
-      rotor_lift_n = (1.0 - f_wing)*weight_n
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        f_wing = aircraft.cruise_wing_lift_fraction
+        wing_lift_n = f_wing*weight_n
+        rotor_lift_n = (1.0 - f_wing)*weight_n
       
-      # induced drag from wing lift only
-      di_n = (wing_lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+        # induced drag from wing lift only
+        di_n = (wing_lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        wing_lift_n = 0.0
+        rotor_lift_n = weight_n
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      if aircraft.wing_airfoil_cd_at_cruise_cl != None and aircraft.stopped_rotor_cd0 != None:
+      if aircraft.wing_airfoil_cd_at_cruise_cl != None and aircraft.stopped_rotor_cd0 != None and \
+         aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0:
         cd0_cruise = cd0+aircraft.wing_airfoil_cd_at_cruise_cl+aircraft.stopped_rotor_cd0
       else:
         cd0_cruise = cd0
-      dp_n = q*aircraft.wing_area_m2*cd0_cruise
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0_cruise
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
@@ -1044,6 +1232,7 @@ def _calc_reserve_cruise_energy_kw_hr(aircraft):
 # ----- Reserve Deceleration Descend (Segment G') -----
 # requires mission reserve_decel_descend_avg_h_m_p_s, reserve_decel_descend_v_m_p_s, reserve_decel_descend_s
 # includes aerodynamic lift, induced drag, parasite drag, weight, descend forces, and vertical thrust assist if gravity is insufficient
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # provide vertical thrust assist and spoiler drag (if needed)
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_decel_descend_avg_shaft_power_kw(aircraft):
@@ -1052,16 +1241,32 @@ def _calc_reserve_decel_descend_avg_shaft_power_kw(aircraft):
       theta = math.atan2(aircraft.mission.reserve_decel_descend_v_m_p_s, aircraft.mission.reserve_decel_descend_avg_h_m_p_s)
 
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n*math.cos(theta)
-      vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
 
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n*math.cos(theta)
+        vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
+
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
@@ -1098,17 +1303,20 @@ def _calc_reserve_decel_descend_avg_shaft_power_kw(aircraft):
       if shaft_power_kw < 0.0:
         # required additional horizontal force to neutralize negative power
         required_extra_force_n = -force_h_n
-        # compute equivalent delta Cd
-        delta_cd_spoiler = required_extra_force_n/(q*aircraft.wing_area_m2)
-        if delta_cd_spoiler < 0.0:
-          delta_cd_spoiler = 0.0
-        # recompute with spoilers
-        dp_spoiler_n = q*aircraft.wing_area_m2*delta_cd_spoiler
-        total_drag_n = (di_n+dp_n+dp_spoiler_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
-        force_h_n = total_drag_n+aircraft.max_takeoff_mass_kg*a_h_m_p_s2
+        if aircraft.wing_area_m2 != None and aircraft.wing_area_m2 > 0.0 and q > 0.0:
+          # compute equivalent delta Cd
+          delta_cd_spoiler = required_extra_force_n/(q*aircraft.wing_area_m2)
+          if delta_cd_spoiler < 0.0:
+            delta_cd_spoiler = 0.0
+          # recompute with spoilers
+          dp_spoiler_n = q*aircraft.wing_area_m2*delta_cd_spoiler
+          total_drag_n = (di_n+dp_n+dp_spoiler_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
+          force_h_n = total_drag_n+aircraft.max_takeoff_mass_kg*a_h_m_p_s2
       
-        # total shaft power
-        shaft_power_kw = (force_h_n*aircraft.mission.reserve_decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(aircraft.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+          # total shaft power
+          shaft_power_kw = (force_h_n*aircraft.mission.reserve_decel_descend_avg_h_m_p_s+force_v_n*(0.5*(v0_v_m_p_s+vf_v_m_p_s)))/(aircraft.propulsion.rotor_effic*W_P_KW) + shaft_power_deficit_kw
+        else:
+          shaft_power_kw = 0.0
 
       return shaft_power_kw
     else:
@@ -1141,6 +1349,7 @@ def _calc_reserve_decel_descend_energy_kw_hr(aircraft):
 # includes aerodynamic lift, induced drag, parasite drag, weight, descend forces,
 # hover-induced thrust assist if gravity is insufficient, and spoiler drag if power is negative
 # horizontal velocity: initial from reserve decel segment to 0; vertical velocity changes from previous segment to final
+# for no-wing aircraft, wing lift and induced drag are set to zero and rotors provide full vertical support
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_trans_descend_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:    
@@ -1148,16 +1357,32 @@ def _calc_reserve_trans_descend_avg_shaft_power_kw(aircraft):
       theta = math.atan2(aircraft.mission.reserve_trans_descend_v_m_p_s, aircraft.mission.reserve_trans_descend_avg_h_m_p_s)
 
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
-      lift_n = weight_n*math.cos(theta)
-      vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
 
-      # induced drag
-      di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+      # winged aircraft case
+      if aircraft.wingspan_m != None and aircraft.wingspan_m > 0.0 and \
+         aircraft.wing_area_m2 != None and aircraft.wing_aspect_ratio != None and \
+         aircraft.span_effic_factor != None and aircraft.wing_area_m2 > 0.0 and \
+         aircraft.wing_aspect_ratio > 0.0 and aircraft.span_effic_factor > 0.0 and q > 0.0:
+        lift_n = weight_n*math.cos(theta)
+        vehicle_cl = lift_n/(q*aircraft.wing_area_m2)
+
+        # induced drag
+        di_n = (lift_n**2.0)/(q*aircraft.wing_area_m2*math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
+
+      # multicopter / no-wing case
+      else:
+        lift_n = 0.0
+        di_n = 0.0
+
       # parasite drag
       cd0 = aircraft._calc_total_drag_coef()
       if cd0 == None:
         return None
-      dp_n = q*aircraft.wing_area_m2*cd0
+      if aircraft.wing_area_m2 != None:
+        dp_n = q*aircraft.wing_area_m2*cd0
+      else:
+        dp_n = 0.0
+
       # total drag
       total_drag_n = (di_n+dp_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
 
@@ -1191,20 +1416,23 @@ def _calc_reserve_trans_descend_avg_shaft_power_kw(aircraft):
       # check for negative power → apply spoiler drag to dissipate excess
       if shaft_power_kw < 0.0:
         required_extra_force_n = -force_h_n
-        delta_cd_spoiler = required_extra_force_n/(q*aircraft.wing_area_m2)
-        if delta_cd_spoiler < 0.0:
-          delta_cd_spoiler = 0.0
-        dp_spoiler_n = q*aircraft.wing_area_m2*delta_cd_spoiler
-        total_drag_n = (di_n+dp_n+dp_spoiler_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
-        force_h_n = total_drag_n+aircraft.max_takeoff_mass_kg*a_h_m_p_s2
+        if aircraft.wing_area_m2 != None and aircraft.wing_area_m2 > 0.0 and q > 0.0:
+          delta_cd_spoiler = required_extra_force_n/(q*aircraft.wing_area_m2)
+          if delta_cd_spoiler < 0.0:
+            delta_cd_spoiler = 0.0
+          dp_spoiler_n = q*aircraft.wing_area_m2*delta_cd_spoiler
+          total_drag_n = (di_n+dp_n+dp_spoiler_n)*aircraft.trim_drag_factor*aircraft.excres_protub_factor
+          force_h_n = total_drag_n+aircraft.max_takeoff_mass_kg*a_h_m_p_s2
 
-        # recompute total shaft power with spoiler drag
-        shaft_power_kw = (P_hover_W+force_h_n*aircraft.mission.reserve_trans_descend_avg_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW)
+          # recompute total shaft power with spoiler drag
+          shaft_power_kw = (P_hover_W+force_h_n*aircraft.mission.reserve_trans_descend_avg_h_m_p_s)/(aircraft.propulsion.rotor_effic*W_P_KW)
+        else:
+          shaft_power_kw = 0.0
 
       return shaft_power_kw
     else:
       return None
-
+    
 # requires aircraft reserve_trans_descend_avg_shaft_power_kw
 # requires power epu_effic
 # scale reserve_trans_descend_avg_shaft_power_kw by epu_effic

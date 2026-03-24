@@ -82,9 +82,11 @@ def _calc_fuselage_cd0(aircraft):
     
 # requires aircraft cruise_cl, wing_aspect_ratio
 # induced drag coefficient equation
-# return None if aircraft field not populated
+# return None if aircraft field not populated or invalid
 def _calc_induced_drag_cdi(aircraft):
-    if aircraft.cruise_cl != None and aircraft.wing_aspect_ratio != None:
+    if aircraft.cruise_cl != None and aircraft.wing_aspect_ratio != None and \
+       aircraft.span_effic_factor != None and aircraft.wing_aspect_ratio > 0.0 and \
+       aircraft.span_effic_factor > 0.0:
       return \
        aircraft.cruise_cl**2.0/\
        (math.pi*aircraft.wing_aspect_ratio*aircraft.span_effic_factor)
@@ -121,14 +123,22 @@ def _calc_landing_gear_cd0(aircraft):
 
 # requires aircraft wing_area_m2
 # requires propulsion disk_area_m2
-# return None if aircraft field or propulsion object not populated
+# returns 0.0 when stopped-rotor drag is not applicable
+# return None if required object/field not populated
 def _calc_stopped_rotor_cd0(aircraft):
-    if aircraft.wing_area_m2 != None and aircraft.propulsion.disk_area_m2 != None:
+    if aircraft.propulsion == None:
+      return None
+    if aircraft.wing_area_m2 == None or aircraft.propulsion.disk_area_m2 == None or \
+       aircraft.ratio_disk_to_stopped_rotor_area == None:
+      return None
+    if aircraft.wing_area_m2 <= 0.0:
+      return None
+    if aircraft.ratio_disk_to_stopped_rotor_area <= 0.0:
+      return 0.0
+    else:
       return \
        (aircraft.propulsion.disk_area_m2/aircraft.ratio_disk_to_stopped_rotor_area)/\
        aircraft.wing_area_m2
-    else:
-      return None
 
 # requires aircraft fuselage_cd0, induced_drag_cdi, horiz_tail_cd0,
 # vert_tail_cd0, landing_gear_cd0, stopped_rotor_cd0
