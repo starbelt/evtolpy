@@ -30,12 +30,31 @@ def _calc_disk_loading_kg_p_m2(aircraft):
     else:
       return None
     
-# calculates the over-torque factor for the propulsion system.
+# calculates the over-torque factor for the propulsion system
+# assumes rotor thrust is redistributed across remaining lift rotors
+# includes a 30% transient/control margin
+# uses user input when available, otherwise estimates from contingency rotor count
 def _calc_over_torque_factor(aircraft):
     if aircraft.propulsion == None:
       return None
+    if hasattr(aircraft.propulsion, 'over_torque_factor') and \
+       aircraft.propulsion.over_torque_factor != None:
+      return aircraft.propulsion.over_torque_factor
+
+    if hasattr(aircraft.propulsion, 'lift_rotor_count') and \
+       aircraft.propulsion.lift_rotor_count != None:
+      rotor_count = aircraft.propulsion.lift_rotor_count
     else:
-      return aircraft.propulsion.rotor_count/(aircraft.propulsion.rotor_count-2)+0.3
+      rotor_count = aircraft.propulsion.rotor_count
+
+    if rotor_count == None or rotor_count <= 2:
+      return None
+
+    contingency_rotor_count = rotor_count-2
+    contingency_factor = rotor_count/contingency_rotor_count
+    transient_margin_factor = 1.3
+
+    return contingency_factor*transient_margin_factor
     
 # estimates rotor solidity from thrust coefficient at hover
 # based on MTOW, air density, rotor geometry, and tip Mach hover RPM
