@@ -269,7 +269,7 @@ def _calc_pusher_motor_mass_kg(aircraft):
       single_motor_mass_lb = \
        (58.0/990.0)*((1.3558*aircraft.pusher_motor_torque_nm)-10.0)+2.0
       return \
-       (single_motor_mass_lb*aircraft.propulsion.pusher_rotor_count)/KG_2_LB
+      (single_motor_mass_lb*aircraft.propulsion.pusher_rotor_count)/KG_2_LB
 
 # calculates aircraft empty mass
 def _calc_empty_mass_kg(aircraft):

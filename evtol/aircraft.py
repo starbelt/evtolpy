@@ -87,20 +87,6 @@ class Aircraft:
     else:
       self._cruise_wing_lift_fraction = 1.0
       
-    if 'pusher_rotor_count' in ijson['propulsion']:
-      self._pusher_rotor_count = ijson['propulsion']['pusher_rotor_count']
-    else:
-      self._pusher_rotor_count = 0
-
-    if 'pusher_rotor_diameter_m' in ijson['propulsion']:
-      self._pusher_rotor_diameter_m = ijson['propulsion']['pusher_rotor_diameter_m']
-    else:
-      self._pusher_rotor_diameter_m = None
-
-    if 'pusher_rotor_tip_mach' in ijson['propulsion']:
-      self._pusher_rotor_tip_mach = ijson['propulsion']['pusher_rotor_tip_mach']
-    else:
-      self._pusher_rotor_tip_mach = None
 
     # has-a classes: add classes if they exist in JSON
     self._environ = None
@@ -1233,17 +1219,6 @@ class Aircraft:
   def mass_margin_factor(self):
     return self._mass_margin_factor
 
-  @property
-  def pusher_rotor_count(self):
-    return self._pusher_rotor_count
-
-  @property
-  def pusher_rotor_diameter_m(self):
-    return self._pusher_rotor_diameter_m
-
-  @property
-  def pusher_rotor_tip_mach(self):
-    return self._pusher_rotor_tip_mach
 
   @property
   def environ(self):

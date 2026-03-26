@@ -79,8 +79,8 @@ def _calc_pusher_rotor_rpm(aircraft):
       return None
     else:
       return \
-       (aircraft.environ.sound_speed_m_p_s*aircraft.propulsion.pusher_rotor_tip_mach/\
-        (aircraft.propulsion.pusher_rotor_diameter_m/2.0))*60.0/(2.0*math.pi)
+      (aircraft.environ.sound_speed_m_p_s*aircraft.propulsion.pusher_rotor_tip_mach/\
+       (aircraft.propulsion.pusher_rotor_diameter_m/2.0))*60.0/(2.0*math.pi)
 
 # requires aircraft cruise_avg_shaft_power_kw
 # requires propulsion pusher_rotor_count
@@ -99,5 +99,5 @@ def _calc_pusher_motor_torque_nm(aircraft):
       if omega_rad_p_s == 0.0:
         return None
       return \
-       (aircraft.cruise_avg_shaft_power_kw*1000.0/aircraft.propulsion.pusher_rotor_count)/\
-       omega_rad_p_s
+      (aircraft.cruise_avg_shaft_power_kw*1000.0/aircraft.propulsion.pusher_rotor_count)/\
+      omega_rad_p_s
