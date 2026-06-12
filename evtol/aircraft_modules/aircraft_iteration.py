@@ -24,24 +24,62 @@ N_P_M2_2_LB_P_FT2 = 0.0209
 # iterate Maximum Takeoff Weight (MTOW) until convergence
 def _iterate_mtow(aircraft, tol=1e-3, max_iter=150):
     mtow_guess = aircraft.max_takeoff_mass_kg
+    initial_mtow_kg = mtow_guess
+    max_reasonable_mtow_kg = 10.0 * initial_mtow_kg
+    previous_abs_delta = None
+    divergence_count = 0
+    max_divergence_count = 10
     history = []
 
     for i in range(max_iter):
+      if not math.isfinite(mtow_guess) or mtow_guess <= 0.0:
+        raise ValueError(
+            f"Invalid MTOW guess at iteration {i}: {mtow_guess}. "
+            f"The sizing iteration became non-physical."
+        )
+
+      if mtow_guess > max_reasonable_mtow_kg:
+        raise ValueError(
+            f"MTOW iteration diverged at iteration {i}: "
+            f"MTOW guess reached {mtow_guess:.3f} kg, which exceeds "
+            f"{max_reasonable_mtow_kg:.3f} kg "
+            f"({max_reasonable_mtow_kg / initial_mtow_kg:.1f}x the initial MTOW). "
+            f"This configuration is likely infeasible under the current mass and energy models."
+        )
+
       aircraft.max_takeoff_mass_kg = mtow_guess
 
       # recalculate dependent masses on this guess
       empty_mass_kg = aircraft.empty_mass_kg
       battery_mass_kg = aircraft.battery_mass_kg
 
-      if battery_mass_kg is None:
+      if empty_mass_kg is None or battery_mass_kg is None:
         raise ValueError(
-            f"Battery mass could not be computed at iteration {i}. "
+            f"Mass could not be computed at iteration {i}: "
+            f"empty_mass_kg={empty_mass_kg}, "
+            f"battery_mass_kg={battery_mass_kg}. "
+            f"Likely mission infeasible for this config."
+        )
+
+      if not math.isfinite(empty_mass_kg) or not math.isfinite(battery_mass_kg):
+        raise ValueError(
+            f"Non-finite mass calculated at iteration {i}: "
+            f"empty_mass_kg={empty_mass_kg}, "
+            f"battery_mass_kg={battery_mass_kg}. "
             f"Likely mission infeasible for this config."
         )
 
       new_mtow = empty_mass_kg + aircraft.payload_kg + battery_mass_kg
 
       delta = new_mtow - mtow_guess
+      abs_delta = abs(delta)
+
+      if not math.isfinite(new_mtow) or not math.isfinite(delta):
+        raise ValueError(
+            f"Non-finite MTOW update at iteration {i}: "
+            f"new_mtow={new_mtow}, delta={delta}. "
+            f"Likely mission infeasible for this config."
+        )
 
       # store iteration data
       history.append({
@@ -58,6 +96,25 @@ def _iterate_mtow(aircraft, tol=1e-3, max_iter=150):
       if abs(delta) < tol:
         aircraft.max_takeoff_mass_kg = new_mtow
         return new_mtow, history
+
+      if previous_abs_delta is not None:
+        if delta > 0.0 and abs_delta > previous_abs_delta:
+          divergence_count += 1
+        else:
+          divergence_count = 0
+
+        if divergence_count >= max_divergence_count and abs_delta / mtow_guess > 0.05:
+          raise ValueError(
+              f"MTOW iteration is diverging at iteration {i}: "
+              f"mtow_guess={mtow_guess:.3f} kg, "
+              f"new_mtow={new_mtow:.3f} kg, "
+              f"delta={delta:.3f} kg "
+              f"({abs_delta / mtow_guess:.1%} of current MTOW). "
+              f"The residual has increased for {divergence_count} consecutive iterations. "
+              f"This configuration is likely infeasible under the current mass and energy models."
+          )
+
+      previous_abs_delta = abs_delta
       
       mtow_guess = new_mtow
     
