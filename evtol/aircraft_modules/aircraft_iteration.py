@@ -40,13 +40,16 @@ def _iterate_mtow(aircraft, tol=1e-3, max_iter=150):
 
       if mtow_guess > max_reasonable_mtow_kg:
         raise ValueError(
-            f"MTOW iteration diverged at iteration {i}: "
-            f"MTOW guess reached {mtow_guess:.3f} kg, which exceeds "
-            f"{max_reasonable_mtow_kg:.3f} kg "
-            f"({max_reasonable_mtow_kg / initial_mtow_kg:.1f}x the initial MTOW). "
-            f"This configuration is likely infeasible under the current mass and energy models."
-        )
-
+          f"MTOW iteration diverged at iteration {i}: "
+          f"MTOW guess reached {mtow_guess:.3f} kg, which exceeds "
+          f"{max_reasonable_mtow_kg:.3f} kg "
+          f"({max_reasonable_mtow_kg / initial_mtow_kg:.1f}x the initial MTOW). "
+          f"The aircraft template parameters are likely physically self-inconsistent "
+          f"under the current mass and energy models. Check inputs such as wingspan, "
+          f"tail arm, rotor count, rotor diameter, EPU mass scaling, battery mass, "
+          f"and mission energy requirements."
+      )
+      
       aircraft.max_takeoff_mass_kg = mtow_guess
 
       # recalculate dependent masses on this guess
@@ -111,9 +114,12 @@ def _iterate_mtow(aircraft, tol=1e-3, max_iter=150):
               f"delta={delta:.3f} kg "
               f"({abs_delta / mtow_guess:.1%} of current MTOW). "
               f"The residual has increased for {divergence_count} consecutive iterations. "
-              f"This configuration is likely infeasible under the current mass and energy models."
+              f"The aircraft template parameters are likely physically self-inconsistent "
+              f"under the current mass and energy models. Check inputs such as wingspan, "
+              f"tail arm, rotor count, rotor diameter, EPU mass scaling, battery mass, "
+              f"and mission energy requirements."
           )
-
+        
       previous_abs_delta = abs_delta
       
       mtow_guess = new_mtow
