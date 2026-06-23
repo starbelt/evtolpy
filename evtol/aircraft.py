@@ -1222,16 +1222,16 @@ class Aircraft:
 
   @property
   def environ(self):
-    return self._environ
+    return copy.deepcopy(self._environ)
 
   @property
   def mission(self):
-    return self._mission
+    return copy.deepcopy(self._mission)
 
   @property
   def power(self):
-    return self._power
+    return copy.deepcopy(self._power)
 
   @property
   def propulsion(self):
-    return self._propulsion
+    return copy.deepcopy(self._propulsion)
