@@ -94,16 +94,7 @@ VEHICLES = {
 
 LBS_TO_KG = 0.453592
 
-# Sized values from the V&V results table in the manuscript. The bar charts
-# render these exact values (rather than the in-script sizing output) so the
-# figures stay consistent with Table tab:VV. Keys match all_results.
-TABLE_SIZED = {
-    'Joby S4':         {'mtow': 2103.46, 'empty': 1341.76, 'hover_power': 446.18, 'cruise_power': 195.77, 'battery': 401.70},
-    'Wisk Cora':       {'mtow': 1213.73, 'empty':  789.77, 'hover_power': 297.12, 'cruise_power':  73.69, 'battery': 263.97},
-    'NASA LC':         {'mtow': 3477.13, 'empty': 2220.36, 'hover_power': 846.34, 'cruise_power': 280.79, 'battery': 712.46},
-    'NASA TR':         {'mtow': 3100.67, 'empty': 1938.82, 'hover_power': 927.15, 'cruise_power': 254.68, 'battery': 617.55},
-    'Archer Midnight': {'mtow': 3255.63, 'empty': 1813.11, 'hover_power': 872.34, 'cruise_power': 252.10, 'battery': 989.52},
-}
+
 
 
 def size_vehicle(name, cfg):
@@ -270,12 +261,7 @@ def plot_metric_bar(all_results, ref_key, calc_key, metric_display_name, filenam
     names = list(all_results.keys())
     calculated, published, labels = [], [], []
     for n in names:
-        # Prefer the published Table tab:VV value so figures stay in sync
-        # with the manuscript table. Fall back to the in-script sizing
-        # output if the metric is not tabulated.
-        calc_val = TABLE_SIZED.get(n, {}).get(calc_key)
-        if calc_val is None:
-            calc_val = all_results[n].get(calc_key)
+        calc_val = all_results[n].get(calc_key)
         ref_val = VEHICLES[n]['ref'].get(ref_key)
         if calc_val is None:
             continue
