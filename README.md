@@ -58,6 +58,7 @@ Units (ABU) concept introduced in the AIAA SciTech Forum 2026 paper
 * [analysis](analysis/README.md): Analysis scripts and study workflows
 * [docs](docs/README.md): Framework documentation and methodology notes
 * [evtol](evtol/README.md): Core Python package
+* [eVTOLpy journal](eVTOLpy%20journal/): Scripts, JSON configs, and generated figures for example aircraft, trade studies, and V&V
 * [references](references/README.md): Supporting reference materials and
   technical sources
 * [sample-inputs](sample-inputs/README.md): Example configuration files for
