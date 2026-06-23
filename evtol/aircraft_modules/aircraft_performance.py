@@ -21,6 +21,7 @@ M_2_FT = 3.28084
 M_P_S_2_KTS = 1.9438
 N_P_M2_2_LB_P_FT2 = 0.0209
 
+
 # requires environ g_m_p_s2, air_density_sea_lvl_kg_p_m3
 # requires propulsion disk_area_m2, rotor_effic
 # prop thrust momentum theory:_calc_hover_shaft_power_kw
@@ -108,6 +109,7 @@ def _calc_total_reserve_mission_energy_kw_hr(aircraft):
 # return None if mission object not populated
 def _calc_depart_taxi_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None:
+      if aircraft.mission.depart_taxi_s <= 0.0: return 0.0
       d_h_m = aircraft.mission.depart_taxi_avg_h_m_p_s*aircraft.mission.depart_taxi_s
       vf_h_m_p_s = (2.0*d_h_m)/aircraft.mission.depart_taxi_s
       a_h_m_p_s2 = vf_h_m_p_s**2.0/(2.0*d_h_m)
@@ -149,6 +151,7 @@ def _calc_depart_taxi_energy_kw_hr(aircraft):
 # return None if mission or propulsion object not populated
 def _calc_hover_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None:
+        if aircraft.mission.hover_climb_s <= 0.0: return 0.0
         
         # vertical kinematics (upward positive)
         d_v_m = aircraft.mission.hover_climb_avg_v_m_p_s*aircraft.mission.hover_climb_s
@@ -201,6 +204,7 @@ def _calc_hover_climb_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_trans_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.trans_climb_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.trans_climb_avg_h_m_p_s**2.0
       theta = math.atan2(aircraft.mission.trans_climb_v_m_p_s, aircraft.mission.trans_climb_avg_h_m_p_s)
 
@@ -292,6 +296,7 @@ def _calc_trans_climb_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_depart_proc_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.depart_proc_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.depart_proc_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
 
@@ -365,6 +370,7 @@ def _calc_depart_proc_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_accel_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.accel_climb_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.accel_climb_avg_h_m_p_s**2.0
       theta = math.atan2(aircraft.mission.accel_climb_v_m_p_s, aircraft.mission.accel_climb_avg_h_m_p_s)
 
@@ -452,6 +458,7 @@ def _calc_accel_climb_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_cruise_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.cruise_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_max_alt_kg_p_m3*aircraft.mission.cruise_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
       rho = aircraft.environ.air_density_max_alt_kg_p_m3
@@ -537,6 +544,7 @@ def _calc_cruise_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_decel_descend_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:     
+      if aircraft.mission.decel_descend_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.decel_descend_avg_h_m_p_s**2.0
       theta = math.atan2(aircraft.mission.decel_descend_v_m_p_s, aircraft.mission.decel_descend_avg_h_m_p_s)
 
@@ -652,6 +660,7 @@ def _calc_decel_descend_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_arrive_proc_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.arrive_proc_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.arrive_proc_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
 
@@ -726,6 +735,7 @@ def _calc_arrive_proc_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_trans_descend_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.trans_descend_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.trans_descend_avg_h_m_p_s**2.0
       theta = math.atan2(aircraft.mission.trans_descend_v_m_p_s, aircraft.mission.trans_descend_avg_h_m_p_s)
 
@@ -837,6 +847,7 @@ def _calc_trans_descend_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_hover_descend_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+        if aircraft.mission.hover_descend_s <= 0.0: return 0.0
         
         # vertical kinematics (upward positive)
         v0_v_m_p_s = 2.0*aircraft.mission.hover_descend_avg_v_m_p_s
@@ -888,6 +899,7 @@ def _calc_hover_descend_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_arrive_taxi_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.arrive_taxi_s <= 0.0: return 0.0
       # horizontal accelerations
       v0_h_m_p_s = 0.0
       vf_h_m_p_s = 2.0*aircraft.mission.arrive_taxi_avg_h_m_p_s
@@ -933,6 +945,7 @@ def _calc_arrive_taxi_energy_kw_hr(aircraft):
 # return None if mission or propulsion object not populated
 def _calc_reserve_hover_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None:
+        if aircraft.mission.reserve_hover_climb_s <= 0.0: return 0.0
         
         # vertical kinematics (upward positive)
         d_v_m = aircraft.mission.reserve_hover_climb_avg_v_m_p_s*aircraft.mission.reserve_hover_climb_s
@@ -984,6 +997,7 @@ def _calc_reserve_hover_climb_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_trans_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.reserve_trans_climb_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.reserve_trans_climb_avg_h_m_p_s**2.0
       theta = math.atan2(aircraft.mission.reserve_trans_climb_v_m_p_s, aircraft.mission.reserve_trans_climb_avg_h_m_p_s)
 
@@ -1075,6 +1089,7 @@ def _calc_reserve_trans_climb_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_accel_climb_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.reserve_accel_climb_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.reserve_accel_climb_avg_h_m_p_s**2.0
       theta = math.atan2(aircraft.mission.reserve_accel_climb_v_m_p_s, aircraft.mission.reserve_accel_climb_avg_h_m_p_s)
 
@@ -1154,6 +1169,7 @@ def _calc_reserve_accel_climb_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_cruise_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.reserve_cruise_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_max_alt_kg_p_m3*aircraft.mission.reserve_cruise_h_m_p_s**2.0
       weight_n = aircraft.max_takeoff_mass_kg*aircraft.environ.g_m_p_s2
       rho = aircraft.environ.air_density_max_alt_kg_p_m3
@@ -1237,6 +1253,7 @@ def _calc_reserve_cruise_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_decel_descend_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+      if aircraft.mission.reserve_decel_descend_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.reserve_decel_descend_avg_h_m_p_s**2.0
       theta = math.atan2(aircraft.mission.reserve_decel_descend_v_m_p_s, aircraft.mission.reserve_decel_descend_avg_h_m_p_s)
 
@@ -1353,6 +1370,7 @@ def _calc_reserve_decel_descend_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_trans_descend_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:    
+      if aircraft.mission.reserve_trans_descend_s <= 0.0: return 0.0
       q = 0.5*aircraft.environ.air_density_sea_lvl_kg_p_m3*aircraft.mission.reserve_trans_descend_avg_h_m_p_s**2.0
       theta = math.atan2(aircraft.mission.reserve_trans_descend_v_m_p_s, aircraft.mission.reserve_trans_descend_avg_h_m_p_s)
 
@@ -1464,6 +1482,7 @@ def _calc_reserve_trans_descend_energy_kw_hr(aircraft):
 # return None if mission, propulsion, or environment object not populated
 def _calc_reserve_hover_descend_avg_shaft_power_kw(aircraft):
     if aircraft.mission != None and aircraft.propulsion != None and aircraft.environ != None:
+        if aircraft.mission.reserve_hover_descend_s <= 0.0: return 0.0
         
         # vertical kinematics (upward positive)
         v0_v_m_p_s = 2.0*aircraft.mission.reserve_hover_descend_avg_v_m_p_s

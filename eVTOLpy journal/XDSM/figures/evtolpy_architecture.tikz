@@ -1,0 +1,185 @@
+
+%%% Preamble Requirements %%%
+% \usepackage{geometry}
+% \usepackage{amsfonts}
+% \usepackage{amsmath}
+% \usepackage{amssymb}
+% \usepackage{tikz}
+
+% Optional packages such as sfmath set through python interface
+% \usepackage{sfmath}
+
+% \usetikzlibrary{arrows,chains,positioning,scopes,shapes.geometric,shapes.misc,shadows}
+
+%%% End Preamble Requirements %%%
+
+\input{"/Users/dylanhogge/Library/Python/3.9/lib/python/site-packages/pyxdsm/diagram_styles"}
+\begin{tikzpicture}
+\tikzstyle{MatrixSetup} = [row sep=0.5mm, column sep=0.7mm]
+\tikzset{every node/.append style={font=\small}}
+\usetikzlibrary{fit, backgrounds}
+\pgfdeclarelayer{background}
+\pgfsetlayers{background,data,process,main}
+
+
+\matrix[MatrixSetup]{
+%Row 0
+\node [DataIO] (output_mass_sizing) {$W_{TO}^{(0)}$};&
+\node [DataIO] (output_geom) {$Geom$};&
+&
+\node [DataIO] (output_env) {$Profile$};&
+&
+&
+&
+&
+&
+\\[3mm]
+%Row 1
+\node [MDA] (mass_sizing) {$\begin{array}{c}\text{Mass Sizing} \\ \text{Loop}\end{array}$};&
+&
+\node [DataInter] (mass_sizing-mass) {$W_{TO}$};&
+&
+&
+&
+&
+&
+&
+\\
+%Row 2
+&
+\node [Function] (geom) {$\begin{array}{c}\text{Aircraft} \\ \text{Geometry}\end{array}$};&
+\node [DataInter] (geom-mass) {$ $};&
+&
+&
+&
+&
+&
+&
+\\
+%Row 3
+&
+&
+\node [Function] (mass) {$\begin{array}{c}\text{Aircraft} \\ \text{Mass}\end{array}$};&
+\node [DataInter] (mass-env) {$ $};&
+&
+&
+&
+&
+\node [DataInter] (mass-togw) {$m_{struct}$};&
+\\[10mm]
+%Row 4
+&
+&
+&
+\node [Function] (env) {$Env$};&
+\node [DataInter] (env-aero) {$ $};&
+\node [DataInter] (env-prop) {$ $};&
+\node [DataInter] (env-power) {$ $};&
+&
+&
+\\
+%Row 5
+&
+&
+&
+&
+\node [Function] (aero) {$Aero$};&
+\node [DataInter] (aero-prop) {$ $};&
+\node [DataInter] (aero-power) {$ $};&
+&
+&
+\\
+%Row 6
+&
+&
+&
+&
+&
+\node [Function] (prop) {$Prop$};&
+\node [DataInter] (prop-power) {$ $};&
+&
+&
+\\
+%Row 7
+&
+&
+&
+&
+&
+&
+\node [Function] (power) {$Power$};&
+\hspace{120pt} \node [DataInter, xshift=30mm] (power-bat_siz) {$\text{Power \& Energy}$};&
+&
+\\
+%Row 8
+&
+&
+&
+&
+&
+&
+&
+\node [Function, xshift=30mm] (bat_siz) {$\begin{array}{c}\text{Battery} \\ \text{Size}\end{array}$};&
+\node [DataInter] (bat_siz-togw) {$m_{batt}$};&
+\\
+%Row 9
+\node [DataInter] (togw-mass_sizing) {$ $};&
+&
+&
+&
+&
+&
+&
+&
+\node [Function] (togw) {$\begin{array}{c}\text{TOGW} \\ \text{Calc}\end{array}$};&
+\\
+};
+
+
+\begin{pgfonlayer}{background}
+\node[draw, dashed, fill=white, inner sep=15pt, fit=(env) (aero) (prop) (power), xshift=5pt, yshift=-5pt] (mission_box_2) {};
+\node[draw, dashed, fill=white, inner sep=15pt, fit=(env) (aero) (prop) (power)] (mission_box_1) {};
+\node[anchor=center, fill=white, inner sep=4pt, font=\small] at (mission_box_1.north) {Mission};
+\node[anchor=west, inner sep=4pt, font=\small] at (mission_box_2.east) {\# segments};
+\end{pgfonlayer}
+
+
+% XDSM process chains
+
+
+\begin{pgfonlayer}{data}
+\path
+% Horizontal edges
+(mass_sizing) edge [DataLine] (mass_sizing-mass)
+(geom) edge [DataLine] (geom-mass)
+(mass) edge [DataLine] (mass-env)
+(mass) edge [DataLine] (mass-togw)
+(env) edge [DataLine] (env-aero)
+(env) edge [DataLine] (env-prop)
+(env) edge [DataLine] (env-power)
+(aero) edge [DataLine] (aero-prop)
+(aero) edge [DataLine] (aero-power)
+(prop) edge [DataLine] (prop-power)
+(mission_box_2.east |- power-bat_siz) edge [DataLine] (power-bat_siz)
+(bat_siz) edge [DataLine] (bat_siz-togw)
+(togw) edge [DataLine] (togw-mass_sizing)
+% Vertical edges
+(mass_sizing-mass) edge [DataLine] (mass)
+(geom-mass) edge [DataLine] (mass)
+(mass-env) edge [DataLine] (mass-env |- mission_box_1.north)
+(mass-togw) edge [DataLine] (togw)
+(env-aero) edge [DataLine] (aero)
+(env-prop) edge [DataLine] (prop)
+(env-power) edge [DataLine] (power)
+(aero-prop) edge [DataLine] (prop)
+(aero-power) edge [DataLine] (power)
+(prop-power) edge [DataLine] (power)
+(power-bat_siz) edge [DataLine] (bat_siz)
+(bat_siz-togw) edge [DataLine] (togw)
+(togw-mass_sizing) edge [DataLine] (mass_sizing)
+(mass_sizing) edge [DataLine] (output_mass_sizing)
+(geom) edge [DataLine] (output_geom)
+(output_env |- mission_box_1.north) edge [DataLine] (output_env);
+\end{pgfonlayer}
+
+\end{tikzpicture}
