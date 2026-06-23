@@ -81,11 +81,13 @@ class Aircraft:
     self._lovolt_power_coms_mass_kg = \
      ijson['aircraft']['lovolt_power_coms_mass_kg']
     self._mass_margin_factor = ijson['aircraft']['mass_margin_factor']
+
     if 'cruise_wing_lift_fraction' in ijson['aircraft']:
       self._cruise_wing_lift_fraction = ijson['aircraft']['cruise_wing_lift_fraction']
     else:
       self._cruise_wing_lift_fraction = 1.0
       
+
     # has-a classes: add classes if they exist in JSON
     self._environ = None
     if 'environ' in ijson:
@@ -242,6 +244,9 @@ class Aircraft:
   def _calc_tilt_rotor_mass_kg(self):
     return aircraft_mass._calc_tilt_rotor_mass_kg(self)
 
+  def _calc_pusher_motor_mass_kg(self):
+    return aircraft_mass._calc_pusher_motor_mass_kg(self)
+  
   def _calc_empty_mass_kg(self):
     return aircraft_mass._calc_empty_mass_kg(self)
 
@@ -431,6 +436,12 @@ class Aircraft:
 
   def _calc_rotor_solidity(self):
     return aircraft_propulsion._calc_rotor_solidity(self)
+  
+  def _calc_pusher_rotor_rpm(self):
+    return aircraft_propulsion._calc_pusher_rotor_rpm(self)
+
+  def _calc_pusher_motor_torque_nm(self):
+    return aircraft_propulsion._calc_pusher_motor_torque_nm(self) 
 
 
   # Wrapper methods: aircraft_abu
@@ -829,6 +840,10 @@ class Aircraft:
   @property
   def tilt_rotor_mass_kg(self):
     return aircraft_mass._calc_tilt_rotor_mass_kg(self)
+  
+  @property
+  def pusher_motor_mass_kg(self):
+    return aircraft_mass._calc_pusher_motor_mass_kg(self)
 
   @property
   def empty_mass_kg(self):
@@ -1082,6 +1097,14 @@ class Aircraft:
   def rotor_solidity(self):
     return aircraft_propulsion._calc_rotor_solidity(self)
 
+  @property
+  def pusher_rotor_rpm(self):
+    return aircraft_propulsion._calc_pusher_rotor_rpm(self)
+
+  @property
+  def pusher_motor_torque_nm(self):
+    return aircraft_propulsion._calc_pusher_motor_torque_nm(self)
+  
 
   # stored JSON-backed properties
   @property

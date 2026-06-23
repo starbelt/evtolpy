@@ -138,6 +138,18 @@ def _calc_boom_mass_kg(aircraft):
     rotor_diameter_m = aircraft.propulsion.rotor_diameter_m
     wing_mac_m = aircraft.wing_mac_m
 
+    epu_mass_check_limit_lb = 22000.0  # approximately 10,000 kg per EPU
+    if single_epu_mass_lb > epu_mass_check_limit_lb:
+      raise ValueError(
+          f"single_epu_mass_lb ({single_epu_mass_lb:.1f} lb) exceeds "
+          f"EPU mass check limit ({epu_mass_check_limit_lb:.1f} lb / "
+          f"{epu_mass_check_limit_lb/KG_2_LB:.0f} kg). "
+          f"Likely template parameters are physically self-inconsistent: "
+          f"rotor_count={rotor_count} produces divergent EPU/boom sizing "
+          f"under the current mass model. Check rotor count, rotor diameter, "
+          f"cruise wing lift fraction, aircraft mass, and mission requirements."
+      )
+
     boom_mass_kg = (
       0.0412*(single_epu_mass_lb**1.1433)*(rotor_count**1.3762)/KG_2_LB
       + 6*0.2315*((1.2*rotor_diameter_m + wing_mac_m)**1.3476)
@@ -255,6 +267,22 @@ def _calc_tilt_rotor_mass_kg(aircraft):
     )
     return tilt_rotor_mass_lb / KG_2_LB
 
+# estimates total pusher/cruise motor mass [kg] using Duffy et al, “Propulsion Scaling Methods in the Era of Electric Flight,” (2018)., 
+# motor scaling relation based on single motor torque and number of pusher motors
+# returns 0.0 if aircraft has no pusher rotors
+def _calc_pusher_motor_mass_kg(aircraft):
+    if aircraft.propulsion == None:
+      return None
+    if aircraft.propulsion.pusher_rotor_count == 0:
+      return 0.0
+    if aircraft.pusher_motor_torque_nm == None:
+      return None
+    else:
+      single_motor_mass_lb = \
+       (58.0/990.0)*((1.3558*aircraft.pusher_motor_torque_nm)-10.0)+2.0
+      return \
+      (single_motor_mass_lb*aircraft.propulsion.pusher_rotor_count)/KG_2_LB
+
 # calculates aircraft empty mass
 def _calc_empty_mass_kg(aircraft):
     structural_mass = (
@@ -265,7 +293,8 @@ def _calc_empty_mass_kg(aircraft):
       aircraft.boom_mass_kg +
       aircraft.landing_gear_mass_kg +
       aircraft.lift_rotor_hub_mass_kg +
-      aircraft.tilt_rotor_mass_kg
+      aircraft.tilt_rotor_mass_kg +
+      aircraft.pusher_motor_mass_kg   
     )
     subsys_mass = (
       aircraft.epu_mass_kg +

@@ -50,18 +50,21 @@ def _calc_wing_mac_m(aircraft):
 
 # requires aircraft wing_area_m2
 # wing aspect ratio = wingspan^2/wing area
-# return None if aircraft field not populated
+# return None if aircraft field not populated or invalid
 def _calc_wing_aspect_ratio(aircraft):
-    if aircraft.wing_area_m2 != None:
+    if aircraft.wing_area_m2 != None and aircraft.wingspan_m != None and \
+       aircraft.wing_area_m2 > 0.0 and aircraft.wingspan_m > 0.0:
       return aircraft.wingspan_m**2.0/aircraft.wing_area_m2
     else:
       return None
-
+    
 # requires aircraft wing_area_m2
-# recall wing aspect ratio = wingspan^2/wing area
-# return None if aircraft field not populated
+# recall wing root chord = 2*wing area/(wingspan*(1+taper ratio))
+# return None if aircraft field not populated or invalid
 def _calc_wing_root_chord_m(aircraft):
-    if aircraft.wing_area_m2 != None:
+    if aircraft.wing_area_m2 != None and aircraft.wingspan_m != None and \
+       aircraft.wing_taper_ratio != None and aircraft.wing_area_m2 > 0.0 and \
+       aircraft.wingspan_m > 0.0 and (1.0+aircraft.wing_taper_ratio) != 0.0:
       return 2.0*aircraft.wing_area_m2/(aircraft.wingspan_m*(1.0+aircraft.wing_taper_ratio))
     else:
       return None
@@ -77,9 +80,11 @@ def _calc_horiz_tail_area_m2(aircraft):
       return None
 
 # requires aircraft wing_area_m2
-# return None if aircraft field not populated
+# return None if aircraft field not populated or invalid
 def _calc_vert_tail_area_m2(aircraft):
-    if aircraft.wing_area_m2 != None :
+    if aircraft.wing_area_m2 != None and aircraft.wingspan_m != None and \
+       aircraft.fuselage_l_m != None and aircraft.wing_area_m2 > 0.0 and \
+       aircraft.wingspan_m > 0.0 and aircraft.fuselage_l_m > 0.0:
       return \
        (aircraft.vert_tail_vol_coeff*aircraft.wingspan_m*aircraft.wing_area_m2)/\
        (0.5*aircraft.fuselage_l_m)

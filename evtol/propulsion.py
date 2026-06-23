@@ -25,10 +25,25 @@ class Propulsion:
     self._rotor_diameter_m = ijson['propulsion']['rotor_diameter_m']
     self._tip_mach = ijson['propulsion']['tip_mach']
     self._rotor_avg_cl = ijson['propulsion']['rotor_avg_cl']
+    # pusher rotor properties
+    self._pusher_rotor_count = ijson['propulsion'].get('pusher_rotor_count', 0)
+    self._pusher_rotor_diameter_m = ijson['propulsion'].get('pusher_rotor_diameter_m', None)
+    self._pusher_rotor_tip_mach = ijson['propulsion'].get('pusher_rotor_tip_mach', None)
     # calculate initial values of derived fields
     self._disk_area_m2 = self._calc_disk_area_m2()
     # close JSON file
     ifile.close()
+  @property
+  def pusher_rotor_count(self):
+    return self._pusher_rotor_count
+
+  @property
+  def pusher_rotor_diameter_m(self):
+    return self._pusher_rotor_diameter_m
+
+  @property
+  def pusher_rotor_tip_mach(self):
+    return self._pusher_rotor_tip_mach
 
   # area of circle swept by rotor times rotor count
   def _calc_disk_area_m2(self):
