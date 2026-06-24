@@ -6,15 +6,15 @@ This directory contains Jupyter tutorial notebooks aligned with the case-study s
 
 * [README.md](README.md): This document
 * [Archer_Midnight.json](Archer_Midnight.json): Reference Archer Midnight aircraft configuration file used by the tutorial notebooks
-* [01 - Getting started](01%20-%20Getting%20started/README.md): Introductory notebooks for inspecting the `eVTOLpy` aircraft object and loading aircraft configurations from JSON files
-* [02 - Aircraft Config](02%20-%20Aircraft%20Config/README.md): Notebooks for aircraft geometry parameters, derived quantities, fixed mass inputs, and custom configuration settings
-* [03 - Mission Profiles](03%20-%20Mission%20Profiles/README.md): Notebooks for defining primary and reserve mission segments and modifying mission timeline parameters
-* [04 - Mass and Weight Analysis](04%20-%20Mass%20and%20Weight%20Analysis/README.md): Notebooks for component-level mass breakdown and iterative MTOW convergence analysis
-* [05 - Power and Energy Analysis](05%20-%20Power%20and%20Energy%20Analysis/README.md): Notebooks for segment power, electric power, power-chain losses, and mission energy consumption
-* [06 - Aerodynamics](06%20-%20Aerodynamics/README.md): Notebooks for component drag buildup and aerodynamic contribution analysis
-* [07 - Propulsion](07%20-%20Propulsion/README.md): Notebooks for rotor disk loading, solidity, EPU mass, battery energy density, and usable battery energy
-* [08 - Archer Midnight Sizing](08%20-%20Archer%20Midnight%20Sizing/README.md): Notebooks for the final Archer Midnight sizing case, convergence dashboard, and range/altitude design-space study
-* [09 - Miscellaneous](09%20-%20Miscellaneous/README.md): Additional scripted examples and utility demonstrations
+* [01_Getting-started](01_Getting-started/README.md): Introductory notebooks for inspecting the `eVTOLpy` aircraft object and loading aircraft configurations from JSON files
+* [02_Aircraft-Config](02_Aircraft-Config/README.md): Notebooks for aircraft geometry parameters, derived quantities, fixed mass inputs, and custom configuration settings
+* [03_Mission-Profiles](03_Mission-Profiles/README.md): Notebooks for defining primary and reserve mission segments and modifying mission timeline parameters
+* [04_Mass-and-Weight-Analysis](04_Mass-and-Weight-Analysis/README.md): Notebooks for component-level mass breakdown and iterative MTOW convergence analysis
+* [05_Power-and-Energy-Analysis](05_Power-and-Energy-Analysis/README.md): Notebooks for segment power, electric power, power-chain losses, and mission energy consumption
+* [06_Aerodynamics](06_Aerodynamics/README.md): Notebooks for component drag buildup and aerodynamic contribution analysis
+* [07_Propulsion](07_Propulsion/README.md): Notebooks for rotor disk loading, solidity, EPU mass, battery energy density, and usable battery energy
+* [08_Archer-Midnight-Sizing](08_Archer-Midnight-Sizing/README.md): Notebooks for the final Archer Midnight sizing case, convergence dashboard, and range/altitude design-space study
+* [09_Miscellaneous](09_Miscellaneous/README.md): Additional scripted examples and utility demonstrations
 
 ## Tutorial Notebook Map
 
