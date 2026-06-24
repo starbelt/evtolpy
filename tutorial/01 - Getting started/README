@@ -1,0 +1,8 @@
+# 01 - Getting Started
+
+This section introduces the basics of working with `eVTOLpy`. You will learn how to:
+
+1. Load an aircraft config from a JSON file
+2. Create an `Aircraft` object and inspect its properties
+3. Understand the different classes (Aircraft, Mission, Power, Propulsion, Environ)
+4. Access derived properties like wing area, hover power, and cruise L/D
