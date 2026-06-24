@@ -1,0 +1,35 @@
+...Comp Geom...
+10 Num Comps
+12 Total Num Meshes
+4560 Total Num Tris
+
+Theo_Area   Wet_Area   Theo_Vol    Wet_Vol  Name
+   34.729     33.257     11.288     11.288  fuselage       
+   45.470     39.056      3.793      3.441  wing           
+   11.962     11.741      0.485      0.485  htail          
+    7.156      6.786      0.347      0.347  vtail          
+    7.024      6.719      0.676      0.676  boom_R0        
+    7.024      6.353      0.676      0.646  boom_R1        
+    7.024      5.950      0.676      0.605  boom_R2        
+    7.024      6.719      0.676      0.676  boom_L0        
+    7.024      6.353      0.676      0.646  boom_L1        
+    7.024      5.950      0.676      0.605  boom_L2        
+-------------------------------------------------
+  141.463    128.885     19.971     19.415  Totals         
+
+Tag_Theo_Area   Tag_Wet_Area    Tag_Name
+       34.729         33.257    fuselage_S_Surf0
+       22.735         19.528    wing_S_Surf0   
+       22.735         19.528    wing_S_Surf1   
+        5.981          5.870    htail_S_Surf0  
+        5.981          5.870    htail_S_Surf1  
+        7.156          6.786    vtail_S_Surf0  
+        7.024          6.719    boom_R0_S_Surf0
+        7.024          6.353    boom_R1_S_Surf0
+        7.024          5.950    boom_R2_S_Surf0
+        7.024          6.719    boom_L0_S_Surf0
+        7.024          6.353    boom_L1_S_Surf0
+        7.024          5.950    boom_L2_S_Surf0
+WARNING: 2 open meshes merged
+     Merged: wing
+     Merged: htail

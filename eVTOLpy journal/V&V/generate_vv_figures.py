@@ -9,7 +9,6 @@ and saves all figures as PNGs to the paper directory.
 Usage:
     python3 evtol/V&V/generate_vv_figures.py
 """
-
 import sys
 import os
 

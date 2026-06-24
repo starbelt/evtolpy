@@ -1,0 +1,16 @@
+{
+  "metrics": {
+    "rotor_diameter_m": 2.0,
+    "wingspan_m": 15.24,
+    "mtom_input_kg": 3175,
+    "mtom_sized_kg": 3255.6313586926262,
+    "wing_area_m2": 21.72635621005079,
+    "wing_root_chord_m": 2.0365913207771644,
+    "disk_loading_kg_p_m2": 86.35830393681914,
+    "rotor_rotor_gap_m": 0.56,
+    "rotor_rotor_pass": true,
+    "tippath_vs_airframe_m": 0.2877,
+    "wetted_area_m2": 130.65131654379957,
+    "wetted_vol_m3": 19.17729180887993
+  }
+}

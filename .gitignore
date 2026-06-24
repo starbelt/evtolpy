@@ -12,3 +12,6 @@ misc
 
 # VSCode
 .vscode
+
+# OpenVSP integration generated outputs
+openvsp/out*/
