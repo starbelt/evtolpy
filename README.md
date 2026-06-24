@@ -1,4 +1,4 @@
-# eVTOLpy: A Design and Simulation Framework for eVTOL Aircraft
+# eVTOLpy: A Conceptual Sizing and Simulation Framework for eVTOL Aircraft
 
 `eVTOLpy` is a Python-based modeling framework for sizing, performance analysis,
 and mission-level simulation of electric vertical takeoff and landing (eVTOL)
@@ -25,7 +25,9 @@ power coefficients, efficiency parameters), mission definitions (e.g., segment
 speeds, durations, and vertical profiles), battery cell and pack properties
 (e.g., specific energy, accessible energy fraction, pack integration factor),
 and relevant environmental conditions such as air density and atmospheric
-viscosity. A complete list of input parameters is provided in the
+viscosity. These inputs allow users to study how vehicle architecture, rotor layout, battery technology, payload, and mission profile affect aircraft sizing and energy requirements.
+
+A complete list of input parameters is provided in the
 [`sample-inputs`](sample-inputs/README.md) directory.
 
 This repository also includes source code implementing the Autonomous Battery
@@ -34,12 +36,13 @@ Units (ABU) concept introduced in the AIAA SciTech Forum 2026 paper
 
 ## Key Features
 
-- Mission-based energy and power simulation
+- Mission-based energy and power simulation for eVTOL flight profiles
 - Iterative aircraft sizing loop for MTOW, battery mass, and structural and
   subsystem mass estimation
+-  Component-level mass buildup for structures, propulsion, battery, and fixed subsystem masses
 - Aerodynamic and rotor performance models based on NASA’s NDARC rotorcraft
   design database
-- Configurable inputs for geometry, aerodynamics, propulsion, environment, and
+- Configurable JSON-based inputs for geometry, aerodynamics, propulsion, environment, and
   battery characteristics
 - Modular Python package suitable for research, teaching, and early-stage
   conceptual design of eVTOL aircraft
@@ -52,6 +55,7 @@ Units (ABU) concept introduced in the AIAA SciTech Forum 2026 paper
 ## Requirements
 - Python 3.x
 - matplotlib  
+- Jupyter or JupyterLab, for running tutorial notebooks
 
 ## Directory Contents
 
@@ -108,7 +112,7 @@ cd analysis/mission-segment-abu-analysis/src
 ```
 @software{evtolpy2026,
   author = {Nguyen, Khoa D. and Hogge, Dylan and Riris, John and Sarojini, Darshan and Denby, Bradley},
-  title  = {evtolpy: A Design and Simulation Framework for eVTOL Aircraft},
+  title  = {eVTOLpy: A Design and Simulation Framework for eVTOL Aircraft},
   url    = {https://github.com/starbelt/evtolpy},
   year   = {2026}
 }

@@ -1,3 +1,3 @@
 # 09 - Misc
 
-Additional examples 
+Reserved for additional scripted examples
