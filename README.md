@@ -114,7 +114,7 @@ cd analysis/mission-segment-abu-analysis/src
 }
 ``` -->
 
-The most recent publication introducing evtolpy and the ABU framework was
+The most recent publication introducing `eVTOLpy` and the ABU framework was
 presented at the AIAA SciTech Forum 2026 and may be cited as:
 ```
 @inproceedings{nguyen2026autonomous,

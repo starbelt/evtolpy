@@ -6,4 +6,4 @@ This directory contains code documentation.
 
 * [theory](theory/README.md): Theory documentation
 * [api](api/README.md): API documentation
-
+* [README.md](README.md): This document
