@@ -1,6 +1,6 @@
-# evtolpy: A Design and Simulation Framework for eVTOL Aircraft
+# eVTOLpy: A Design and Simulation Framework for eVTOL Aircraft
 
-`evtolpy` is a Python-based modeling framework for sizing, performance analysis,
+`eVTOLpy` is a Python-based modeling framework for sizing, performance analysis,
 and mission-level simulation of electric vertical takeoff and landing (eVTOL)
 aircraft. The software evaluates vehicle aerodynamics, rotorcraft performance,
 subsystem masses, battery requirements, and mission energy consumption using an
@@ -12,13 +12,13 @@ License: MIT License
 ## Overview
 
 The framework is mission-driven: given a vehicle configuration and a sequence of
-flight segments, `evtolpy` computes shaft power, electric power, and energy for
+flight segments, `eVTOLpy` computes shaft power, electric power, and energy for
 each segment; iteratively updates vehicle mass properties; and converges on a
 consistent maximum takeoff weight (MTOW). The tool supports comparative studies
 across aircraft architectures, propulsion layouts, battery technologies, and
 mission definitions.
 
-The `evtolpy` simulator accepts JSON-based inputs describing aircraft geometry
+The `eVTOLpy` simulator accepts JSON-based inputs describing aircraft geometry
 (e.g., wingspan, fuselage dimensions, rotor diameter), aerodynamic and drag-related
 properties, propulsion system characteristics (e.g., rotor count, thrust and
 power coefficients, efficiency parameters), mission definitions (e.g., segment
@@ -58,7 +58,6 @@ Units (ABU) concept introduced in the AIAA SciTech Forum 2026 paper
 * [analysis](analysis/README.md): Analysis scripts and study workflows
 * [docs](docs/README.md): Framework documentation and methodology notes
 * [evtol](evtol/README.md): Core Python package
-* [eVTOLpy journal](eVTOLpy%20journal/): Scripts, JSON configs, and generated figures for example aircraft, trade studies, and V&V
 * [references](references/README.md): Supporting reference materials and
   technical sources
 * [sample-inputs](sample-inputs/README.md): Example configuration files for
@@ -77,7 +76,7 @@ configuration and mission parameters. In the examples below, `test-all.json`
 specifies vehicle geometry, aerodynamic and propulsion properties, battery
 characteristics, and the sequence of mission segments. Users may modify this
 file to define custom aircraft configurations and mission profiles. This JSON
-file serves as the primary input to the `evtolpy` simulator.
+file serves as the primary input to the `eVTOLpy` simulator.
 
 ### 1. Mission Energy Analysis
 ```
@@ -104,8 +103,8 @@ cd analysis/mission-segment-abu-analysis/src
 # Follow similar logging and plotting steps as above
 ```
 
-## Citing evtolpy
-This repository may be cited using the following BibTeX entry:
+## Citing eVTOLpy
+<!-- This repository may be cited using the following BibTeX entry:
 ```
 @software{evtolpy2026,
   author = {Nguyen, Khoa D. and Hogge, Dylan and Riris, John and Sarojini, Darshan and Denby, Bradley},
@@ -113,7 +112,7 @@ This repository may be cited using the following BibTeX entry:
   url    = {https://github.com/starbelt/evtolpy},
   year   = {2026}
 }
-```
+``` -->
 
 The most recent publication introducing evtolpy and the ABU framework was
 presented at the AIAA SciTech Forum 2026 and may be cited as:
