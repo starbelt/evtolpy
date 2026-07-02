@@ -66,6 +66,7 @@ Units (ABU) concept introduced in the AIAA SciTech Forum 2026 paper
   technical sources
 * [sample-inputs](sample-inputs/README.md): Example configuration files for
   testing and demonstrations
+* [tests](tests/README.md): Unit tests for the core `evtol` package
 * [tutorial](tutorial/README.md): `eVTOLpy` tutorials (Jupyter notebooks)
 * [README.md](README.md): This document
 
