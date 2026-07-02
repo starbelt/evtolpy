@@ -3,6 +3,7 @@
 # Unit tests for aircraft mass calculations
 #
 # Written by First Last
+# Other contributors: Khoa Nguyen
 #
 # See the LICENSE file for the license
 

@@ -3,6 +3,7 @@
 # Shared helpers for eVTOLpy unit tests
 #
 # Written by First Last
+# Other contributors: Khoa Nguyen
 #
 # See the LICENSE file for the license
 
